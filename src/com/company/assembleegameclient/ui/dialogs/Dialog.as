@@ -173,8 +173,10 @@ package com.company.assembleegameclient.ui.dialogs
          var scale:Number = LayoutHelper.scaleForHeight(stageHeight);
          this.scaleX = scale;
          this.scaleY = scale;
-         this.box_.x = this.offsetX + stageWidth / 2 - this.box_.width / 2;
-         this.box_.y = this.offsetY + stageHeight / 2 - this.box_.height / 2;
+         this.box_.x = 0;
+         this.box_.y = 0;
+         this.x = this.offsetX + (stageWidth - this.box_.width * scale) / 2;
+         this.y = this.offsetY + (stageHeight - this.box_.height * scale) / 2;
       }
       
       private function onButton1Click(event:MouseEvent) : void

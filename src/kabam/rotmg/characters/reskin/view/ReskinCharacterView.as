@@ -1,12 +1,15 @@
 package kabam.rotmg.characters.reskin.view
 {
    import com.company.assembleegameclient.ui.TextButton;
+   import com.company.assembleegameclient.ui.layout.LayoutHelper;
    import com.company.ui.SimpleText;
    import flash.display.CapsStyle;
    import flash.display.DisplayObject;
    import flash.display.JointStyle;
    import flash.display.LineScaleMode;
    import flash.display.Sprite;
+   import flash.display.Stage;
+   import flash.events.Event;
    import flash.events.MouseEvent;
    import flash.text.TextFormat;
    import flash.text.TextFormatAlign;
@@ -15,7 +18,7 @@ package kabam.rotmg.characters.reskin.view
    import kabam.rotmg.util.graphics.ButtonLayoutHelper;
    import org.osflash.signals.Signal;
    import org.osflash.signals.natives.NativeMappedSignal;
-   
+
    public class ReskinCharacterView extends Sprite
    {
       private static const CANCEL:String = "Cancel";
@@ -36,19 +39,55 @@ package kabam.rotmg.characters.reskin.view
       public const cancelled:Signal = new NativeMappedSignal(cancel,MouseEvent.CLICK);
       public const selected:Signal = new NativeMappedSignal(select,MouseEvent.CLICK);
       public var viewHeight:int;
-      
+
+      private var stageRef:Stage;
+
       public function ReskinCharacterView()
       {
          super();
+         addEventListener(Event.ADDED_TO_STAGE, this.onAddedToStage);
+         addEventListener(Event.REMOVED_FROM_STAGE, this.onRemovedFromStage);
       }
-      
+
+      private function onAddedToStage(event:Event) : void
+      {
+         this.stageRef = stage;
+         this.stageRef.addEventListener(Event.RESIZE, this.onStageResize);
+         this.layout();
+      }
+
+      private function onRemovedFromStage(event:Event) : void
+      {
+         if (this.stageRef != null)
+         {
+            this.stageRef.removeEventListener(Event.RESIZE, this.onStageResize);
+            this.stageRef = null;
+         }
+      }
+
+      private function onStageResize(event:Event) : void
+      {
+         this.layout();
+      }
+
+      private function layout() : void
+      {
+         var stageWidth:Number = this.stageRef != null ? Number(this.stageRef.stageWidth) : LayoutHelper.DESIGN_WIDTH;
+         var stageHeight:Number = this.stageRef != null ? Number(this.stageRef.stageHeight) : LayoutHelper.DESIGN_HEIGHT;
+         var scale:Number = LayoutHelper.scaleForHeight(stageHeight);
+         this.scaleX = scale;
+         this.scaleY = scale;
+         this.x = (stageWidth - DIALOG_WIDTH * scale) / 2;
+         this.y = (stageHeight - this.viewHeight * scale) / 2;
+      }
+
       private function makeBackground() : DialogBackground
       {
          var background:DialogBackground = new DialogBackground();
          addChild(background);
          return background;
       }
-      
+
       private function makeTitle() : SimpleText
       {
          var text:SimpleText = null;
@@ -61,7 +100,7 @@ package kabam.rotmg.characters.reskin.view
          addChild(text);
          return text;
       }
-      
+
       private function makeListView() : CharacterSkinListView
       {
          var list:CharacterSkinListView = new CharacterSkinListView();
@@ -70,35 +109,36 @@ package kabam.rotmg.characters.reskin.view
          addChild(list);
          return list;
       }
-      
+
       private function makeCancelButton() : TextButton
       {
          var button:TextButton = new TextButton(BUTTON_FONT,CANCEL,BUTTON_WIDTH);
          addChild(button);
          return button;
       }
-      
+
       private function makeSelectButton() : TextButton
       {
          var button:TextButton = new TextButton(BUTTON_FONT,SELECT,BUTTON_WIDTH);
          addChild(button);
          return button;
       }
-      
+
       public function setList(items:Vector.<DisplayObject>) : void
       {
          this.list.setItems(items);
          this.getDialogHeight();
          this.resizeBackground();
          this.positionButtons();
+         this.layout();
       }
-      
+
       private function getDialogHeight() : void
       {
          this.viewHeight = Math.min(CharacterSkinListView.HEIGHT + MARGIN,this.list.getListHeight());
          this.viewHeight = this.viewHeight + (BUTTONS_HEIGHT + MARGIN * 2 + TITLE_OFFSET);
       }
-      
+
       private function resizeBackground() : void
       {
          this.background.draw(DIALOG_WIDTH,this.viewHeight);
@@ -106,7 +146,7 @@ package kabam.rotmg.characters.reskin.view
          this.background.graphics.moveTo(1,TITLE_OFFSET);
          this.background.graphics.lineTo(DIALOG_WIDTH - 1,TITLE_OFFSET);
       }
-      
+
       private function positionButtons() : void
       {
          var helper:ButtonLayoutHelper = new ButtonLayoutHelper();
