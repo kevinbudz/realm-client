@@ -394,9 +394,13 @@ import kabam.rotmg.constants.ActivationType;
                   this.effects.push(new Effect("", "Dazes nearby enemies"));
                   continue;
                case ActivationType.INCREMENT_STAT:
-                  stat = int(activateXML.@stat);
+                  stat = StatData.statToBoostIndex(int(activateXML.@stat));
+                  if(stat == -1)
+                  {
+                     continue;
+                  }
                   amt = int(activateXML.@amount);
-                  if(stat != StatData.HP_STAT && stat != StatData.MP_STAT)
+                  if(stat != 0 && stat != 1)
                   {
                      val = "Permanently increases " + StatData.statToName(stat);
                   }
@@ -428,7 +432,12 @@ import kabam.rotmg.constants.ActivationType;
          var datas:Dictionary = new Dictionary();
          for each(activateXML in this.objectXML_.ActivateOnEquip)
          {
-            var stat:int = int(activateXML.@stat);
+            //XML uses network stat ids (e.g. 26/27/28 for Vit/Wis/Dex);
+            //translate to boost slots so names resolve instead of "Unknown Stat".
+            var stat:int = StatData.statToBoostIndex(int(activateXML.@stat));
+            if (stat == -1) {
+               continue;
+            }
             var amount:int = int(activateXML.@amount);
 
             if (stats[stat] == null) {

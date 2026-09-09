@@ -110,6 +110,35 @@ package kabam.rotmg.messaging.impl.data
          super();
       }
       
+      //Translates a network stat id (as used by ActivateOnEquip/Activate
+      //'stat' attributes in the game data) to an internal boost slot
+      //0-7 (MaxHP, MaxMP, Attack, Defense, Speed, Dexterity, Vitality,
+      //Wisdom), mirroring the server. Returns -1 for non-boost stats.
+      public static function statToBoostIndex(stat:int) : int
+      {
+         switch(stat)
+         {
+            case 0:
+               return 0;
+            case 3:
+               return 1;
+            case 20:
+               return 2;
+            case 21:
+               return 3;
+            case 22:
+               return 4;
+            case 28:
+               return 5;
+            case 26:
+               return 6;
+            case 27:
+               return 7;
+            default:
+               return -1;
+         }
+      }
+
       public static function statToName(stat:int) : String
       {
          switch(stat)
