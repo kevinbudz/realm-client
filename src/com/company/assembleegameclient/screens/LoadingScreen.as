@@ -1,13 +1,14 @@
 package com.company.assembleegameclient.screens
 {
-   import com.company.rotmg.graphics.ScreenGraphic;
+   import com.company.assembleegameclient.ui.layout.LayoutHelper;
+   import com.company.assembleegameclient.ui.layout.MenuBackground;
+   import com.company.assembleegameclient.ui.layout.MenuFrame;
+   import com.company.assembleegameclient.ui.layout.ScaledScreen;
    import com.company.ui.SimpleText;
-   import flash.display.Sprite;
    import flash.filters.DropShadowFilter;
    import flash.text.TextFieldAutoSize;
-   import kabam.rotmg.ui.view.components.ScreenBase;
-   
-   public class LoadingScreen extends Sprite
+
+   public class LoadingScreen extends ScaledScreen
    {
        
       
@@ -16,8 +17,8 @@ package com.company.assembleegameclient.screens
       public function LoadingScreen()
       {
          super();
-         addChild(new ScreenBase());
-         addChild(new ScreenGraphic());
+         setBackground(new MenuBackground());
+         addFrame(new MenuFrame());
          this.text = new SimpleText(30,16777215,false,0,0);
          this.text.y = 526;
          this.text.setBold(true);
@@ -25,13 +26,14 @@ package com.company.assembleegameclient.screens
          this.text.autoSize = TextFieldAutoSize.CENTER;
          this.text.updateMetrics();
          this.text.filters = [new DropShadowFilter(0,0,0,1,4,4)];
-         addChild(this.text);
+         this.text.x = LayoutHelper.centerX(this.text.width);
+         this.content.addChild(this.text);
       }
-      
+
       public function setText(value:String) : void
       {
          this.text.htmlText = value;
-         this.text.x = (stage.stageWidth - this.text.width) * 0.5;
+         this.text.x = LayoutHelper.centerX(this.text.width);
       }
    }
 }

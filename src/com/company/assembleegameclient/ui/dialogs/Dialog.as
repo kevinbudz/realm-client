@@ -1,6 +1,7 @@
 package com.company.assembleegameclient.ui.dialogs
 {
    import com.company.assembleegameclient.ui.TextButton;
+   import com.company.assembleegameclient.ui.layout.LayoutHelper;
    import com.company.ui.SimpleText;
    import com.company.util.GraphicsUtil;
    import flash.display.CapsStyle;
@@ -13,6 +14,7 @@ package com.company.assembleegameclient.ui.dialogs
    import flash.display.LineScaleMode;
    import flash.display.Shape;
    import flash.display.Sprite;
+   import flash.display.Stage;
    import flash.events.Event;
    import flash.events.MouseEvent;
    import flash.filters.DropShadowFilter;
@@ -51,8 +53,10 @@ package com.company.assembleegameclient.ui.dialogs
       protected const graphicsData_:Vector.<IGraphicsData> = new <IGraphicsData>[lineStyle_,backgroundFill_,path_,GraphicsUtil.END_FILL,GraphicsUtil.END_STROKE];
       
       public var offsetX:Number = 0;
-      
+
       public var offsetY:Number = 0;
+
+      private var stageRef:Stage;
       
       public function Dialog(text:String, title:String, button1:String, button2:String)
       {
@@ -72,6 +76,7 @@ package com.company.assembleegameclient.ui.dialogs
          }
          this.draw();
          addEventListener(Event.ADDED_TO_STAGE,this.onAddedToStage);
+         addEventListener(Event.REMOVED_FROM_STAGE,this.onRemovedFromStage);
       }
       
       protected function initText(text:String) : void
@@ -142,8 +147,34 @@ package com.company.assembleegameclient.ui.dialogs
       
       private function onAddedToStage(event:Event) : void
       {
-         this.box_.x = this.offsetX + stage.stageWidth / 2 - this.box_.width / 2;
-         this.box_.y = this.offsetY + stage.stageHeight / 2 - this.box_.height / 2;
+         this.stageRef = stage;
+         this.stageRef.addEventListener(Event.RESIZE,this.onStageResize);
+         this.layout();
+      }
+
+      private function onRemovedFromStage(event:Event) : void
+      {
+         if(this.stageRef != null)
+         {
+            this.stageRef.removeEventListener(Event.RESIZE,this.onStageResize);
+            this.stageRef = null;
+         }
+      }
+
+      private function onStageResize(event:Event) : void
+      {
+         this.layout();
+      }
+
+      protected function layout() : void
+      {
+         var stageWidth:Number = this.stageRef != null ? Number(this.stageRef.stageWidth) : LayoutHelper.DESIGN_WIDTH;
+         var stageHeight:Number = this.stageRef != null ? Number(this.stageRef.stageHeight) : LayoutHelper.DESIGN_HEIGHT;
+         var scale:Number = LayoutHelper.scaleForHeight(stageHeight);
+         this.scaleX = scale;
+         this.scaleY = scale;
+         this.box_.x = this.offsetX + stageWidth / 2 - this.box_.width / 2;
+         this.box_.y = this.offsetY + stageHeight / 2 - this.box_.height / 2;
       }
       
       private function onButton1Click(event:MouseEvent) : void

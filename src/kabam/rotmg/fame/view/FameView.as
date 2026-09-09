@@ -5,9 +5,12 @@ package kabam.rotmg.fame.view
    import com.company.assembleegameclient.screens.ScoringBox;
    import com.company.assembleegameclient.screens.TitleMenuOption;
    import com.company.assembleegameclient.sound.SoundEffectLibrary;
+   import com.company.assembleegameclient.ui.layout.LayoutHelper;
+   import com.company.assembleegameclient.ui.layout.MenuBackground;
+   import com.company.assembleegameclient.ui.layout.MenuFrame;
+   import com.company.assembleegameclient.ui.layout.ScaledScreen;
    import com.company.assembleegameclient.util.FameUtil;
    import com.company.rotmg.graphics.FameIconBackgroundDesign;
-   import com.company.rotmg.graphics.ScreenGraphic;
    import com.company.ui.SimpleText;
    import com.company.util.BitmapUtil;
    import com.gskinner.motion.GTween;
@@ -18,11 +21,10 @@ package kabam.rotmg.fame.view
    import flash.events.MouseEvent;
    import flash.filters.DropShadowFilter;
    import flash.geom.Rectangle;
-   import kabam.rotmg.ui.view.components.ScreenBase;
    import org.osflash.signals.Signal;
    import org.osflash.signals.natives.NativeMappedSignal;
-   
-   public class FameView extends Sprite
+
+   public class FameView extends ScaledScreen
    {
       private static const CHARACTER_INFO:String = "${NAME}, Level ${LEVEL} ${TYPE}";
       private static const DEATH_INFO_LONG:String = "killed on ${DATE} by ${KILLER}";
@@ -43,8 +45,9 @@ package kabam.rotmg.fame.view
       public function FameView()
       {
          super();
-         addChild(new ScreenBase());
-         addChild(this.infoContainer = new Sprite());
+         addChildAt(new MenuBackground(),0);
+         addFrame(new MenuFrame());
+         this.content.addChild(this.infoContainer = new Sprite());
          addChild(this.overlayContainer = new Bitmap());
          this.continueBtn = new TitleMenuOption("continue",36,false);
          this.closed = new NativeMappedSignal(this.continueBtn,MouseEvent.CLICK);
@@ -85,7 +88,7 @@ package kabam.rotmg.fame.view
          this.title.filters = [new DropShadowFilter(0,0,0,0.5,12,12)];
          this.title.text = CHARACTER_INFO.replace("${NAME}",name).replace("${LEVEL}",level).replace("${TYPE}",ObjectLibrary.typeToDisplayId_[type]);
          this.title.updateMetrics();
-         this.title.x = stage.stageWidth / 2 - this.title.width / 2;
+         this.title.x = LayoutHelper.centerX(this.title.width);
          this.title.y = 225;
          this.infoContainer.addChild(this.title);
       }
@@ -97,7 +100,7 @@ package kabam.rotmg.fame.view
          this.date.filters = [new DropShadowFilter(0,0,0,0.5,12,12)];
          this.date.text = (Boolean(killer)?DEATH_INFO_LONG:DEATH_INFO_SHORT).replace("${DATE}",dateStr).replace("${KILLER}",killer);
          this.date.updateMetrics();
-         this.date.x = stage.stageWidth / 2 - this.date.width / 2;
+         this.date.x = LayoutHelper.centerX(this.date.width);
          this.date.y = 272;
          this.infoContainer.addChild(this.date);
       }
@@ -114,7 +117,7 @@ package kabam.rotmg.fame.view
          bitmap.y = container.height / 2 - bitmap.height / 2;
          container.addChild(bitmap);
          container.y = 20;
-         container.x = stage.stageWidth / 2 - container.width / 2;
+         container.x = LayoutHelper.centerX(container.width);
          this.infoContainer.addChild(container);
       }
       
@@ -123,7 +126,6 @@ package kabam.rotmg.fame.view
          this.scoringBox = new ScoringBox(new Rectangle(0,0,784,150),xml);
          this.scoringBox.x = 8;
          this.scoringBox.y = 316;
-         addChild(this.scoringBox);
          this.infoContainer.addChild(this.scoringBox);
          var fameBD:BitmapData = FameUtil.getFameIcon();
          fameBD = BitmapUtil.cropToBitmapData(fameBD,6,6,fameBD.width - 12,fameBD.height - 12);
@@ -140,8 +142,7 @@ package kabam.rotmg.fame.view
       
       private function makeContinueButton() : void
       {
-         this.infoContainer.addChild(new ScreenGraphic());
-         this.continueBtn.x = stage.stageWidth / 2 - this.continueBtn.width / 2;
+         this.continueBtn.x = LayoutHelper.centerX(this.continueBtn.width);
          this.continueBtn.y = 520;
          this.infoContainer.addChild(this.continueBtn);
          if(this.isAnimation)

@@ -1,5 +1,6 @@
 package com.company.assembleegameclient.ui.tooltip
 {
+   import com.company.assembleegameclient.ui.layout.LayoutHelper;
    import com.company.util.GraphicsUtil;
    import flash.display.CapsStyle;
    import flash.display.DisplayObject;
@@ -89,6 +90,7 @@ package com.company.assembleegameclient.ui.tooltip
       private function onAddedToStage(event:Event) : void
       {
          this.draw();
+         this.applyScale();
          if(this.followMouse_)
          {
             this.position();
@@ -106,9 +108,17 @@ package com.company.assembleegameclient.ui.tooltip
       
       private function onEnterFrame(event:Event) : void
       {
+         this.applyScale();
          this.position();
       }
-      
+
+      private function applyScale() : void
+      {
+         var scale:Number = stage != null ? LayoutHelper.scaleForHeight(stage.stageHeight) : 1;
+         this.scaleX = scale;
+         this.scaleY = scale;
+      }
+
       private function position() : void
       {
          if(stage == null)

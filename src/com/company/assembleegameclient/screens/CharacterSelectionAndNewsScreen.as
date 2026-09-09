@@ -2,13 +2,16 @@ package com.company.assembleegameclient.screens
 {
    import com.company.assembleegameclient.ui.ClickableText;
    import com.company.assembleegameclient.ui.Scrollbar;
-   import com.company.rotmg.graphics.ScreenGraphic;
+   import com.company.assembleegameclient.ui.layout.LayoutHelper;
+   import com.company.assembleegameclient.ui.layout.MenuBackground;
+   import com.company.assembleegameclient.ui.layout.MenuFrame;
+   import com.company.assembleegameclient.ui.layout.ScaledScreen;
    import com.company.ui.SimpleText;
 import com.hurlant.util.asn1.parser.nulll;
 
 import flash.display.DisplayObject;
+   import flash.display.Graphics;
    import flash.display.Shape;
-   import flash.display.Sprite;
    import flash.events.Event;
    import flash.events.MouseEvent;
    import flash.filters.DropShadowFilter;
@@ -17,11 +20,10 @@ import flash.text.TextFormatAlign;
 
 import kabam.rotmg.core.model.PlayerModel;
    import kabam.rotmg.game.view.CreditDisplay;
-   import kabam.rotmg.ui.view.components.ScreenBase;
    import org.osflash.signals.Signal;
    import org.osflash.signals.natives.NativeMappedSignal;
-   
-   public class CharacterSelectionAndNewsScreen extends Sprite
+
+   public class CharacterSelectionAndNewsScreen extends ScaledScreen
    {
        
       
@@ -54,7 +56,9 @@ import kabam.rotmg.core.model.PlayerModel;
       private var classesButton:TitleMenuOption;
       
       private var lines:Shape;
-      
+
+      private var dividerLine:Shape;
+
       private var scrollBar:Scrollbar;
       
       public var close:Signal;
@@ -73,8 +77,11 @@ import kabam.rotmg.core.model.PlayerModel;
          this.newCharacter = new Signal();
          this.playGame = new Signal();
          super();
-         addChild(new ScreenBase());
-         addChild(new AccountScreen());
+         setBackground(new MenuBackground());
+         addFrame(new MenuFrame());
+         this.chrome.addChild(new AccountScreen());
+         this.dividerLine = new Shape();
+         this.chrome.addChild(this.dividerLine);
          this.close = new NativeMappedSignal(this.backButton,MouseEvent.CLICK);
          this.showClasses = new NativeMappedSignal(this.classesButton,MouseEvent.CLICK);
       }
@@ -110,10 +117,9 @@ import kabam.rotmg.core.model.PlayerModel;
       
       private function createButtons() : void
       {
-         addChild(new ScreenGraphic());
-         addChild(this.playButton);
-         addChild(this.classesButton);
-         addChild(this.backButton);
+         this.content.addChild(this.playButton);
+         this.content.addChild(this.classesButton);
+         this.content.addChild(this.backButton);
          this.playButton.addEventListener(MouseEvent.CLICK,this.onPlayClick);
       }
       
@@ -134,7 +140,7 @@ import kabam.rotmg.core.model.PlayerModel;
          this.scrollBar.y = 113;
          this.scrollBar.setIndicatorSize(399,this.characterList.height);
          this.scrollBar.addEventListener(Event.CHANGE,this.onScrollBarChange);
-         addChild(this.scrollBar);
+         this.content.addChild(this.scrollBar);
       }
       
       private function createCharacterList() : void
@@ -143,14 +149,14 @@ import kabam.rotmg.core.model.PlayerModel;
          this.characterList.x = 10;
          this.characterList.y = 112;
          this.characterListHeight = this.characterList.height;
-         addChild(this.characterList);
+         this.content.addChild(this.characterList);
       }
 
       private function createNewsList() : void{
          this.newsList = new NewsList(this.model);
          this.newsList.x = 400;
          this.newsList.y = 112;
-         addChild(this.newsList);
+         this.content.addChild(this.newsList);
       }
       
       private function createNewsText() : void
@@ -163,7 +169,7 @@ import kabam.rotmg.core.model.PlayerModel;
          this.newsText.setAlignment(TextFormatAlign.LEFT);
          this.newsText.x = 410;
          this.newsText.y = 79;
-         addChild(this.newsText);
+         this.content.addChild(this.newsText);
       }
       
       private function createCharactersText() : void
@@ -176,16 +182,15 @@ import kabam.rotmg.core.model.PlayerModel;
          this.charactersText.setAlignment(TextFormatAlign.LEFT);
          this.charactersText.x = 10;
          this.charactersText.y = 79;
-         addChild(this.charactersText);
+         this.content.addChild(this.charactersText);
       }
       
       private function createCreditDisplay() : void
       {
          this.creditDisplay = new CreditDisplay();
          this.creditDisplay.draw(this.model.getCredits(),this.model.getFame());
-         this.creditDisplay.x = this.getReferenceRectangle().width;
-         this.creditDisplay.y = 20;
-         addChild(this.creditDisplay);
+         this.chrome.addChild(this.creditDisplay);
+         this.layout();
       }
       
       private function createNameText() : void
@@ -197,17 +202,12 @@ import kabam.rotmg.core.model.PlayerModel;
          this.nameText.filters = [this.DROP_SHADOW];
          this.nameText.y = 24;
          this.nameText.x = (this.getReferenceRectangle().width - this.nameText.width) / 2;
-         addChild(this.nameText);
+         this.content.addChild(this.nameText);
       }
-      
+
       private function getReferenceRectangle() : Rectangle
       {
-         var rectangle:Rectangle = new Rectangle();
-         if(stage)
-         {
-            rectangle = new Rectangle(0,0,stage.stageWidth,stage.stageHeight);
-         }
-         return rectangle;
+         return new Rectangle(0,0,LayoutHelper.DESIGN_WIDTH,LayoutHelper.DESIGN_HEIGHT);
       }
       
       private function createBoundaryLines() : void
@@ -215,12 +215,28 @@ import kabam.rotmg.core.model.PlayerModel;
          this.lines = new Shape();
          this.lines.graphics.clear();
          this.lines.graphics.lineStyle(2,5526612);
-         this.lines.graphics.moveTo(0,105);
-         this.lines.graphics.lineTo(this.getReferenceRectangle().width,105);
          this.lines.graphics.moveTo(400,107);
          this.lines.graphics.lineTo(400,526);
          this.lines.graphics.lineStyle();
-         addChild(this.lines);
+         this.content.addChild(this.lines);
+         this.layout();
+      }
+
+      override protected function layoutChrome(stageWidth:Number, stageHeight:Number, scale:Number) : void
+      {
+         if (this.creditDisplay != null)
+         {
+            this.creditDisplay.scaleX = scale;
+            this.creditDisplay.scaleY = scale;
+            this.creditDisplay.x = stageWidth;
+            this.creditDisplay.y = 20 * scale;
+         }
+         var g:Graphics = this.dividerLine.graphics;
+         g.clear();
+         g.lineStyle(2 * scale,5526612);
+         g.moveTo(0,105 * scale);
+         g.lineTo(stageWidth,105 * scale);
+         g.lineStyle();
       }
       
       private function onScrollBarChange(event:Event) : void

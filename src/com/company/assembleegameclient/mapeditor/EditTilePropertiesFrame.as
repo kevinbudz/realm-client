@@ -7,6 +7,12 @@ package com.company.assembleegameclient.mapeditor
    
    public class EditTilePropertiesFrame extends Frame
    {
+
+      override protected function get autoScaleToStage() : Boolean
+      {
+         return false;
+      }
+
        
       
       public var objectName_:TextInputField;

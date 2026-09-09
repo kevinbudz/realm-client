@@ -2,16 +2,18 @@ package com.company.assembleegameclient.screens
 {
    import com.company.assembleegameclient.appengine.SavedCharactersList;
    import com.company.assembleegameclient.objects.ObjectLibrary;
-   import com.company.rotmg.graphics.ScreenGraphic;
+   import com.company.assembleegameclient.ui.layout.LayoutHelper;
+   import com.company.assembleegameclient.ui.layout.MenuBackground;
+   import com.company.assembleegameclient.ui.layout.MenuFrame;
+   import com.company.assembleegameclient.ui.layout.ScaledScreen;
    import flash.display.Sprite;
    import flash.events.Event;
    import flash.events.MouseEvent;
    import kabam.rotmg.core.model.PlayerModel;
    import kabam.rotmg.game.view.CreditDisplay;
-   import kabam.rotmg.ui.view.components.ScreenBase;
    import org.osflash.signals.Signal;
-   
-   public class NewCharacterScreen extends Sprite
+
+   public class NewCharacterScreen extends ScaledScreen
    {
       private var backButton_:TitleMenuOption;
       private var creditDisplay_:CreditDisplay;
@@ -29,9 +31,9 @@ package com.company.assembleegameclient.screens
          this.tooltip = new Signal(Sprite);
          this.selected = new Signal(int);
          this.close = new Signal();
-         addChild(new ScreenBase());
-         addChild(new AccountScreen());
-         addChild(new ScreenGraphic());
+         setBackground(new MenuBackground());
+         addFrame(new MenuFrame());
+         this.chrome.addChild(new AccountScreen());
       }
       
       public function initialize(model:PlayerModel) : void
@@ -47,10 +49,10 @@ package com.company.assembleegameclient.screens
          this.isInitialized = true;
          this.backButton_ = new TitleMenuOption("back",36,false);
          this.backButton_.addEventListener(MouseEvent.CLICK,this.onBackClick);
-         addChild(this.backButton_);
+         this.content.addChild(this.backButton_);
          this.creditDisplay_ = new CreditDisplay();
          this.creditDisplay_.draw(model.getCredits(),model.getFame());
-         addChild(this.creditDisplay_);
+         this.chrome.addChild(this.creditDisplay_);
          for(var i:int = 0; i < ObjectLibrary.playerChars_.length; i++)
          {
             playerXML = ObjectLibrary.playerChars_[i];
@@ -64,12 +66,22 @@ package com.company.assembleegameclient.screens
             charBox.addEventListener(MouseEvent.ROLL_OVER,this.onCharBoxOver);
             charBox.addEventListener(MouseEvent.ROLL_OUT,this.onCharBoxOut);
             charBox.characterSelectClicked_.add(this.onCharBoxClick);
-            addChild(charBox);
+            this.content.addChild(charBox);
          }
-         this.backButton_.x = stage.stageWidth / 2 - this.backButton_.width / 2;
+         this.backButton_.x = LayoutHelper.centerX(this.backButton_.width);
          this.backButton_.y = 524;
-         this.creditDisplay_.x = stage.stageWidth;
-         this.creditDisplay_.y = 20;
+         this.layout();
+      }
+
+      override protected function layoutChrome(stageWidth:Number, stageHeight:Number, scale:Number) : void
+      {
+         if (this.creditDisplay_ != null)
+         {
+            this.creditDisplay_.scaleX = scale;
+            this.creditDisplay_.scaleY = scale;
+            this.creditDisplay_.x = stageWidth;
+            this.creditDisplay_.y = 20 * scale;
+         }
       }
       
       private function onBackClick(event:Event) : void

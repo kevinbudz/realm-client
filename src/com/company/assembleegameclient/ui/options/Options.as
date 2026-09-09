@@ -4,13 +4,16 @@ package com.company.assembleegameclient.ui.options
    import com.company.assembleegameclient.parameters.Parameters;
    import com.company.assembleegameclient.screens.TitleMenuOption;
    import com.company.assembleegameclient.sound.SFX;
-   import com.company.rotmg.graphics.ScreenGraphic;
+   import com.company.assembleegameclient.ui.layout.MenuFrame;
+   import com.company.assembleegameclient.ui.layout.ScaledScreen;
 import com.company.ui.SimpleText;
 import com.company.ui.SimpleText;
 import com.company.util.AssetLibrary;
 import com.company.util.KeyCodes;
 
 import flash.display.BitmapData;
+import flash.display.Graphics;
+import flash.display.Shape;
 import flash.display.Sprite;
    import flash.display.StageDisplayState;
 import flash.display.StageQuality;
@@ -27,7 +30,7 @@ import flash.ui.MouseCursorData;
 
 import kabam.rotmg.ui.UIUtils;
 
-public class Options extends Sprite
+public class Options extends ScaledScreen
    {
       private static const CONTROLS_TAB:String = "Controls";
       private static const HOTKEYS_TAB:String = "Hot Keys";
@@ -39,6 +42,7 @@ public class Options extends Sprite
       private static var registeredCursors:Vector.<String> = new <String>[];
 
       private var gs_:GameSprite;
+      private var backdrop_:Shape;
       private var title_:SimpleText;
       private var continueButton_:TitleMenuOption;
       private var resetToDefaultsButton_:TitleMenuOption;
@@ -55,14 +59,9 @@ public class Options extends Sprite
          this.options_ = new Vector.<Sprite>();
          super();
          this.gs_ = gs;
-         graphics.clear();
-         graphics.beginFill(2829099,0.8);
-         graphics.drawRect(0,0,800,600);
-         graphics.endFill();
-         graphics.lineStyle(1,6184542);
-         graphics.moveTo(0,100);
-         graphics.lineTo(800,100);
-         graphics.lineStyle();
+         this.backdrop_ = new Shape();
+         setBackground(this.backdrop_);
+         addFrame(new MenuFrame());
          this.title_ = new SimpleText(36,16777215,false,800,0);
          this.title_.setBold(true);
          this.title_.htmlText = "<p align=\"center\">Options</p>";
@@ -71,24 +70,23 @@ public class Options extends Sprite
          this.title_.updateMetrics();
          this.title_.x = 800 / 2 - this.title_.width / 2;
          this.title_.y = 8;
-         addChild(this.title_);
-         addChild(new ScreenGraphic());
+         this.content.addChild(this.title_);
          this.continueButton_ = new TitleMenuOption("continue",36,false);
          this.continueButton_.addEventListener(MouseEvent.CLICK,this.onContinueClick);
-         addChild(this.continueButton_);
+         this.content.addChild(this.continueButton_);
          this.resetToDefaultsButton_ = new TitleMenuOption("reset to defaults",22,false);
          this.resetToDefaultsButton_.addEventListener(MouseEvent.CLICK,this.onResetToDefaultsClick);
-         addChild(this.resetToDefaultsButton_);
+         this.content.addChild(this.resetToDefaultsButton_);
          this.homeButton_ = new TitleMenuOption("back to home",22,false);
          this.homeButton_.addEventListener(MouseEvent.CLICK,this.onHomeClick);
-         addChild(this.homeButton_);
+         this.content.addChild(this.homeButton_);
          var xOffset:int = 14;
          for(var i:int = 0; i < TABS.length; i++)
          {
             tab = new OptionsTabTitle(TABS[i]);
             tab.x = xOffset;
             tab.y = 70;
-            addChild(tab);
+            this.content.addChild(tab);
             tab.addEventListener(MouseEvent.CLICK,this.onTabClick);
             this.tabs_.push(tab);
             xOffset = xOffset + 108;
@@ -165,7 +163,7 @@ public class Options extends Sprite
       
       private function onAddedToStage(event:Event) : void
       {
-         this.continueButton_.x = stage.stageWidth / 2 - this.continueButton_.width / 2;
+         this.continueButton_.x = 400 - this.continueButton_.width / 2;
          this.continueButton_.y = 520;
          this.resetToDefaultsButton_.x = 20;
          this.resetToDefaultsButton_.y = 532;
@@ -179,12 +177,26 @@ public class Options extends Sprite
          this.setSelected(this.tabs_[0]);
          stage.addEventListener(KeyboardEvent.KEY_DOWN,this.onKeyDown,false,1);
          stage.addEventListener(KeyboardEvent.KEY_UP,this.onKeyUp,false,1);
+         this.layout();
       }
-      
+
       private function onRemovedFromStage(event:Event) : void
       {
          stage.removeEventListener(KeyboardEvent.KEY_DOWN,this.onKeyDown,false);
          stage.removeEventListener(KeyboardEvent.KEY_UP,this.onKeyUp,false);
+      }
+
+      override protected function layoutChrome(stageWidth:Number, stageHeight:Number, scale:Number) : void
+      {
+         var g:Graphics = this.backdrop_.graphics;
+         g.clear();
+         g.beginFill(2829099,0.8);
+         g.drawRect(0,0,stageWidth,stageHeight);
+         g.endFill();
+         g.lineStyle(1,6184542);
+         g.moveTo(0,100 * scale);
+         g.lineTo(stageWidth,100 * scale);
+         g.lineStyle();
       }
       
       private function onKeyDown(event:KeyboardEvent) : void
@@ -218,7 +230,7 @@ public class Options extends Sprite
          var option:Sprite = null;
          for each(option in this.options_)
          {
-            removeChild(option);
+            this.content.removeChild(option);
          }
          this.options_.length = 0;
          this.optionIndex_ = 0;
@@ -370,7 +382,7 @@ public class Options extends Sprite
       {
          option.x = this.optionIndex_ % 2 == 0?Number(20):Number(415);
          option.y = int(this.optionIndex_ / 2) * 44 + 122;
-         addChild(option);
+         this.content.addChild(option);
          option.addEventListener(Event.CHANGE,this.onChange);
          this.options_.push(option);
          this.optionIndex_++;

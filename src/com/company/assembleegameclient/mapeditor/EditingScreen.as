@@ -8,10 +8,11 @@ package com.company.assembleegameclient.mapeditor
    import com.company.assembleegameclient.objects.ObjectLibrary;
    import com.company.assembleegameclient.screens.AccountScreen;
    import com.company.assembleegameclient.ui.dropdown.DropDown;
+   import com.company.assembleegameclient.ui.layout.MenuBackground;
+   import com.company.assembleegameclient.ui.layout.ScaledScreen;
    import com.company.util.IntPoint;
    import com.company.util.SpriteUtil;
    import com.hurlant.util.Base64;
-   import flash.display.Sprite;
    import flash.events.Event;
    import flash.events.IOErrorEvent;
    import flash.geom.Rectangle;
@@ -20,10 +21,9 @@ package com.company.assembleegameclient.mapeditor
    import flash.utils.ByteArray;
    import kabam.lib.json.JsonParser;
    import kabam.rotmg.core.StaticInjectorContext;
-   import kabam.rotmg.ui.view.components.ScreenBase;
    import net.hires.debug.Stats;
-   
-   public class EditingScreen extends Sprite
+
+   public class EditingScreen extends ScaledScreen
    {
       
       private static const MAP_Y:int = 600 - MEMap.SIZE - 10;
@@ -58,8 +58,8 @@ package com.company.assembleegameclient.mapeditor
       public function EditingScreen()
       {
          super();
-         addChild(new ScreenBase());
-         addChild(new AccountScreen());
+         setBackground(new MenuBackground());
+         this.chrome.addChild(new AccountScreen());
          this.json = StaticInjectorContext.getInjector().getInstance(JsonParser);
          this.commandMenu_ = new MECommandMenu();
          this.commandMenu_.x = 15;
@@ -70,27 +70,27 @@ package com.company.assembleegameclient.mapeditor
          this.commandMenu_.addEventListener(CommandEvent.LOAD_COMMAND_EVENT,this.onLoad);
          this.commandMenu_.addEventListener(CommandEvent.SAVE_COMMAND_EVENT,this.onSave);
          this.commandMenu_.addEventListener(CommandEvent.TEST_COMMAND_EVENT,this.onTest);
-         addChild(this.commandMenu_);
+         this.content.addChild(this.commandMenu_);
          this.commandQueue_ = new CommandQueue();
          this.meMap_ = new MEMap();
          this.meMap_.addEventListener(TilesEvent.TILES_EVENT,this.onTilesEvent);
          this.meMap_.x = 800 / 2 - MEMap.SIZE / 2;
          this.meMap_.y = MAP_Y;
-         addChild(this.meMap_);
+         this.content.addChild(this.meMap_);
          this.infoPane_ = new InfoPane(this.meMap_);
          this.infoPane_.x = 4;
          this.infoPane_.y = 600 - InfoPane.HEIGHT - 10;
-         addChild(this.infoPane_);
+         this.content.addChild(this.infoPane_);
          this.chooserDrowDown_ = new DropDown(new <String>["Ground","Objects","Regions"],Chooser.WIDTH,26);
          this.chooserDrowDown_.x = this.meMap_.x + MEMap.SIZE + 4;
          this.chooserDrowDown_.y = MAP_Y;
          this.chooserDrowDown_.addEventListener(Event.CHANGE,this.onDropDownChange);
-         addChild(this.chooserDrowDown_);
+         this.content.addChild(this.chooserDrowDown_);
          this.groundChooser_ = new GroundChooser();
          this.groundChooser_.x = this.chooserDrowDown_.x;
          this.groundChooser_.y = this.chooserDrowDown_.y + this.chooserDrowDown_.height + 4;
          this.chooser_ = this.groundChooser_;
-         addChild(this.groundChooser_);
+         this.content.addChild(this.groundChooser_);
          this.objChooser_ = new ObjectChooser();
          this.objChooser_.x = this.chooserDrowDown_.x;
          this.objChooser_.y = this.chooserDrowDown_.y + this.chooserDrowDown_.height + 4;
@@ -127,7 +127,7 @@ package com.company.assembleegameclient.mapeditor
                oldName = this.meMap_.getObjectName(tile.x_,tile.y_);
                props = new EditTileProperties(event.tiles_,oldName);
                props.addEventListener(Event.COMPLETE,this.onEditComplete);
-               addChild(props);
+               this.content.addChild(props);
          }
          this.meMap_.draw();
       }
@@ -183,21 +183,21 @@ package com.company.assembleegameclient.mapeditor
          switch(this.chooserDrowDown_.getValue())
          {
             case "Ground":
-               SpriteUtil.safeAddChild(this,this.groundChooser_);
-               SpriteUtil.safeRemoveChild(this,this.objChooser_);
-               SpriteUtil.safeRemoveChild(this,this.regionChooser_);
+               SpriteUtil.safeAddChild(this.content,this.groundChooser_);
+               SpriteUtil.safeRemoveChild(this.content,this.objChooser_);
+               SpriteUtil.safeRemoveChild(this.content,this.regionChooser_);
                this.chooser_ = this.groundChooser_;
                break;
             case "Objects":
-               SpriteUtil.safeRemoveChild(this,this.groundChooser_);
-               SpriteUtil.safeAddChild(this,this.objChooser_);
-               SpriteUtil.safeRemoveChild(this,this.regionChooser_);
+               SpriteUtil.safeRemoveChild(this.content,this.groundChooser_);
+               SpriteUtil.safeAddChild(this.content,this.objChooser_);
+               SpriteUtil.safeRemoveChild(this.content,this.regionChooser_);
                this.chooser_ = this.objChooser_;
                break;
             case "Regions":
-               SpriteUtil.safeRemoveChild(this,this.groundChooser_);
-               SpriteUtil.safeRemoveChild(this,this.objChooser_);
-               SpriteUtil.safeAddChild(this,this.regionChooser_);
+               SpriteUtil.safeRemoveChild(this.content,this.groundChooser_);
+               SpriteUtil.safeRemoveChild(this.content,this.objChooser_);
+               SpriteUtil.safeAddChild(this.content,this.regionChooser_);
                this.chooser_ = this.regionChooser_;
          }
       }

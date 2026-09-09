@@ -2,7 +2,9 @@ package kabam.rotmg.legends.view
 {
    import com.company.assembleegameclient.screens.TitleMenuOption;
    import com.company.assembleegameclient.ui.Scrollbar;
-   import com.company.rotmg.graphics.ScreenGraphic;
+   import com.company.assembleegameclient.ui.layout.MenuBackground;
+   import com.company.assembleegameclient.ui.layout.MenuFrame;
+   import com.company.assembleegameclient.ui.layout.ScaledScreen;
    import com.company.ui.SimpleText;
    import flash.display.Graphics;
    import flash.display.Shape;
@@ -12,10 +14,9 @@ package kabam.rotmg.legends.view
    import flash.filters.DropShadowFilter;
    import kabam.rotmg.legends.model.Legend;
    import kabam.rotmg.legends.model.Timespan;
-   import kabam.rotmg.ui.view.components.ScreenBase;
    import org.osflash.signals.Signal;
-   
-   public class LegendsView extends Sprite
+
+   public class LegendsView extends ScaledScreen
    {
        
       
@@ -38,7 +39,9 @@ package kabam.rotmg.legends.view
       private var closeButton:TitleMenuOption;
       
       private var scrollBar:Scrollbar;
-      
+
+      private var dividerLine:Shape;
+
       private var listContainer:Sprite;
       
       private var selectedTab:LegendsTab;
@@ -60,10 +63,10 @@ package kabam.rotmg.legends.view
          this.makeTimespanTabs();
          this.makeCloseButton();
       }
-      
+
       private function makeScreenBase() : void
       {
-         addChild(new ScreenBase());
+         setBackground(new MenuBackground());
       }
       
       private function makeTitleText() : void
@@ -75,7 +78,7 @@ package kabam.rotmg.legends.view
          this.title.filters = [new DropShadowFilter(0,0,0,1,8,8)];
          this.title.x = 400 - this.title.width / 2;
          this.title.y = 24;
-         addChild(this.title);
+         this.content.addChild(this.title);
       }
       
       private function makeLoadingBanner() : void
@@ -88,7 +91,7 @@ package kabam.rotmg.legends.view
          this.loadingBanner.x = 800 / 2 - this.loadingBanner.width / 2;
          this.loadingBanner.y = 600 / 2 - this.loadingBanner.height / 2;
          this.loadingBanner.visible = false;
-         addChild(this.loadingBanner);
+         this.content.addChild(this.loadingBanner);
       }
       
       private function makeMainContainer() : void
@@ -104,30 +107,37 @@ package kabam.rotmg.legends.view
          this.mainContainer.y = 110;
          this.mainContainer.addChild(shape);
          this.mainContainer.mask = shape;
-         addChild(this.mainContainer);
+         this.content.addChild(this.mainContainer);
       }
-      
+
       private function makeScreenGraphic() : void
       {
-         addChild(new ScreenGraphic());
+         addFrame(new MenuFrame());
       }
-      
+
       private function makeLines() : void
       {
-         var lines:Shape = new Shape();
-         addChild(lines);
-         var g:Graphics = lines.graphics;
-         g.lineStyle(2,5526612);
-         g.moveTo(0,100);
-         g.lineTo(800,100);
+         this.dividerLine = new Shape();
+         this.chrome.addChild(this.dividerLine);
+         this.layout();
       }
-      
+
+      override protected function layoutChrome(stageWidth:Number, stageHeight:Number, scale:Number) : void
+      {
+         var g:Graphics = this.dividerLine.graphics;
+         g.clear();
+         g.lineStyle(2 * scale,5526612);
+         g.moveTo(0,100 * scale);
+         g.lineTo(stageWidth,100 * scale);
+         g.lineStyle();
+      }
+
       private function makeScrollbar() : void
       {
          this.scrollBar = new Scrollbar(16,400);
          this.scrollBar.x = 800 - this.scrollBar.width - 4;
          this.scrollBar.y = 104;
-         addChild(this.scrollBar);
+         this.content.addChild(this.scrollBar);
       }
       
       private function makeTimespanTabs() : void
@@ -148,7 +158,7 @@ package kabam.rotmg.legends.view
          tab.x = 20 + i * 90;
          tab.y = 70;
          tab.selected.add(this.onTabSelected);
-         addChild(tab);
+         this.content.addChild(tab);
          return tab;
       }
       
@@ -178,7 +188,7 @@ package kabam.rotmg.legends.view
          this.closeButton = new TitleMenuOption("done",36,false);
          this.closeButton.x = 400 - this.closeButton.width / 2;
          this.closeButton.y = 524;
-         addChild(this.closeButton);
+         this.content.addChild(this.closeButton);
          this.closeButton.addEventListener(MouseEvent.CLICK,this.onCloseClick);
       }
       

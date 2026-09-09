@@ -5,53 +5,65 @@ package com.company.assembleegameclient.ui.guild
    import com.company.assembleegameclient.objects.Player;
    import com.company.assembleegameclient.screens.TitleMenuOption;
    import com.company.assembleegameclient.ui.dialogs.Dialog;
-   import com.company.rotmg.graphics.ScreenGraphic;
-   import flash.display.Sprite;
+   import com.company.assembleegameclient.ui.layout.LayoutHelper;
+   import com.company.assembleegameclient.ui.layout.MenuFrame;
+   import com.company.assembleegameclient.ui.layout.ScaledScreen;
+   import flash.display.Graphics;
+   import flash.display.Shape;
    import flash.events.Event;
    import flash.events.KeyboardEvent;
    import flash.events.MouseEvent;
-   
-   public class GuildChronicleScreen extends Sprite
+
+   public class GuildChronicleScreen extends ScaledScreen
    {
        
       
       private var gs_:GameSprite;
-      
+
+      private var backdrop_:Shape;
+
       private var guildPlayerList_:GuildPlayerList;
-      
+
       private var continueButton_:TitleMenuOption;
-      
+
       public function GuildChronicleScreen(gs:GameSprite)
       {
          super();
          this.gs_ = gs;
-         graphics.clear();
-         graphics.beginFill(2829099,0.8);
-         graphics.drawRect(0,0,800,600);
-         graphics.endFill();
+         this.backdrop_ = new Shape();
+         setBackground(this.backdrop_);
+         addFrame(new MenuFrame());
          this.addList();
-         addChild(new ScreenGraphic());
          this.continueButton_ = new TitleMenuOption("continue",36,false);
          this.continueButton_.addEventListener(MouseEvent.CLICK,this.onContinueClick);
-         addChild(this.continueButton_);
+         this.content.addChild(this.continueButton_);
          addEventListener(Event.ADDED_TO_STAGE,this.onAddedToStage);
          addEventListener(Event.REMOVED_FROM_STAGE,this.onRemovedFromStage);
       }
-      
+
       private function addList() : void
       {
          var player:Player = this.gs_.map.player_;
          this.guildPlayerList_ = new GuildPlayerList(50,0,player == null?"":player.name_,player.guildRank_);
          this.guildPlayerList_.addEventListener(GuildPlayerListEvent.SET_RANK,this.onSetRank);
          this.guildPlayerList_.addEventListener(GuildPlayerListEvent.REMOVE_MEMBER,this.onRemoveMember);
-         addChild(this.guildPlayerList_);
+         this.content.addChild(this.guildPlayerList_);
       }
-      
+
       private function removeList() : void
       {
          this.guildPlayerList_.removeEventListener(GuildPlayerListEvent.SET_RANK,this.onSetRank);
          this.guildPlayerList_.removeEventListener(GuildPlayerListEvent.REMOVE_MEMBER,this.onRemoveMember);
-         removeChild(this.guildPlayerList_);
+         this.content.removeChild(this.guildPlayerList_);
+      }
+
+      override protected function layoutChrome(stageWidth:Number, stageHeight:Number, scale:Number) : void
+      {
+         var g:Graphics = this.backdrop_.graphics;
+         g.clear();
+         g.beginFill(2829099,0.8);
+         g.drawRect(0,0,stageWidth,stageHeight);
+         g.endFill();
       }
       
       private function onSetRank(event:GuildPlayerListEvent) : void
@@ -115,10 +127,11 @@ package com.company.assembleegameclient.ui.guild
       
       private function onAddedToStage(event:Event) : void
       {
-         this.continueButton_.x = stage.stageWidth / 2 - this.continueButton_.width / 2;
+         this.continueButton_.x = LayoutHelper.centerX(this.continueButton_.width);
          this.continueButton_.y = 520;
          stage.addEventListener(KeyboardEvent.KEY_DOWN,this.onKeyDown,false,1);
          stage.addEventListener(KeyboardEvent.KEY_UP,this.onKeyUp,false,1);
+         this.layout();
       }
       
       private function onRemovedFromStage(event:Event) : void

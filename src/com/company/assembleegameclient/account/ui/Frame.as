@@ -1,6 +1,7 @@
 package com.company.assembleegameclient.account.ui
 {
    import com.company.assembleegameclient.ui.ClickableText;
+   import com.company.assembleegameclient.ui.layout.LayoutHelper;
    import com.company.ui.SimpleText;
    import com.company.util.GraphicsUtil;
    import flash.display.CapsStyle;
@@ -12,6 +13,7 @@ package com.company.assembleegameclient.account.ui
    import flash.display.JointStyle;
    import flash.display.LineScaleMode;
    import flash.display.Sprite;
+   import flash.display.Stage;
    import flash.events.Event;
    import flash.filters.DropShadowFilter;
    import kabam.rotmg.account.web.view.LabeledField;
@@ -31,8 +33,10 @@ package com.company.assembleegameclient.account.ui
       public var navigationLinks_:Vector.<ClickableText>;
       
       public var w_:int = 288;
-      
+
       public var h_:int = 100;
+
+      private var stageRef:Stage;
       
       private var titleFill_:GraphicsSolidFill= new GraphicsSolidFill(5066061,1);
       
@@ -179,16 +183,58 @@ package com.company.assembleegameclient.account.ui
       protected function onAddedToStage(event:Event) : void
       {
          this.draw();
-         x = stage.stageWidth / 2 - (this.w_ - 6) / 2;
-         y = stage.stageHeight / 2 - height / 2;
+         this.stageRef = stage;
+         this.stageRef.addEventListener(Event.RESIZE,this.onStageResize);
+         this.layout();
          if(this.textInputFields_.length > 0)
          {
             stage.focus = this.textInputFields_[0].inputText_;
          }
       }
-      
+
       private function onRemovedFromStage(event:Event) : void
       {
+         if(this.stageRef != null)
+         {
+            this.stageRef.removeEventListener(Event.RESIZE,this.onStageResize);
+            this.stageRef = null;
+         }
+      }
+
+      private function onStageResize(event:Event) : void
+      {
+         this.layout();
+      }
+
+      /**
+       * Scales the frame by the window height and centers it, like the
+       * rest of the menu UI. Frames embedded in an already-scaled
+       * parent turn this off via autoScaleToStage.
+       */
+      protected function layout() : void
+      {
+         var stageWidth:Number = this.stageRef != null ? Number(this.stageRef.stageWidth) : LayoutHelper.DESIGN_WIDTH;
+         var stageHeight:Number = this.stageRef != null ? Number(this.stageRef.stageHeight) : LayoutHelper.DESIGN_HEIGHT;
+         if(this.autoScaleToStage)
+         {
+            var scale:Number = LayoutHelper.scaleForHeight(stageHeight);
+            this.scaleX = scale;
+            this.scaleY = scale;
+            x = (stageWidth - (this.w_ - 6) * scale) / 2;
+            y = (stageHeight - this.h_ * scale) / 2;
+         }
+         else
+         {
+            this.scaleX = 1;
+            this.scaleY = 1;
+            x = (LayoutHelper.DESIGN_WIDTH - (this.w_ - 6)) / 2;
+            y = (LayoutHelper.DESIGN_HEIGHT - this.h_) / 2;
+         }
+      }
+
+      protected function get autoScaleToStage() : Boolean
+      {
+         return true;
       }
       
       private function draw() : void

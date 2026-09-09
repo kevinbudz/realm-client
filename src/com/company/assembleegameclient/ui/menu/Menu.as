@@ -1,5 +1,6 @@
 package com.company.assembleegameclient.ui.menu
 {
+   import com.company.assembleegameclient.ui.layout.LayoutHelper;
    import com.company.util.GraphicsUtil;
    import com.company.util.RectangleUtil;
    import flash.display.CapsStyle;
@@ -57,6 +58,7 @@ package com.company.assembleegameclient.ui.menu
       protected function onAddedToStage(event:Event) : void
       {
          this.draw();
+         this.applyScale();
          this.position();
          addEventListener(Event.ENTER_FRAME,this.onEnterFrame);
          addEventListener(MouseEvent.ROLL_OUT,this.onRollOut);
@@ -74,6 +76,7 @@ package com.company.assembleegameclient.ui.menu
          {
             return;
          }
+         this.applyScale();
          var rect:Rectangle = getRect(stage);
          var dist:Number = RectangleUtil.pointDist(rect,stage.mouseX,stage.mouseY);
          if(dist > 40)
@@ -127,6 +130,13 @@ package com.company.assembleegameclient.ui.menu
          }
       }
       
+      protected function applyScale() : void
+      {
+         var scale:Number = stage != null ? LayoutHelper.scaleForHeight(stage.stageHeight) : 1;
+         this.scaleX = scale;
+         this.scaleY = scale;
+      }
+
       protected function draw() : void
       {
          this.backgroundFill_.color = this.background_;

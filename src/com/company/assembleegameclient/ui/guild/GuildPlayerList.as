@@ -112,7 +112,7 @@ package com.company.assembleegameclient.ui.guild
          this.titleText_.useTextDimensions();
          this.titleText_.filters = [new DropShadowFilter(0,0,0,1,8,8)];
          this.titleText_.y = 24;
-         this.titleText_.x = stage.stageWidth / 2 - this.titleText_.width / 2;
+         this.titleText_.x = 800 / 2 - this.titleText_.width / 2;
          addChild(this.titleText_);
          this.guildFameText_ = new SimpleText(22,16777215,false,0,0);
          this.guildFameText_.text = guildXML.CurrentFame;
@@ -130,7 +130,7 @@ package com.company.assembleegameclient.ui.guild
          g.clear();
          g.lineStyle(2,5526612);
          g.moveTo(0,100);
-         g.lineTo(stage.stageWidth,100);
+         g.lineTo(800,100);
          g.lineStyle();
          addChild(this.lines_);
          this.mainSprite_ = new Sprite();

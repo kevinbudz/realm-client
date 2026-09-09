@@ -1,16 +1,16 @@
 package com.company.assembleegameclient.ui.board
 {
    import com.company.assembleegameclient.ui.dialogs.Dialog;
+   import com.company.assembleegameclient.ui.layout.ScaledScreen;
    import com.company.util.MoreObjectUtil;
    import flash.display.Graphics;
    import flash.display.Shape;
-   import flash.display.Sprite;
    import flash.events.Event;
    import kabam.rotmg.account.core.Account;
    import kabam.rotmg.appengine.api.AppEngineClient;
    import kabam.rotmg.core.StaticInjectorContext;
-   
-   public class GuildBoardWindow extends Sprite
+
+   public class GuildBoardWindow extends ScaledScreen
    {
        
       
@@ -33,13 +33,17 @@ package com.company.assembleegameclient.ui.board
          super();
          this.canEdit_ = canEdit;
          this.darkBox_ = new Shape();
+         setBackground(this.darkBox_);
+         this.load();
+      }
+
+      override protected function layoutChrome(stageWidth:Number, stageHeight:Number, scale:Number) : void
+      {
          var g:Graphics = this.darkBox_.graphics;
          g.clear();
          g.beginFill(0,0.8);
-         g.drawRect(0,0,800,600);
+         g.drawRect(0,0,stageWidth,stageHeight);
          g.endFill();
-         addChild(this.darkBox_);
-         this.load();
       }
       
       private function load() : void
@@ -49,7 +53,7 @@ package com.company.assembleegameclient.ui.board
          this.client.complete.addOnce(this.onGetBoardComplete);
          this.client.sendRequest("/guild/getBoard",account.getCredentials());
          this.dialog_ = new Dialog("Loading...",null,null,null);
-         addChild(this.dialog_);
+         this.chrome.addChild(this.dialog_);
          this.darkBox_.visible = false;
       }
       
@@ -68,7 +72,7 @@ package com.company.assembleegameclient.ui.board
       private function showGuildBoard(data:String) : void
       {
          this.darkBox_.visible = true;
-         removeChild(this.dialog_);
+         this.chrome.removeChild(this.dialog_);
          this.dialog_ = null;
          this.text_ = data;
          this.show();
@@ -81,7 +85,7 @@ package com.company.assembleegameclient.ui.board
          this.viewBoard_.y = 600 / 2 - this.viewBoard_.h_ / 2;
          this.viewBoard_.addEventListener(Event.COMPLETE,this.onViewComplete);
          this.viewBoard_.addEventListener(Event.CHANGE,this.onViewChange);
-         addChild(this.viewBoard_);
+         this.content.addChild(this.viewBoard_);
       }
       
       private function reportError(error:String) : void
@@ -96,19 +100,19 @@ package com.company.assembleegameclient.ui.board
       
       private function onViewChange(event:Event) : void
       {
-         removeChild(this.viewBoard_);
+         this.content.removeChild(this.viewBoard_);
          this.viewBoard_ = null;
          this.editBoard_ = new EditBoard(this.text_);
          this.editBoard_.x = 800 / 2 - this.editBoard_.w_ / 2;
          this.editBoard_.y = 600 / 2 - this.editBoard_.h_ / 2;
          this.editBoard_.addEventListener(Event.CANCEL,this.onEditCancel);
          this.editBoard_.addEventListener(Event.COMPLETE,this.onEditComplete);
-         addChild(this.editBoard_);
+         this.content.addChild(this.editBoard_);
       }
-      
+
       private function onEditCancel(event:Event) : void
       {
-         removeChild(this.editBoard_);
+         this.content.removeChild(this.editBoard_);
          this.editBoard_ = null;
          this.show();
       }
@@ -121,10 +125,10 @@ package com.company.assembleegameclient.ui.board
          this.client = StaticInjectorContext.getInjector().getInstance(AppEngineClient);
          this.client.complete.addOnce(this.onSetBoardComplete);
          this.client.sendRequest("/guild/setBoard",params);
-         removeChild(this.editBoard_);
+         this.content.removeChild(this.editBoard_);
          this.editBoard_ = null;
          this.dialog_ = new Dialog("Saving...",null,null,null);
-         addChild(this.dialog_);
+         this.chrome.addChild(this.dialog_);
          this.darkBox_.visible = false;
       }
       
@@ -143,7 +147,7 @@ package com.company.assembleegameclient.ui.board
       private function onSaveDone(data:String) : void
       {
          this.darkBox_.visible = true;
-         removeChild(this.dialog_);
+         this.chrome.removeChild(this.dialog_);
          this.dialog_ = null;
          this.text_ = data;
          this.show();
