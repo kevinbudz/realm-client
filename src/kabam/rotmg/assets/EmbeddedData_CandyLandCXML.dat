@@ -156,6 +156,7 @@
 			<Size>80</Size>
             <ConditionEffect duration="3">Hexed</ConditionEffect>
             <ConditionEffect duration="3">Stunned</ConditionEffect>
+			<MultiHit/>
 		</Projectile>
 		<Projectile id="2">
 			<ObjectId>Pink Slash</ObjectId>
@@ -171,21 +172,21 @@
 			<LifetimeMS>600</LifetimeMS>
 			<Size>110</Size>
 		</Projectile>
-
-
-
-
-
-
-
-
-
-
-
-
+        
+        
+        
+        
+        
+        
+		
+			
+        
+        
+        
+        
 	</Object>
-
-
+    
+    
     <Object type="0x5e45" id="Swoll Fairy">
 		<Group>Candy Boss</Group>
 		<Enemy/>
@@ -199,7 +200,7 @@
 		<Defense>40</Defense>
 		<God/>
 		<Quest/>
-
+        
 		<Projectile id="0">
 			<ObjectId>Magic Sparkle</ObjectId>
 			<Damage>90</Damage>
@@ -208,6 +209,7 @@
 			<Size>140</Size>
 			<Amplitude>0.4</Amplitude>
 			<Frequency>0.2</Frequency>
+			<MultiHit/>
             <ConditionEffect duration="2">Confused</ConditionEffect>
 		</Projectile>
 		<Projectile id="1">
@@ -218,23 +220,24 @@
 			<Size>140</Size>
 			<Amplitude>0.4</Amplitude>
 			<Frequency>0.2</Frequency>
+			<MultiHit/>
 			<Boomerang/>
             <ConditionEffect duration="2">Confused</ConditionEffect>
 		</Projectile>
-
-
-
-
-
-
-
-
-
-
-
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 	</Object>
-
-
+    
+    
     <Object type="0x5e44" id="Gigacorn">
 		<Group>Candy Boss</Group>
 		<Enemy/>
@@ -247,7 +250,7 @@
 		<Defense>35</Defense>
 		<God/>
 		<Quest/>
-
+        
 		<Projectile id="0">
 			<ObjectId>Unicorn Horn</ObjectId>
 			<Damage>90</Damage>
@@ -255,8 +258,9 @@
 			<LifetimeMS>2000</LifetimeMS>
 			<Size>160</Size>
 			<ArmorPiercing/>
+			<MultiHit/>
 		</Projectile>
-
+        
 		<Projectile id="1">
 			<ObjectId>Rainbow Brick</ObjectId>
 			<Damage>70</Damage>
@@ -264,18 +268,19 @@
 			<LifetimeMS>1000</LifetimeMS>
 			<Size>160</Size>
 			<ArmorPiercing/>
+			<MultiHit/>
 		</Projectile>
-
-
-
-
-
-
-
+        
+        
+        
+        
+        
+        
+        
 	</Object>
-
-
-
+    
+    
+    
     <Object type="0x5e43" id="Candyland Boss Spawner">
 		<Enemy/>
 		<Class>Character</Class>
@@ -285,16 +290,16 @@
 		<NoMiniMap/>
 		<MaxHitPoints>10000</MaxHitPoints>
 		<XpMult>0</XpMult>
-
-
-
-
+		
+        
+        
+        
 	</Object>
-
-
-
-
-
+    
+    
+    
+    
+    
     <Object type="0x5e42" id="Gumball Machine">
         <Class>Character</Class>
         <Enemy/>
@@ -302,9 +307,9 @@
         <EnemyOccupySquare/>
         <NoMiniMap/>
         <Static/>
-
+        
         <Texture><File>lofiObjBig</File><Index>0x7c</Index></Texture>
-
+        
         <HitSound>monster/stone_walls_hit</HitSound>
         <DeathSound>monster/stone_walls_death</DeathSound>
         <Size>120</Size>
@@ -312,14 +317,14 @@
         <MaxHitPoints>1000</MaxHitPoints>
         <Defense>10</Defense>
         <XpMult>0.0</XpMult>
-
-
-
-
-
+        
+        
+        
+        
+        
     </Object>
-
-
+    
+    
     <Object type="0x5e41" id="Cupcake">
 		<Group>Candy Creature</Group>
 		<Enemy/>
@@ -331,7 +336,7 @@
 		<ShadowSize>80</ShadowSize>
 		<MaxHitPoints>6000</MaxHitPoints>
 		<Defense>20</Defense>
-
+        
 		<Projectile id="0">
 			<ObjectId>White Demon Shot</ObjectId>
 			<Damage>45</Damage>
@@ -339,15 +344,16 @@
 			<LifetimeMS>2000</LifetimeMS>
 			<Size>60</Size>
 			<ArmorPiercing/>
+			<MultiHit/>
 		</Projectile>
-
-
-
-
-
-
+        
+        
+        
+        
+        
+        
 	</Object>
-
+    
     <Object type="0x5e40" id="Unicorn">
 		<Group>Candy Creature</Group>
 		<Enemy/>
@@ -359,7 +365,7 @@
 		<MaxHitPoints>5000</MaxHitPoints>
 		<Defense>25</Defense>
 		<XpMult>0.5</XpMult>
-
+        
 		<Projectile id="0">
 			<ObjectId>Unicorn Horn</ObjectId>
 			<Damage>70</Damage>
@@ -367,29 +373,30 @@
 			<LifetimeMS>2000</LifetimeMS>
 			<Size>100</Size>
 		</Projectile>
-
+        
 		<Projectile id="1">
 			<ObjectId>Rainbow Brick</ObjectId>
 			<Damage>50</Damage>
 			<Speed>65</Speed>
 			<LifetimeMS>1000</LifetimeMS>
 			<Size>100</Size>
+			<MultiHit/>
 		</Projectile>
-
-
-
-
-
-
-
-
+        
+        
+        
+        
+        
+        
+        
+        
 	</Object>
-
+    
     <Object type="0x5e3e" id="Hard Candy">
 		<Group>Candy Creature</Group>
 		<Enemy/>
 		<Class>Character</Class>
-        <AnimatedTexture><File>chars8x8rEncounters</File><Index>45</Index></AnimatedTexture>
+        <AnimatedTexture><File>chars8x8rEncounters</File><Index>45</Index></AnimatedTexture> 
 		<HitSound>monster/stone_walls_hit</HitSound>
 		<DeathSound>monster/stone_walls_death</DeathSound>
 		<Size>120</Size>
@@ -397,19 +404,20 @@
 		<MaxHitPoints>1300</MaxHitPoints>
 		<Defense>18</Defense>
 		<XpMult>0.6</XpMult>
-
+        
 		<Projectile id="0">
 			<ObjectId>Hard Candy Stake</ObjectId>
 			<Damage>50</Damage>
 			<Speed>60</Speed>
 			<LifetimeMS>2000</LifetimeMS>
 			<Size>80</Size>
+			<MultiHit/>
 		</Projectile>
-
-
-
-
-
+        
+        
+        
+        
+        
 	</Object>
     <Object type="0x5e39" id="Beefy Fairy">
 		<Group>Candy Creature</Group>
@@ -422,10 +430,10 @@
 		<ShadowSize>80</ShadowSize>
 		<MaxHitPoints>5000</MaxHitPoints>
 		<Defense>30</Defense>
-
+        
 		<Flying/>
 		<Z>0.24</Z>
-
+        
 		<Projectile id="0">
 			<ObjectId>Magic Sparkle</ObjectId>
 			<Damage>50</Damage>
@@ -434,21 +442,22 @@
 			<Size>100</Size>
 			<Amplitude>0.4</Amplitude>
 			<Frequency>0.6</Frequency>
+			<MultiHit/>
             <ConditionEffect duration="2">Confused</ConditionEffect>
 		</Projectile>
-
-
-
-
-
-
-
-
-
-
-
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 	</Object>
-
+    
     <Object type="0x5e38" id="Fairy">
 		<Group>Candy Creature</Group>
 		<Enemy/>
@@ -460,25 +469,26 @@
 		<ShadowSize>60</ShadowSize>
 		<MaxHitPoints>1000</MaxHitPoints>
 		<Defense>20</Defense>
-
+        
 		<Flying/>
 		<Z>0.25</Z>
-
+        
 		<Projectile id="0">
 			<ObjectId>Magic Star</ObjectId>
 			<Damage>55</Damage>
 			<Speed>60</Speed>
 			<LifetimeMS>1000</LifetimeMS>
 			<Size>80</Size>
+			<MultiHit/>
             <ConditionEffect duration="0.6">Confused</ConditionEffect>
 		</Projectile>
-
-
-
-
-
+        
+        
+        
+        
+        
 	</Object>
-
+    
     <Object type="0x5e37" id="Wishing Troll">
 		<Group>Candy Creature</Group>
 		<Enemy/>
@@ -491,7 +501,7 @@
 		<MaxHitPoints>4000</MaxHitPoints>
 		<Defense>20</Defense>
 		<XpMult>0.6</XpMult>
-
+        
 		<Projectile id="0">
 			<ObjectId>Troll Hair Whip</ObjectId>
 			<Damage>70</Damage>
@@ -500,17 +510,18 @@
 			<Size>90</Size>
             <ConditionEffect duration="3">Hallucinating</ConditionEffect>
             <ConditionEffect duration="3">Hexed</ConditionEffect>
+			<MultiHit/>
 		</Projectile>
-
-
-
-
-
-
-
-
+        
+        
+        
+        
+        
+        
+        
+        
 	</Object>
-
+    
     <Object type="0x5e36" id="Spilled Icecream">
 		<Group>Candy Creature</Group>
 		<Enemy/>
@@ -522,13 +533,14 @@
 		<MaxHitPoints>1000</MaxHitPoints>
 		<Defense>20</Defense>
 		<XpMult>0.6</XpMult>
-
+        
 		<Projectile id="0">
 			<ObjectId>Icecream Bullet</ObjectId>
 			<Damage>36</Damage>
 			<Speed>70</Speed>
 			<LifetimeMS>1000</LifetimeMS>
 			<Size>60</Size>
+			<MultiHit/>
 		</Projectile>
         
         

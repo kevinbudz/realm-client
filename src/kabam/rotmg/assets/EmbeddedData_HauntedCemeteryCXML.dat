@@ -245,72 +245,74 @@
 			<Speed>85</Speed>
             <Size>100</Size>
 			<LifetimeMS>2000</LifetimeMS>
+			<MultiHit/>
 			<ConditionEffect duration="2.2">Paralyzed</ConditionEffect>
 		</Projectile>
-
+        
 		<Projectile id="2">
 			<ObjectId>Giga Ghost X</ObjectId>
 			<Damage>250</Damage>
 			<Speed>40</Speed>
             <Size>200</Size>
 			<LifetimeMS>5000</LifetimeMS>
+			<MultiHit/>
 			<Boomerang/>
             <PassesCover/>
 			<ConditionEffect duration="1">Paralyzed</ConditionEffect>
 		</Projectile>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+		
+        
 	</Object>
-
-
+    
+    
     <Object type="0x6002" id="Halloween Zombie Spawner">
 		<Enemy/>
 		<Class>Character</Class>
-
+        
         <AnimatedTexture><File>chars8x8rEncounters</File><Index>65</Index></AnimatedTexture>
-
+        
 		<Size>0</Size>
 		<ShadowSize>0</ShadowSize>
-
+        
 		<MaxHitPoints>1000</MaxHitPoints>
 		<Defense>8</Defense>
         <NoMiniMap/>
-
-
-
-
-
+        
+        
+        
+        
+        
 	</Object>
-
+    
     <Object type="0x6001" id="Blue Zombie">
 		<Enemy/>
 		<Class>Character</Class>
-
-        <AnimatedTexture><File>chars8x8rEncounters</File><Index>66</Index></AnimatedTexture>
-
+        
+        <AnimatedTexture><File>chars8x8rEncounters</File><Index>66</Index></AnimatedTexture> 
+        
 		<Size>110</Size>
 		<ShadowSize>80</ShadowSize>
-
+        
 		<HitSound>monster/abyss_demons_hit</HitSound>
 		<DeathSound>monster/dwarf_god_hit</DeathSound>
-
+        
 		<MaxHitPoints>550</MaxHitPoints>
 		<XpMult>0</XpMult>
 		<Defense>12</Defense>
-
-
+        
+        
 		<Projectile id="0">
 			<ObjectId>Blue Zombie Wave</ObjectId>
 			<Damage>65</Damage>
@@ -318,15 +320,15 @@
             <Size>80</Size>
 			<LifetimeMS>800</LifetimeMS>
 		</Projectile>
-
+        
 	</Object>
-
+    
     <Object type="0x6000" id="Zombie Rise">
 		<Enemy/>
 		<Class>Character</Class>
-
+        
         <Texture><File>invisible</File><Index>0</Index></Texture>
-
+        
         <AltTexture id="1"><Texture><File>lofiObj3</File><Index>0x2fd</Index></Texture></AltTexture>
         <AltTexture id="2"><Texture><File>lofiObj3</File><Index>0x2fe</Index></Texture></AltTexture>
         <AltTexture id="3"><Texture><File>lofiObj3</File><Index>0x2ff</Index></Texture></AltTexture>
@@ -340,18 +342,18 @@
         <AltTexture id="11"><Texture><File>lofiObj3</File><Index>0x307</Index></Texture></AltTexture>
         <AltTexture id="12"><Texture><File>lofiObj3</File><Index>0x308</Index></Texture></AltTexture>
         <AltTexture id="13"><Texture><File>lofiObj3</File><Index>0x309</Index></Texture></AltTexture>
-
+        
 		<Size>110</Size>
 		<ShadowSize>0</ShadowSize>
         <NoMiniMap/>
-
+        
 		<MaxHitPoints>10000</MaxHitPoints>
 		<XpMult>0</XpMult>
-
-
+        
+        
 	</Object>
-
-
+    
+    
     <Object type="0x600c" id="Werewolf Cub">
         <Group>Hallowrena</Group>
         <Enemy/>
@@ -362,7 +364,7 @@
         <Size>100</Size>
         <MaxHitPoints>550</MaxHitPoints>
         <Defense>3</Defense>
-
+        
         <Projectile id="0">
             <ObjectId>Wereshot</ObjectId>
             <Damage>50</Damage>
@@ -370,40 +372,41 @@
             <Size>90</Size>
             <LifetimeMS>800</LifetimeMS>
         </Projectile>
-
-
-    </Object>
-
-
-
-
-
-
+        
+        
+    </Object>   
+    
+    
+    
+    
+    
+    
     <Object type="0x6005" id="Zombie Hulk">
 		<Enemy/>
 		<Class>Character</Class>
         <Group>Hallowrena</Group>
-
-        <AnimatedTexture><File>chars16x16rEncounters</File><Index>77</Index></AnimatedTexture>
-
-        <AltTexture id="1"><AnimatedTexture><File>chars16x16rEncounters</File><Index>78</Index></AnimatedTexture></AltTexture>
-
+        
+        <AnimatedTexture><File>chars16x16rEncounters</File><Index>77</Index></AnimatedTexture> 
+        
+        <AltTexture id="1"><AnimatedTexture><File>chars16x16rEncounters</File><Index>78</Index></AnimatedTexture></AltTexture> 
+        
 		<Size>110</Size>
 		<ShadowSize>80</ShadowSize>
-
+        
 		<HitSound>monster/archdemon_hit</HitSound>
 		<DeathSound>monster/abyss_demons_death</DeathSound>
-
+        
 		<MaxHitPoints>3000</MaxHitPoints>
 		<XpMult>0.35</XpMult>
 		<Defense>13</Defense>
-
+        
         <Projectile id="0">
             <ObjectId>Big Zombie Wave</ObjectId>
             <Speed>55</Speed>
             <Damage>45</Damage>
             <Size>110</Size>
             <LifetimeMS>400</LifetimeMS>
+            <MultiHit/>
             <PassesCover/>
 			<ConditionEffect duration="2.4">Armor Broken</ConditionEffect>
         </Projectile>
@@ -413,6 +416,7 @@
             <Damage>70</Damage>
             <Size>100</Size>
             <LifetimeMS>1200</LifetimeMS>
+            <MultiHit/>
             <PassesCover/>
         </Projectile>
 		

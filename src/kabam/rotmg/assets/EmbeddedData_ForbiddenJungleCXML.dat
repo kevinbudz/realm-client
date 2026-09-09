@@ -153,37 +153,38 @@
 			
 		<Projectile id="2">
 			<ObjectId>Fireball 2</ObjectId>
-			<Damage>65</Damage>
+			<MinDamage>45</MinDamage>
+			<MaxDamage>65</MaxDamage>
 			<Speed>60</Speed>
 			<Size>80</Size>
 			<LifetimeMS>1200</LifetimeMS>
 		</Projectile>
-
-
-
-
-
-
-
-
-
-
-
+			
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
 	</Object>
-
+	
 	<Object type="0x0dc4" id="Boss Totem">
 		<Enemy/>
 		<Class>GameObject</Class>
-
+		
 		<AnimatedTexture><File>chars16x16dEncounters2</File><Index>31</Index></AnimatedTexture>
-
+	
 		<HitSound>monster/stone_walls_hit</HitSound>
 		<DeathSound>monster/stone_walls_death</DeathSound>
-
+		
 		<Size>120</Size>
 		<ShadowSize>80</ShadowSize>
 		<OccupySquare/>
-
+		
 		<Projectile id="0">
 			<ObjectId>Totem Fire Wall</ObjectId>
 			<Damage>50</Damage>
@@ -192,17 +193,17 @@
 			<LifetimeMS>1600</LifetimeMS>
 			<PassesCover/>
 		</Projectile>
-
-
-
-
-
-
-
-
-
+		
+		
+		
+		
+		
+		
+		
+		
+		
 	</Object>
-
+	
 	<Object type="0x0dc5" id="Jungle Spear">
 		<Class>GameObject</Class>
 			<RandomTexture>
@@ -218,7 +219,7 @@
 		<Size>80</Size>
 		<ShadowSize>60</ShadowSize>
 	</Object>
-
+	
 	<Object type="0x0dc6" id="Jungle Brazier">
 		<Class>GameObject</Class>
 		<Texture><File>lofiObjBig</File><Index>0x07</Index></Texture>
@@ -232,22 +233,22 @@
 		<OccupySquare/>
 		<ShadowSize>80</ShadowSize>
 	</Object>
-
-
+	
+	
 	<Object type="0x0dc7" id="Jungle Summoner">
 		<Class>Character</Class>
-
+		
 		<Texture><File>invisible</File><Index>0</Index></Texture>
-
+	
 		<Size>0</Size>
 		<ShadowSize>0</ShadowSize>
 		<MaxHitPoints>10</MaxHitPoints>
 		<Defense>0</Defense>
 		<XpMult>0</XpMult>
 		<NoMiniMap/>
-
+		
 	</Object>
-
+	
 	<Object type="0x0dc8" id="Jungle Invisible Solid">
 		<Class>GameObject</Class>
 			<Texture><File>lofiEnvironment3</File><Index>0x38</Index></Texture>
@@ -257,7 +258,7 @@
 		<Size>0</Size>
 		<ShadowSize>0</ShadowSize>
 	</Object>
-
+	
 	<Object type="0x0dc9" id="Jungle Grass Solid">
 		<Class>GameObject</Class>
 			<RandomTexture>
@@ -269,7 +270,7 @@
 		<Static/>
 		<OccupySquare/>
 	</Object>
-
+	
 	<Object type="0x0dca" id="Jungle Flowers Solid">
 		<Class>GameObject</Class>
 			<RandomTexture>
@@ -283,7 +284,7 @@
 		<NoMiniMap/>
 		<Static/>
 	</Object>
-
+	
 	<Object type="0x0dcb" id="Jungle Plant Unbreakable">
 		<Class>GameObject</Class>
 			<RandomTexture>
@@ -296,24 +297,24 @@
 		<HitSound>monster/trees_hit</HitSound>
 		<DeathSound>monster/tress_death</DeathSound>
 	</Object>
-
+	
 	<Object type="0x0dcc" id="Totem Spirit">
 		<Enemy/>
 		<Class>Character</Class>
-
+		
 		<AnimatedTexture><File>chars8x8rEncounters</File><Index>22</Index></AnimatedTexture>
 		<Flying/>
-
+		
 		<HitSound>monster/wooden_walls_hit</HitSound>
 		<DeathSound>monster/stone_walls_death</DeathSound>
-
+		
 		<Size>80</Size>
 		<ShadowSize>90</ShadowSize>
 		<MaxHitPoints>125</MaxHitPoints>
 		<Defense>25</Defense>
 		<XpMult>0.2</XpMult>
 		<Z>0.26</Z>
-
+		
 		<Projectile id="0">
 			<ObjectId>Ghost Shot</ObjectId>
 			<Damage>25</Damage>
@@ -321,24 +322,24 @@
 			<Size>90</Size>
 			<LifetimeMS>1000</LifetimeMS>
 		</Projectile>
-
-
+		
+		
 	</Object>
-
+	
 	<Object type="0x0dcd" id="Jungle Totem">
 		<Enemy/>
 		<Class>Character</Class>
-
+		
 		<AnimatedTexture><File>chars16x16dEncounters2</File><Index>32</Index></AnimatedTexture>
-
+		
 		<HitSound>monster/wooden_walls_hit</HitSound>
 		<DeathSound>monster/stone_walls_death</DeathSound>
-
+		
 		<Size>130</Size>
 		<ShadowSize>90</ShadowSize>
 		<MaxHitPoints>900</MaxHitPoints>
 		<Defense>10</Defense>
-
+		
 		<Projectile id="0">
 			<ObjectId>Totem Blast</ObjectId>
 			<Damage>40</Damage>
@@ -346,105 +347,110 @@
 			<Size>100</Size>
 			<LifetimeMS>1000</LifetimeMS>
 		</Projectile>
-
-
-
+		
+		
+		
 	</Object>
-
+	
 	<Object type="0x0dce" id="Basilisk Baby">
 		<Enemy/>
 		<Class>Character</Class>
-
+		
 		<AnimatedTexture><File>chars16x8dEncounters</File><Index>1</Index></AnimatedTexture>
-
+		
 		<HitSound>monster/slimes_death</HitSound>
 		<DeathSound>monster/flying_brain_death</DeathSound>
 		<Size>100</Size>
 		<ShadowSize>100</ShadowSize>
 		<MaxHitPoints>200</MaxHitPoints>
 		<Defense>10</Defense>
-
+		
 		<Projectile id="0">
 			<ObjectId>Basilisk Acid</ObjectId>
-			<Damage>30</Damage>
+			<MinDamage>15</MinDamage>
+			<MaxDamage>30</MaxDamage>
 			<Speed>65</Speed>
 			<Size>100</Size>
 			<LifetimeMS>1000</LifetimeMS>
 			<Amplitude>0.05</Amplitude>
 			<Frequency>5</Frequency>
 		</Projectile>
-
-
+		
+		
 	</Object>
-
+	
 	<Object type="0x0dcf" id="Basilisk">
 		<Enemy/>
 		<Class>Character</Class>
-
+		
 		<AnimatedTexture><File>chars16x16dEncounters2</File><Index>33</Index></AnimatedTexture>
-
+		
 		<HitSound>monster/slimes_death</HitSound>
 		<DeathSound>monster/flying_brain_death</DeathSound>
 		<Size>100</Size>
 		<ShadowSize>100</ShadowSize>
 		<MaxHitPoints>370</MaxHitPoints>
 		<Defense>10</Defense>
-
+		
 		<Projectile id="0">
 			<ObjectId>Basilisk Acid</ObjectId>
-			<Damage>30</Damage>
+			<MinDamage>15</MinDamage>
+			<MaxDamage>30</MaxDamage>
 			<Speed>65</Speed>
 			<Size>100</Size>
 			<LifetimeMS>1000</LifetimeMS>
 			<Amplitude>0.05</Amplitude>
 			<Frequency>5</Frequency>
 		</Projectile>
-
+		
 		<Projectile id="1">
 			<ObjectId>Basilisk Beam</ObjectId>
-			<Damage>30</Damage>
+			<MinDamage>15</MinDamage>
+			<MaxDamage>30</MaxDamage>
 			<Speed>38</Speed>
 			<Size>80</Size>
 			<LifetimeMS>800</LifetimeMS>
 			<PassesCover/>
 		</Projectile>
-
+		
 		<Projectile id="2">
 			<ObjectId>Basilisk Beam</ObjectId>
-			<Damage>35</Damage>
+			<MinDamage>25</MinDamage>
+			<MaxDamage>35</MaxDamage>
 			<Speed>45</Speed>
 			<Size>130</Size>
 			<LifetimeMS>800</LifetimeMS>
 			<PassesCover/>
 		</Projectile>
-
+		
 		<Projectile id="3">
 			<ObjectId>Basilisk Beam</ObjectId>
-			<Damage>45</Damage>
+			<MinDamage>30</MinDamage>
+			<MaxDamage>45</MaxDamage>
 			<Speed>55</Speed>
 			<Size>180</Size>
 			<LifetimeMS>800</LifetimeMS>
 			<PassesCover/>
 		</Projectile>
-
-
-
+		
+		
+		
 	</Object>
-
+	
 	<Object type="0x0dd0" id="Mask Shaman">
 		<Enemy/>
 		<Class>Character</Class>
 		<Group>Jungle Men</Group>
-
+		
 		<AnimatedTexture><File>chars8x8rEncounters</File><Index>23</Index></AnimatedTexture>
-
+		
 		<HitSound>monster/slimes_death</HitSound>
 		<DeathSound>monster/flying_brain_death</DeathSound>
 		<Size>100</Size>
 		<ShadowSize>100</ShadowSize>
 		<MaxHitPoints>250</MaxHitPoints>
 		<Defense>5</Defense>
-
+		
 		<Projectile id="0">
 			<ObjectId>Shaman Star</ObjectId>
 			<Damage>10</Damage>
@@ -454,25 +460,25 @@
 			<ConditionEffect duration="4">Hallucinating</ConditionEffect>
 			<ConditionEffect duration="1">Quiet</ConditionEffect>
 		</Projectile>
-
-
+		
+		
 	</Object>
-
+	
 	<Object type="0x0dd1" id="Mask Warrior">
 		<Enemy/>
 		<Class>Character</Class>
 		<Group>Jungle Men</Group>
-
+		
 		<AnimatedTexture><File>chars8x8rEncounters</File><Index>24</Index></AnimatedTexture>
-
+		
 		<HitSound>monster/slimes_death</HitSound>
 		<DeathSound>monster/flying_brain_death</DeathSound>
 		<Size>100</Size>
 		<ShadowSize>100</ShadowSize>
 		<MaxHitPoints>300</MaxHitPoints>
 		<Defense>20</Defense>
-
-
+		
+		
 		<Projectile id="0">
 			<ObjectId>Mask Blast</ObjectId>
 			<Damage>10</Damage>
@@ -480,24 +486,24 @@
 			<Size>80</Size>
 			<LifetimeMS>800</LifetimeMS>
 		</Projectile>
-
-
+			
+		
 	</Object>
-
+	
 	<Object type="0x0dd2" id="Mask Hunter">
 		<Enemy/>
 		<Class>Character</Class>
 		<Group>Jungle Men</Group>
-
+		
 		<AnimatedTexture><File>chars8x8rEncounters</File><Index>25</Index></AnimatedTexture>
-
+		
 		<HitSound>monster/slimes_death</HitSound>
 		<DeathSound>monster/flying_brain_death</DeathSound>
 		<Size>100</Size>
 		<ShadowSize>100</ShadowSize>
 		<MaxHitPoints>300</MaxHitPoints>
 		<Defense>10</Defense>
-
+		
 		<Projectile id="0">
 			<ObjectId>Hunter Spear</ObjectId>
 			<Damage>25</Damage>
@@ -505,14 +511,14 @@
 			<Size>80</Size>
 			<LifetimeMS>1000</LifetimeMS>
 		</Projectile>
-
-
+		
+		
 	</Object>
 
 	<Object type="0x0dd3" id="Jungle Fire">
 		<Enemy/>
 		<Class>Character</Class>
-
+		
 		<Texture><File>lofiObjBig</File><Index>0x0a</Index></Texture>
 		<Animation prob="1.0" period="0.0">
 			<Frame time="0.2"><Texture><File>lofiObjBig</File><Index>0x0b</Index></Texture></Frame>
@@ -524,7 +530,7 @@
 			<Frame time="0.2"><Texture><File>lofiObjBig</File><Index>0x0f</Index></Texture></Frame>
 			<Frame time="0.2"><Texture><File>lofiObjBig</File><Index>0x10</Index></Texture></Frame>
 		</Animation>
-
+		
 		<HitSound>monster/slimes_death</HitSound>
 		<DeathSound>monster/flying_brain_death</DeathSound>
 		<Size>100</Size>
@@ -532,18 +538,21 @@
 		<ShadowColor>0xFA9632</ShadowColor>
 		<MaxHitPoints>400</MaxHitPoints>
 		<Defense>80</Defense>
-
+		
 		<Projectile id="0">
 			<ObjectId>Invisible</ObjectId>
-			<Damage>20</Damage>
+			<MinDamage>10</MinDamage>
+			<MaxDamage>20</MaxDamage>
 			<Speed>0</Speed>
 			<Size>120</Size>
 			<LifetimeMS>5000</LifetimeMS>
+			<MultiHit/>
 		</Projectile>
-
+		
 		<Projectile id="1">
 			<ObjectId>Fireball 2</ObjectId>
-			<Damage>30</Damage>
+			<MinDamage>20</MinDamage>
+			<MaxDamage>30</MaxDamage>
 			<Speed>60</Speed>
 			<Size>80</Size>
 			<LifetimeMS>1200</LifetimeMS>

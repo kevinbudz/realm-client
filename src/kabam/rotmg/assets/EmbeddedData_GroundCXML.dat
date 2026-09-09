@@ -396,7 +396,7 @@
 	<Ground type="0x64" id="Scorch">
 		<Texture><File>lofiEnvironment</File><Index>0x64</Index></Texture>
 	</Ground>
-	<Ground type="0x65" id="Grey Circle 2">
+	<Ground type="0x65" id="Grey Circle">
 		<Texture><File>lofiEnvironment</File><Index>0x65</Index></Texture>
 	</Ground>
 	<Ground type="0x66" id="Checker Board">
@@ -424,7 +424,8 @@
 
 	<Ground type="0x70" id="Lava">
 		<Texture><File>lofiEnvironment</File><Index>0x70</Index></Texture>
-		<Damage>10</Damage>
+		<MinDamage>30</MinDamage>
+		<MaxDamage>60</MaxDamage>
 		<Animate dx=".33" dy=".33">Flow</Animate>
 		<Sink/>
 		<Speed>.666</Speed>
@@ -459,7 +460,7 @@
 	</Ground>
 	<Ground type="0x79" id="Grey Pathway">
 		<Texture><File>lofiEnvironment2</File><Index>0x95</Index></Texture>
-
+		
 		<Speed>1.4</Speed>
 		<CompositePriority>1</CompositePriority>
 	</Ground>
@@ -474,7 +475,7 @@
 		<NoWalk/>
 		<CompositePriority>2</CompositePriority>
 	</Ground>
-
+	
 	<Ground type="0xa6" id="GhostGround ExLight">
 		<Texture><File>lofiObj3</File><Index>0x29</Index></Texture>
 	</Ground>
@@ -490,7 +491,7 @@
 		<Edge><Texture><File>lofiEnvironment3</File><Index>0xd7</Index></Texture></Edge>
 		<InnerCorner><Texture><File>lofiEnvironment3</File><Index>0xd8</Index></Texture></InnerCorner>
 	</Ground>
-
+	
 	<Ground type="0x7f" id="Ghostship Rug">
 		<SameTypeEdgeMode/>
 		<Texture><File>lofiObj3</File><Index>0x2d</Index></Texture>
@@ -498,7 +499,7 @@
 		<InnerCorner><Texture><File>lofiObj3</File><Index>0x2f</Index></Texture></InnerCorner>
 		<Corner><Texture><File>lofiObj3</File><Index>0x37</Index></Texture></Corner>
 	</Ground>
-
+	
 	<Ground type="0xa0" id="White Alpha Square">
 		<Texture><File>lofiEnvironment2</File><Index>0x30</Index></Texture>
 		<XOffset>.0625</XOffset>
@@ -573,7 +574,7 @@
 	<Ground type="0xc4" id="Stone Square">
 		<Texture><File>lofiEnvironment</File><Index>0xc4</Index></Texture>
 	</Ground>
-
+	
 	<Ground type="0xd0" id="Road">
 		<RandomTexture>
 			<Texture><File>lofiEnvironment2</File><Index>0x70</Index></Texture>
@@ -643,36 +644,37 @@
 		<NoWalk/>
 		<CompositePriority>-1</CompositePriority>
 	</Ground>
-
+	
 	<Ground type="0xf1" id="Grey Dirt">
 		<Texture><File>lofiEnvironment2</File><Index>0x2a</Index></Texture>
 		<BlendPriority>1</BlendPriority>
 		<RandomOffset/>
 	</Ground>
-
+	
 	<Ground type="0xf2" id="Scorch Blend">
 		<Texture><File>lofiEnvironment</File><Index>0x64</Index></Texture>
 		<BlendPriority>1</BlendPriority>
 		<RandomOffset/>
 	</Ground>
-
+	
 	<Ground type="0xf3" id="Oryx Room">
 		<RandomTexture>
 			<Texture><File>lofiEnvironment</File><Index>0x25</Index></Texture>
 			<Texture><File>lofiEnvironment</File><Index>0x26</Index></Texture>
 		</RandomTexture>
 	</Ground>
-
+	
 	<Ground type="0xf4" id="Lava Blend">
 		<Texture><File>lofiEnvironment</File><Index>0x70</Index></Texture>
-		<Damage>10</Damage>
+		<MinDamage>30</MinDamage>
+		<MaxDamage>60</MaxDamage>
 		<Animate dx=".33" dy=".33">Flow</Animate>
 		<Sink/>
 		<Speed>.666</Speed>
 		<BlendPriority>1</BlendPriority>
 	</Ground>
-
-
+	
+	
 	<Ground type="0xf5" id="Gold Sand">
 		<Texture><File>lofiEnvironment3</File><Index>0xcc</Index></Texture>
 		<BlendPriority>30</BlendPriority>
@@ -689,32 +691,32 @@
 			<Texture><File>lofiEnvironment3</File><Index>0xd1</Index></Texture>
 		</RandomTexture>
 	</Ground>
-
-
+	
+	
 	<Ground type="0xe6" id="Purple Rug">
 		<SameTypeEdgeMode/>
-
+		
 		<Texture><File>lofiObj3</File><Index>0x38</Index></Texture>
-
+		
 		<Edge><Texture><File>lofiObj3</File><Index>0x39</Index></Texture></Edge>
 		<Corner><Texture><File>lofiObj3</File><Index>0x3a</Index></Texture></Corner>
 		<InnerCorner><Texture><File>lofiObj3</File><Index>0x3b</Index></Texture></InnerCorner>
-
+		
 	</Ground>
-
+	
 	<Ground type="0xe7" id="Castle Cobble">
 		<Texture><File>lofiObj3</File><Index>0x3f</Index></Texture>
 		<Edge><Texture><File>lofiEnvironment3</File><Index>0xd7</Index></Texture></Edge>
 		<InnerCorner><Texture><File>lofiEnvironment3</File><Index>0xd8</Index></Texture></InnerCorner>
 	</Ground>
-
+	
 	<Ground type="0xe8" id="Black">
 		<Texture><File>lofiEnvironment3</File><Index>0xdc</Index></Texture>
 	</Ground>
-
+	
 	<Ground type="0xfa" id="GhostWater">
         <Texture><File>lofiObj3</File><Index>0x171</Index></Texture>
-
+        
 		<Sink/>
 		<Speed>0.85</Speed>
 		<Animate dx="0.25">Flow</Animate>
@@ -787,13 +789,13 @@
 		<XOffset>.0625</XOffset>
 		<YOffset>.0625</YOffset>
 	</Ground>
-
-
-
-
-
-
-
+	
+	
+	
+	
+	
+	
+    
     <Ground type="0xd1" id="Lab Broken Floor">
 		<RandomTexture>
 			<Texture><File>lofiObj3</File><Index>0x113</Index></Texture>
@@ -801,23 +803,23 @@
 		</RandomTexture>
 		<Edge><Texture><File>lofiEnvironment3</File><Index>0xe6</Index></Texture></Edge>
 		<Corner><Texture><File>lofiEnvironment3</File><Index>0xe7</Index></Texture></Corner>
-
+        
 	</Ground>
-
+	
 	<Ground type="0xd2" id="Lab Grate Floor">
 		<Texture><File>lofiObj3</File><Index>0x115</Index></Texture>
 		<Edge><Texture><File>lofiEnvironment3</File><Index>0xe6</Index></Texture></Edge>
 		<Corner><Texture><File>lofiEnvironment3</File><Index>0xe7</Index></Texture></Corner>
-
+        
 	</Ground>
-
+    
     <Ground type="0x85" id="Lab Floor Power">
 		<Texture><File>lofiObj3</File><Index>0x116</Index></Texture>
 		<Edge><Texture><File>lofiEnvironment3</File><Index>0xe6</Index></Texture></Edge>
 		<Corner><Texture><File>lofiEnvironment3</File><Index>0xe7</Index></Texture></Corner>
-
+        
 	</Ground>
-
+	
 	<Ground type="0xd3" id="Lab Floor">
 		<RandomTexture>
 			<Texture><File>lofiObj3</File><Index>0x117</Index></Texture>
@@ -827,7 +829,7 @@
 		</RandomTexture>
 		<Edge><Texture><File>lofiEnvironment3</File><Index>0xe6</Index></Texture></Edge>
 		<Corner><Texture><File>lofiEnvironment3</File><Index>0xe7</Index></Texture></Corner>
-
+        
 	</Ground>
 
 	<Ground type="0xb7" id="Lab Floor NO WALK">
@@ -843,13 +845,13 @@
             <Texture><File>lofiObj3</File><Index>0x17e</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x17f</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x180</Index></Texture>
-
+            
             <Texture><File>lofiObj3</File><Index>0x181</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x182</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x183</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x184</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x184</Index></Texture>
-
+            
             <Texture><File>lofiObj3</File><Index>0x185</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x186</Index></Texture>
 		</RandomTexture>
@@ -863,19 +865,19 @@
         </Edge>
 		<SameTypeEdgeMode/>
 	</Ground>
-
+	
 	<Ground type="0xe9" id="Light Moss">
         <Texture><File>lofiObj3</File><Index>0x187</Index></Texture>
 		<BlendPriority>2</BlendPriority>
 		<RandomOffset/>
 	</Ground>
-
+	
 	<Ground type="0xf8" id="Light Moss 2">
         <Texture><File>lofiObj3</File><Index>0x188</Index></Texture>
 		<BlendPriority>2</BlendPriority>
 		<RandomOffset/>
 	</Ground>
-
+	
 	<Ground type="0xf9" id="Dirt Cover">
 		<RandomTexture>
 			<Texture><File>lofiObj3</File><Index>0x189</Index></Texture>
@@ -884,7 +886,7 @@
 		</RandomTexture>
 		<RandomOffset/>
 	</Ground>
-
+    
     <Ground type="0xb1" id="Tropical Water Deep">
         <Texture><File>lofiObj3</File><Index>0x18c</Index></Texture>
 		<Sink/>
@@ -892,7 +894,7 @@
 		<Animate dx="0.3" dy="0.3">Wave</Animate>
 		<BlendPriority>4</BlendPriority>
 	</Ground>
-
+    
     <Ground type="0xb2" id="Tropical Water Mid">
         <Texture><File>lofiObj3</File><Index>0x18d</Index></Texture>
 		<Sink/>
@@ -900,7 +902,7 @@
 		<BlendPriority>3</BlendPriority>
 		<Speed>.555</Speed>
 	</Ground>
-
+    
     <Ground type="0xb3" id="Tropical Water Surf">
         <Texture><File>lofiObj3</File><Index>0x18e</Index></Texture>
 		<Sink/>
@@ -910,48 +912,48 @@
 	</Ground>
 
     <Ground type="0xb4" id="Beach Towel 1">
-        <Texture><File>lofiObj3</File><Index>0x18f</Index></Texture>
+        <Texture><File>lofiObj3</File><Index>0x18f</Index></Texture> 
 		<BlendPriority>30</BlendPriority>
     </Ground>
 
     <Ground type="0xb5" id="Beach Towel 2">
-        <Texture><File>lofiObj3</File><Index>0x190</Index></Texture>
+        <Texture><File>lofiObj3</File><Index>0x190</Index></Texture> 
 		<BlendPriority>30</BlendPriority>
     </Ground>
-
+    
     <Ground type="0xb6" id="Bridge Light">
         <Texture><File>lofiObj3</File><Index>0x191</Index></Texture>
 	</Ground>
-
+		
     <Ground type="0xb8" id="Ice Slide">
 		<RandomTexture>
             <Texture><File>lofiObj3</File><Index>0x1b5</Index></Texture>
-
+            
             <Texture><File>lofiObj3</File><Index>0x1b6</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x1b7</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x1b8</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x1b9</Index></Texture>
-
+            
             <Texture><File>lofiObj3</File><Index>0x1ba</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x1ba</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x1ba</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x1ba</Index></Texture>
-
+            
             <Texture><File>lofiObj3</File><Index>0x1bb</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x1bc</Index></Texture>
 		</RandomTexture>
-
+        
 		<BlendPriority>20</BlendPriority>
-
+        
 		<Speed>.888</Speed>
 	</Ground>
-
+	
     <Ground type="0xb9" id="Snow">
 		<RandomTexture>
             <Texture><File>lofiObj3</File><Index>0x1c0</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x1c0</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x1c0</Index></Texture>
-
+            
             <Texture><File>lofiObj3</File><Index>0x1c1</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x1c2</Index></Texture>
             <Texture><File>lofiObj3</File><Index>0x1c3</Index></Texture>
@@ -960,24 +962,24 @@
 		</RandomTexture>
 		<Speed>.95</Speed>
 	</Ground>
-
+    
     <Ground type="0x80" id="Snow Dark">
         <Texture><File>lofiObj3</File><Index>0x1c6</Index></Texture>
 		<Speed>.95</Speed>
 		<BlendPriority>21</BlendPriority>
 	</Ground>
-
+    
     <Ground type="0x81" id="Snow White">
         <Texture><File>lofiObj3</File><Index>0x1c0</Index></Texture>
 		<Speed>.95</Speed>
 		<BlendPriority>15</BlendPriority>
 	</Ground>
-
+    
     <Ground type="0x82" id="Lab Bad Vat No Slow">
 		<Texture><File>lofiObj3</File><Index>0x133</Index></Texture>
         <Sink/>
 	</Ground>
-
+    
     <Ground type="0x83" id="Lab Good Vat No Slow">
         <Texture><File>lofiObj3</File><Index>0x14e</Index></Texture>
         <Sink/>
@@ -986,7 +988,8 @@
 
     <Ground type="0xa8" id="Liquid Evil">
         <Texture><File>lofiEnvironment</File><Index>0x71</Index></Texture>
-		<Damage>5</Damage>
+        <MinDamage>25</MinDamage>
+        <MaxDamage>40</MaxDamage>
         <Animate dx=".33" dy=".33">Flow</Animate>
         <Sink/>
         <Speed>.666</Speed>

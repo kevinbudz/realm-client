@@ -23,10 +23,11 @@
 			<LifetimeMS>2000</LifetimeMS>
 			<Size>60</Size>
 			<ArmorPiercing/>
+			<MultiHit/>
 		</Projectile>
 
 	</Object>
-
+	
 	<Object type="0x652" id="Sprite God">
 		<Enemy/>
 		<Class>Character</Class>
@@ -52,13 +53,14 @@
 			<Speed>60</Speed>
 			<LifetimeMS>2400</LifetimeMS>
 			<ConditionEffect duration="10">Quiet</ConditionEffect>
+			<MultiHit/>
 			<ParticleTrail/>
 		</Projectile>
 
 
 
 	</Object>
-
+	
 	<Object type="0x653" id="Sprite Child">
 		<Enemy/>
 		<Class>Character</Class>
@@ -71,7 +73,7 @@
 		<Terrain>Mountains</Terrain>
 		<Flying/>
 	</Object>
-
+	
 	<Object type="0x654" id="Medusa">
 		<Group>Gods</Group>
 		<Enemy/>
@@ -94,7 +96,7 @@
 		</Projectile>
 
 	</Object>
-
+	
 	<Object type="0x655" id="Ent God">
 		<Group>Gods</Group>
 		<Enemy/>
@@ -114,10 +116,11 @@
 			<Damage>70</Damage>
 			<Speed>80</Speed>
 			<LifetimeMS>2000</LifetimeMS>
+			<MultiHit/>
 		</Projectile>
 
 	</Object>
-
+	
 	<Object type="0x656" id="Beholder">
 		<Group>Gods</Group>
 		<Enemy/>
@@ -149,7 +152,7 @@
 		</Projectile>
 
 	</Object>
-
+	
 	<Object type="0x657" id="Flying Brain">
 		<Group>Gods</Group>
 		<Enemy/>
@@ -174,7 +177,7 @@
 
 
 	</Object>
-
+	
 	<Object type="0x658" id="Slime God">
 		<Group>Gods</Group>
 		<Enemy/>
@@ -203,7 +206,7 @@
 		</Projectile>
 
 	</Object>
-
+	
 	<Object type="0x659" id="Ghost God">
 		<Group>Gods</Group>
 		<Enemy/>
@@ -233,23 +236,24 @@
 		<Group>Rocks</Group>
 		<Enemy/>
 		<Class>Character</Class>
-		<DisplayId>Rock Construct</DisplayId>
+		<DisplayId>Rock Construct</DisplayId>	
 
-
+			
 		<Texture><File>lofiChar216x16</File><Index>0x24</Index></Texture>
 		<HitSound>monster/stone_walls_hit</HitSound>
 		<DeathSound>monster/stone_walls_death</DeathSound>
 
-
+		
 		<Projectile id="0">
 			<ObjectId>White Bullet</ObjectId>
 			<Speed>70</Speed>
 			<Damage>80</Damage>
 			<Size>80</Size>
 			<LifetimeMS>2000</LifetimeMS>
-		</Projectile>
+			<MultiHit/>
+		</Projectile>		
 
-
+			
 		<MaxHitPoints>2000</MaxHitPoints>
 		<Size>70</Size>
 		<Defense>20</Defense>
@@ -258,83 +262,85 @@
 		<SpawnProb>0.3</SpawnProb>
 		<God/>
 
+			
 
+					
 
-
-
-
+		
 	</Object>
 
 	<Object type="0x0906" id="Paper Bot">
 		<Group>Papers</Group>
 		<Enemy/>
 		<Class>Character</Class>
-		<DisplayId>Wood Construct</DisplayId>
+		<DisplayId>Wood Construct</DisplayId>	
 
-
+			
 		<Texture><File>lofiChar216x16</File><Index>0x25</Index></Texture>
 		<HitSound>monster/wooden_walls_hit</HitSound>
 		<DeathSound>monster/wooden_walls_death</DeathSound>
 
-
+		
 		<Projectile id="0">
 			<ObjectId>White Bullet</ObjectId>
 			<Speed>30</Speed>
 			<Damage>50</Damage>
 			<Size>50</Size>
 			<LifetimeMS>4000</LifetimeMS>
-		</Projectile>
+			<MultiHit/>
+		</Projectile>		
 
-
+			
 		<MaxHitPoints>2000</MaxHitPoints>
 		<Size>70</Size>
 		<Defense>20</Defense>
 		<XpMult>0.0</XpMult>
 		<Terrain>Mountains</Terrain>
 
+			
+
+					
 
 
 
-
-
-
-
+		
 	</Object>
 
 	<Object type="0x0907" id="Steel Bot">
 		<Group>Steels</Group>
 		<Enemy/>
 		<Class>Character</Class>
-		<DisplayId>Steel Construct</DisplayId>
+		<DisplayId>Steel Construct</DisplayId>	
 
-
+			
 		<Texture><File>lofiChar216x16</File><Index>0x26</Index></Texture>
 		<HitSound>monster/rocks_hit</HitSound>
 		<DeathSound>monster/rocks_death</DeathSound>
 
-
+		
 		<Projectile id="0">
 			<ObjectId>White Bullet</ObjectId>
 			<Speed>30</Speed>
 			<Damage>50</Damage>
 			<Size>50</Size>
 			<LifetimeMS>4000</LifetimeMS>
-		</Projectile>
+			<MultiHit/>
+		</Projectile>		
 
-
+			
 		<MaxHitPoints>2000</MaxHitPoints>
 		<Size>70</Size>
 		<Defense>20</Defense>
 		<XpMult>0.0</XpMult>
 		<Terrain>Mountains</Terrain>
 
+			
+
+					
 
 
 
-
-
-
-
+		
 	</Object>
 
 	<Object type="0x091a" id="Djinn">
@@ -359,6 +365,7 @@
 			<Speed>60</Speed>
 			<Size>60</Size>
 			<LifetimeMS>1500</LifetimeMS>
+			<MultiHit/>
 		</Projectile>
 		
 					

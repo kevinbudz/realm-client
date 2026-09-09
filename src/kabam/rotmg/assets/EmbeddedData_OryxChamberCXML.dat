@@ -30,106 +30,106 @@
 			<Damage>160</Damage>
 			<Size>120</Size>
 			<LifetimeMS>700</LifetimeMS>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="1">
-			<ObjectId>White Flame</ObjectId>
+		<Projectile id="1">		
+			<ObjectId>White Flame</ObjectId>		
 			<Speed>100</Speed>
 			<Damage>280</Damage>
 			<Size>250</Size>
 			<LifetimeMS>800</LifetimeMS>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="2">
+		<Projectile id="2">					 
 			<ObjectId>White Bolt</ObjectId>
 			<Speed>80</Speed>
 			<Damage>90</Damage>
 			<LifetimeMS>1600</LifetimeMS>
 			<ArmorPiercing/>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="3">
+		<Projectile id="3">					
 			<ObjectId>Fire Bolt</ObjectId>
 			<Speed>100</Speed>
 			<Damage>40</Damage>
 			<LifetimeMS>2000</LifetimeMS>
 		</Projectile>
-		<Projectile id="4">
+		<Projectile id="4">					
 			<ObjectId>Green Star</ObjectId>
 			<Speed>80</Speed>
 			<Damage>60</Damage>
 			<LifetimeMS>2000</LifetimeMS>
 			<ConditionEffect duration="9">Slowed</ConditionEffect>
-		</Projectile>
-		<Projectile id="5">
+		</Projectile>	
+		<Projectile id="5">					
 			<ObjectId>White Blue Bubble</ObjectId>
 			<Speed>30</Speed>
 			<Damage>100</Damage>
 			<Size>90</Size>
 			<LifetimeMS>4000</LifetimeMS>
 			<ConditionEffect duration="3">Weak</ConditionEffect>
-
-		</Projectile>
-		<Projectile id="6">
+			<MultiHit/>
+		</Projectile>	
+		<Projectile id="6">					
 			<ObjectId>White Ball</ObjectId>
 			<Speed>30</Speed>
 			<Damage>120</Damage>
 			<Size>100</Size>
 			<LifetimeMS>800</LifetimeMS>
-
-		</Projectile>
-		<Projectile id="7">
+			<MultiHit/>
+		</Projectile>	
+		<Projectile id="7">					
 			<ObjectId>Silver Shield</ObjectId>
 			<Speed>30</Speed>
 			<Damage>290</Damage>
 			<Size>130</Size>
 			<LifetimeMS>500</LifetimeMS>
-
-		</Projectile>
-		<Projectile id="8">
+			<MultiHit/>
+		</Projectile>		
+		<Projectile id="8">					
 			<ObjectId>White Bullet</ObjectId>
 			<Speed>40</Speed>
 			<Damage>90</Damage>
 			<Size>90</Size>
 			<LifetimeMS>2500</LifetimeMS>
 			<ConditionEffect duration="2">Blind</ConditionEffect>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="9">
+		<Projectile id="9">					
 			<ObjectId>White Bullet</ObjectId>
 			<Speed>55</Speed>
 			<Damage>400</Damage>
 			<Size>200</Size>
 			<LifetimeMS>2100</LifetimeMS>
-
-		</Projectile>
-		<Projectile id="12">
+			<MultiHit/>
+		</Projectile>		
+		<Projectile id="12">					
 			<ObjectId>White Bullet</ObjectId>
 			<Speed>30</Speed>
 			<Damage>120</Damage>
 			<Size>75</Size>
 			<LifetimeMS>1900</LifetimeMS>
 		</Projectile>
-		<Projectile id="13">
+		<Projectile id="13">					
 			<ObjectId>Dark Gray Spinner</ObjectId>
 			<Speed>90</Speed>
 			<Size>100</Size>
 			<Damage>1</Damage>
 			<LifetimeMS>1800</LifetimeMS>
 			<ConditionEffect duration="8">Quiet</ConditionEffect>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="14">
+		<Projectile id="14">					
 			<ObjectId>Gray Spinner</ObjectId>
 			<Speed>90</Speed>
 			<Size>100</Size>
 			<Damage>1</Damage>
 			<LifetimeMS>1800</LifetimeMS>
 			<ConditionEffect duration="8">Weak</ConditionEffect>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="15">
-
+		<Projectile id="15">					
+			
 			<ObjectId>White Ball</ObjectId>
 			<Speed>10</Speed>
 			<Size>100</Size>
@@ -138,73 +138,73 @@
 			<Parametric/>
 			<Magnitude>1</Magnitude>
 			<ConditionEffect duration="8">Weak</ConditionEffect>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="16">
+		<Projectile id="16">					
 			<ObjectId>White Superblast</ObjectId>
 			<Speed>55</Speed>
 			<Size>240</Size>
 			<Damage>210</Damage>
 			<LifetimeMS>3000</LifetimeMS>
-
+			<MultiHit/>
 			<ConditionEffect duration="4">Weak</ConditionEffect>
 		</Projectile>
-		<Projectile id="17">
+		<Projectile id="17">					
 			<ObjectId>White Ball Blast</ObjectId>
 			<Speed>85</Speed>
 			<Size>120</Size>
 			<Damage>180</Damage>
 			<LifetimeMS>3000</LifetimeMS>
 		</Projectile>
-		<Projectile id="18">
+		<Projectile id="18">					
 			<ObjectId>White Star Stunner</ObjectId>
 			<Speed>40</Speed>
 			<Size>100</Size>
 			<Damage>100</Damage>
 			<LifetimeMS>3000</LifetimeMS>
 			<ConditionEffect duration="4">Dazed</ConditionEffect>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="19">
+		<Projectile id="19">					
 			<ObjectId>White Ball Blast</ObjectId>
 			<Speed>35</Speed>
 			<Size>90</Size>
 			<Damage>100</Damage>
 			<LifetimeMS>3000</LifetimeMS>
 			<ConditionEffect duration="3">Weak</ConditionEffect>
-
+			<MultiHit/>
 		</Projectile>
+		
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+		
+		
+		
+	
+	
+	
+	
+	
+	
+	
+	
+	
+				
+		
+				
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+			 
 	</Object>
 
 	<Object type="0x1741" id="Assassin of Oryx">
@@ -220,7 +220,7 @@
 		<XpMult>0</XpMult>
 		<Size>100</Size>
 		<ShadowSize>100</ShadowSize>
-
+		
 		<Projectile id="0">
 			<ObjectId>Assassin Swipe</ObjectId>
 			<Speed>65</Speed>
@@ -234,16 +234,16 @@
 			<Speed>40</Speed>
 			<LifetimeMS>1200</LifetimeMS>
 			<Size>100</Size>
-		</Projectile>
+		</Projectile> 	
 
+		
 
-
-
-
-
-
-
-
+		
+		
+		
+		
+		
+		
 	</Object>
 
 	<Object type="0x1742" id="White Moon">
@@ -258,14 +258,14 @@
 		<ShadowSize>40</ShadowSize>
 		<Z>0.27</Z>
 		<Flying/>
-
+		
 		<Projectile id="0">
-			<ObjectId>White Planet Blast</ObjectId>
+			<ObjectId>White Planet Blast</ObjectId>		
 			<Speed>43</Speed>
 			<Damage>70</Damage>
 			<Size>80</Size>
 			<LifetimeMS>300</LifetimeMS>
-
+			<MultiHit/>
 		</Projectile>
 		<Projectile id="1">
 			<ObjectId>White Orb</ObjectId>
@@ -274,32 +274,32 @@
 			<LifetimeMS>1000</LifetimeMS>
 			<Size>80</Size>
 		</Projectile>
+		
 
 
 
-
-
+		
 	</Object>
 
 	<Object type="0x1743" id="White Planet">
 		<Class>Character</Class>
 		<Enemy/>
 		<Texture><File>lofiCharBig</File><Index>0x04</Index></Texture>
-
+		
 		<Animation prob="1" period="0">
 			<Frame time="0.2"><Texture><File>lofiCharBig</File><Index>0x05</Index></Texture></Frame>
 			<Frame time="0.2"><Texture><File>lofiCharBig</File><Index>0x04</Index></Texture></Frame>
 			<Frame time="0.2"><Texture><File>lofiCharBig</File><Index>0x06</Index></Texture></Frame>
-
+			
 			<Frame time="0.4"><Texture><File>lofiCharBig</File><Index>0x07</Index></Texture></Frame>
-
+			
 			<Frame time="0.2"><Texture><File>lofiCharBig</File><Index>0x06</Index></Texture></Frame>
 			<Frame time="0.2"><Texture><File>lofiCharBig</File><Index>0x04</Index></Texture></Frame>
 			<Frame time="0.2"><Texture><File>lofiCharBig</File><Index>0x05</Index></Texture></Frame>
-
+			
 			<Frame time="0.4"><Texture><File>lofiCharBig</File><Index>0x08</Index></Texture></Frame>
 		</Animation>
-
+	
 
 		<MaxHitPoints>1000</MaxHitPoints>
 		<Defense>50</Defense>
@@ -308,14 +308,14 @@
 		<ShadowSize>30</ShadowSize>
 		<Z>0.26</Z>
 		<Flying/>
-
+		
 		<Projectile id="0">
-			<ObjectId>White Planet Blast</ObjectId>
+			<ObjectId>White Planet Blast</ObjectId>		
 			<Speed>43</Speed>
 			<Damage>70</Damage>
 			<Size>100</Size>
 			<LifetimeMS>400</LifetimeMS>
-
+			<MultiHit/>
 		</Projectile>
 		<Projectile id="1">
 			<ObjectId>White Orb</ObjectId>
@@ -324,10 +324,10 @@
 			<LifetimeMS>1000</LifetimeMS>
 			<Size>80</Size>
 		</Projectile>
-
-
-
-
+		
+		
+		 
+		
 	</Object>
 
 	<Object type="0x1744" id="Chase Element">
@@ -336,29 +336,29 @@
 		<MaxHitPoints>100000</MaxHitPoints>
 		<Defense>1000</Defense>
 		<Enemy/>
-
-
+				
+			
 		<Texture><File>lofiObj2</File><Index>0x5f</Index></Texture>
 
-
-		<Projectile id="0">
+				
+		<Projectile id="0">				
 			<ObjectId>White Ball</ObjectId>
 			<Speed>25</Speed>
 			<Damage>65</Damage>
 			<Size>120</Size>
 			<LifetimeMS>480</LifetimeMS>
 			<ConditionEffect duration="8">Quiet</ConditionEffect>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="9">
+		<Projectile id="9"> 				
 			<ObjectId>Black Eye</ObjectId>
 			<Speed>40</Speed>
 			<Damage>20</Damage>
 			<Size>100</Size>
 			<LifetimeMS>480</LifetimeMS>
 			<ConditionEffect duration="8">Quiet</ConditionEffect>
-
-		</Projectile>
+			<MultiHit/>
+		</Projectile>	
 
 		<Projectile id="1">
 			<ObjectId>White Bullet</ObjectId>
@@ -367,25 +367,25 @@
 			<LifetimeMS>1400</LifetimeMS>
 			<Size>60</Size>
 			<ConditionEffect duration="4">Quiet</ConditionEffect>
-		</Projectile>
-
-		<Projectile id="2">
+		</Projectile>	
+		
+		<Projectile id="2">			
 			<ObjectId>White Bullet</ObjectId>
 			<Speed>20</Speed>
 			<Damage>65</Damage>
 			<Size>120</Size>
 			<LifetimeMS>340</LifetimeMS>
 			<ConditionEffect duration="8">Quiet</ConditionEffect>
-
-		</Projectile>
-
-
+			<MultiHit/>
+		</Projectile>	
+		
+			
 		<Size>80</Size>
 		<XpMult>0.0</XpMult>
 
-
-
-	</Object>
+		
+		
+	</Object>	
 
 	<Object type="0x1745" id="Black Moon">
 		<Group>Vagrant Repellent</Group>
@@ -396,7 +396,7 @@
 		<DeathSound>monster/cubes_death</DeathSound>
 		<Defense>5</Defense>
 		<XpMult>0.0</XpMult>
-		<MaxHitPoints>1000</MaxHitPoints>
+		<MaxHitPoints>1000</MaxHitPoints>		
 		<Size>100</Size>
         <StasisImmune/>
 
@@ -409,11 +409,11 @@
 			<ConditionEffect duration="4">Dazed</ConditionEffect>
 		</Projectile>
 
-
-
-
-
-
+		
+		
+		 
+		
+		
 	</Object>
 
 	<Object type="0x1746" id="Black Planet">
@@ -425,7 +425,7 @@
 		<DeathSound>monster/cubes_death</DeathSound>
 		<Defense>5</Defense>
 		<XpMult>0.0</XpMult>
-		<MaxHitPoints>1000</MaxHitPoints>
+		<MaxHitPoints>1000</MaxHitPoints>		
 		<Size>100</Size>
         <StasisImmune/>
 
@@ -444,10 +444,10 @@
 			<Size>80</Size>
 		</Projectile>
 
-
-
-
-
+		
+		
+		
+		
 	</Object>
 
 	<Object type="0x1747" id="Anti-Spectator">
@@ -459,7 +459,7 @@
 		<DeathSound>monster/cubes_death</DeathSound>
 		<Defense>5</Defense>
 		<XpMult>0.0</XpMult>
-		<MaxHitPoints>1000</MaxHitPoints>
+		<MaxHitPoints>1000</MaxHitPoints>		
 		<Size>100</Size>
         <StasisImmune/>
 
@@ -475,7 +475,7 @@
 
 
 	</Object>
-
+	
 	<Object type="0x1748" id="Ring Element">
 		<Group>AttackType</Group>
 		<Class>Character</Class>
@@ -483,37 +483,37 @@
 		<Defense>1000</Defense>
 		<Enemy/>
 
-
+			
         <Texture><File>lofiObj2</File><Index>0x48</Index></Texture>
 
-
-		<Projectile id="0">
+				
+		<Projectile id="0">				
 			<ObjectId>White Bullet</ObjectId>
 			<Speed>40</Speed>
 			<Damage>65</Damage>
 			<Size>100</Size>
 			<LifetimeMS>480</LifetimeMS>
 			<ConditionEffect duration="8">Quiet</ConditionEffect>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="9">
+		<Projectile id="9"> 				
 			<ObjectId>White Bullet</ObjectId>
 			<Speed>40</Speed>
 			<Damage>20</Damage>
 			<Size>100</Size>
 			<LifetimeMS>480</LifetimeMS>
 			<ConditionEffect duration="8">Quiet</ConditionEffect>
-
-		</Projectile>
-
-
+			<MultiHit/>
+		</Projectile>		
+		
+			
 		<Size>50</Size>
 		<XpMult>0.0</XpMult>
 
-
-
-
-	</Object>
+		
+		
+			
+	</Object>	
 
 	<Object type="0x1749" id="Minion of Oryx">
 		<Group>Minions of Oryx</Group>
@@ -521,15 +521,15 @@
 		<MaxHitPoints>4000</MaxHitPoints>
 		<Defense>12</Defense>
 		<Enemy/>
-
-
-
+        
+        
+			
 		<AnimatedTexture><File>chars16x16dEncounters2</File><Index>38</Index></AnimatedTexture>
 		<AltTexture id="1">
 			<AnimatedTexture><File>chars16x16rEncounters</File><Index>25</Index></AnimatedTexture>
 		</AltTexture>
-
-
+		
+				
 		<Projectile id="0">
 			<ObjectId>Fire Bolt</ObjectId>
 			<Speed>70</Speed>
@@ -537,7 +537,7 @@
 			<Size>80</Size>
 			<LifetimeMS>1300</LifetimeMS>
 		</Projectile>
-
+	
 		<Projectile id="1">
 			<ObjectId>Green Star</ObjectId>
 			<Speed>60</Speed>
@@ -545,18 +545,18 @@
 			<Size>100</Size>
 			<LifetimeMS>1600</LifetimeMS>
 			<ConditionEffect duration="6">Slowed</ConditionEffect>
-
-		</Projectile>
-
-
+			<MultiHit/>
+		</Projectile>		
+		
+			
 		<Size>100</Size>
 		<XpMult>0.3</XpMult>
 
 
-
-
-
-
+			
+		
+		
+		
 	</Object>
 
 	<Object type="0x174a" id="Guardian Element 1">
@@ -568,35 +568,35 @@
 		<Enemy/>
 		<StasisImmune/>
 
-
+			
         <Texture><File>lofiObj2</File><Index>0x4a</Index></Texture>
 
-
-		<Projectile id="0">
-			<ObjectId>White Flame</ObjectId>
+				
+		<Projectile id="0">				
+			<ObjectId>White Flame</ObjectId>	
 			<Speed>65</Speed>
 			<Damage>60</Damage>
 			<Size>65</Size>
 			<LifetimeMS>2000</LifetimeMS>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="1">
-			<ObjectId>White Bullet</ObjectId>
+		<Projectile id="1">				
+			<ObjectId>White Bullet</ObjectId>	
 			<Speed>52</Speed>
 			<Damage>60</Damage>
 			<Size>60</Size>
 			<LifetimeMS>940</LifetimeMS>
-
+			<MultiHit/>
 			<Amplitude>0.3</Amplitude>
-			<Frequency>0.5</Frequency>
-		</Projectile>
-
-
+			<Frequency>0.5</Frequency>	
+		</Projectile>		
+		
+			
 		<Size>130</Size>
 		<XpMult>0.0</XpMult>
 
-
-
+		
+		
 	</Object>
 
 	<Object type="0x174b" id="Guardian Element 2">
@@ -608,35 +608,35 @@
 		<Enemy/>
 		<StasisImmune/>
 
-
+			
         <Texture><File>lofiObj2</File><Index>0x4a</Index></Texture>
 
-
-		<Projectile id="0">
-			<ObjectId>White Flame</ObjectId>
+				
+		<Projectile id="0">				
+			<ObjectId>White Flame</ObjectId>	
 			<Speed>65</Speed>
 			<Damage>60</Damage>
 			<Size>65</Size>
 			<LifetimeMS>2000</LifetimeMS>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="1">
-			<ObjectId>White Bullet</ObjectId>
+		<Projectile id="1">				
+			<ObjectId>White Bullet</ObjectId>	
 			<Speed>52</Speed>
 			<Damage>60</Damage>
 			<Size>60</Size>
 			<LifetimeMS>940</LifetimeMS>
-
+			<MultiHit/>
 			<Amplitude>0.3</Amplitude>
-			<Frequency>0.5</Frequency>
-		</Projectile>
-
-
+			<Frequency>0.5</Frequency>	
+		</Projectile>			
+		
+			
 		<Size>130</Size>
 		<XpMult>0.0</XpMult>
 
-
-
+		
+		
 	</Object>
 
 	<Object type="0x174c" id="Guardian Element 3">
@@ -648,37 +648,37 @@
 		<Enemy/>
 		<StasisImmune/>
 
-
+			
         <Texture><File>lofiObj2</File><Index>0x4a</Index></Texture>
 
-
-		<Projectile id="0">
-			<ObjectId>White Flame</ObjectId>
+				
+		<Projectile id="0">				
+			<ObjectId>White Flame</ObjectId>	
 			<Speed>65</Speed>
 			<Damage>60</Damage>
 			<Size>65</Size>
 			<LifetimeMS>2000</LifetimeMS>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="1">
-			<ObjectId>White Bullet</ObjectId>
+		<Projectile id="1">				
+			<ObjectId>White Bullet</ObjectId>	
 			<Speed>52</Speed>
 			<Damage>60</Damage>
 			<Size>60</Size>
 			<LifetimeMS>940</LifetimeMS>
-
+			<MultiHit/>
 			<Amplitude>0.3</Amplitude>
-			<Frequency>0.5</Frequency>
-		</Projectile>
-
-
+			<Frequency>0.5</Frequency>	
+		</Projectile>			
+		
+			
 		<Size>130</Size>
 		<XpMult>0.0</XpMult>
 
-
-
+			
+		
 	</Object>
-
+	
 	<Object type="0x174d" id="Guardian Element 4">
 		<DisplayId>Guardian Element</DisplayId>
 		<Group>AttackType</Group>
@@ -688,36 +688,36 @@
 		<Enemy/>
 		<StasisImmune/>
 
-
+			
         <Texture><File>lofiObj2</File><Index>0x4a</Index></Texture>
 
-
-		<Projectile id="0">
-			<ObjectId>White Flame</ObjectId>
+				
+		<Projectile id="0">				
+			<ObjectId>White Flame</ObjectId>	
 			<Speed>65</Speed>
 			<Damage>60</Damage>
 			<Size>65</Size>
 			<LifetimeMS>2000</LifetimeMS>
-
+			<MultiHit/>
 		</Projectile>
-		<Projectile id="1">
-			<ObjectId>White Bullet</ObjectId>
+		<Projectile id="1">				
+			<ObjectId>White Bullet</ObjectId>	
 			<Speed>52</Speed>
 			<Damage>60</Damage>
 			<Size>60</Size>
 			<LifetimeMS>940</LifetimeMS>
-
+			<MultiHit/>
 			<Amplitude>0.3</Amplitude>
-			<Frequency>0.5</Frequency>
-		</Projectile>
-
-
+			<Frequency>0.5</Frequency>	
+		</Projectile>			
+		
+			
 		<Size>130</Size>
 		<XpMult>0.0</XpMult>
 
-
-
-	</Object>
+		
+		
+	</Object>	
 
 	<Object type="0x174e" id="Outer Guardian Element">
 		<DisplayId>Guardian Element</DisplayId>
@@ -728,17 +728,17 @@
 		<Enemy/>
 		<StasisImmune/>
 
-
+			
         <Texture><File>lofiObj2</File><Index>0x4a</Index></Texture>
 
-
+				
 		<Projectile id="0">
 			<ObjectId>White Flame</ObjectId>
 			<Damage>50</Damage>
 			<Size>60</Size>
 			<Speed>80</Speed>
 			<LifetimeMS>620</LifetimeMS>
-
+			<MultiHit/>
 		</Projectile>
 		
 			

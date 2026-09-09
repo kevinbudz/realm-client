@@ -130,6 +130,7 @@
 			<Speed>60</Speed>
 			<LifetimeMS>2400</LifetimeMS>
 			<ConditionEffect duration="10">Quiet</ConditionEffect>
+			<MultiHit/>
 			<ParticleTrail/>
 		</Projectile>
 
@@ -152,17 +153,18 @@
 		<Enemy/>
 		<XpMult>0.7</XpMult>
 		<NoArticle/>
-
+		
 		<Projectile id="0">
 			<ObjectId>Red Fire</ObjectId>
 			<Speed>80</Speed>
 			<Damage>70</Damage>
 			<Size>110</Size>
 			<LifetimeMS>2300</LifetimeMS>
+			<MultiHit/>
 		</Projectile>
 
 
-
+		
 	</Object>
 
 	<Object type="0x0d07" id="Limon Element 1">
@@ -175,21 +177,22 @@
 		<AnimatedTexture><File>chars8x8dEncounters</File><Index>0</Index></AnimatedTexture>
 		<Size>100</Size>
 
-
+				
 		<Projectile id="0">
 			<ObjectId>White Flame</ObjectId>
 			<Damage>50</Damage>
 			<Size>90</Size>
 			<Speed>90</Speed>
 			<LifetimeMS>1940</LifetimeMS>
+			<MultiHit/>
 			<PassesCover/>
 		</Projectile>
-
-
-
-
+		
+					
+		
+		
 	</Object>
-
+	
 	<Object type="0x0d08" id="Limon Element 2">
 		<DisplayId>Limon Element</DisplayId>
 		<Group>AttackType</Group>
@@ -200,19 +203,20 @@
 		<AnimatedTexture><File>chars8x8dEncounters</File><Index>0</Index></AnimatedTexture>
 		<Size>100</Size>
 
-
+				
 		<Projectile id="0">
 			<ObjectId>White Flame</ObjectId>
 			<Damage>50</Damage>
 			<Size>90</Size>
 			<Speed>90</Speed>
 			<LifetimeMS>1940</LifetimeMS>
+			<MultiHit/>
 			<PassesCover/>
 		</Projectile>
-
-
-
-
+		
+					
+		
+		
 	</Object>
 
 	<Object type="0x0d09" id="Limon Element 3">
@@ -225,21 +229,22 @@
 		<AnimatedTexture><File>chars8x8dEncounters</File><Index>0</Index></AnimatedTexture>
 		<Size>100</Size>
 
-
+				
 		<Projectile id="0">
 			<ObjectId>White Flame</ObjectId>
 			<Damage>50</Damage>
 			<Size>90</Size>
 			<Speed>90</Speed>
 			<LifetimeMS>1940</LifetimeMS>
+			<MultiHit/>
 			<PassesCover/>
 		</Projectile>
-
-
-
-
+		
+					
+		
+		
 	</Object>
-
+	
 	<Object type="0x0d0a" id="Limon Element 4">
 		<DisplayId>Limon Element</DisplayId>
 		<Group>AttackType</Group>
@@ -250,13 +255,14 @@
 		<AnimatedTexture><File>chars8x8dEncounters</File><Index>0</Index></AnimatedTexture>
 		<Size>100</Size>
 
-
+				
 		<Projectile id="0">
 			<ObjectId>White Flame</ObjectId>
 			<Damage>50</Damage>
 			<Size>90</Size>
 			<Speed>90</Speed>
 			<LifetimeMS>1940</LifetimeMS>
+			<MultiHit/>
 			<PassesCover/>
 		</Projectile>
 		

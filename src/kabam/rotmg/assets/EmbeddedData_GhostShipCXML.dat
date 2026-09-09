@@ -253,22 +253,24 @@
 		
 		<Projectile id="0">
 			<ObjectId>Invisible</ObjectId>
-			<Damage>80</Damage>
+			<MinDamage>50</MinDamage>
+			<MaxDamage>100</MaxDamage>
 			<Speed>0</Speed>
 			<Size>100</Size>
 			<LifetimeMS>5000</LifetimeMS>
+			<MultiHit/>
 		</Projectile>
-
-
-
-
-
-
-
-
-
+		
+		
+        
+        
+        
+        
+        
+        
+        
 	</Object>
-
+	
 	<Object type="0x0e37" id="Ghost Ship">
 		<Enemy/>
 		<Class>Character</Class>
@@ -280,15 +282,15 @@
 		<MaxHitPoints>42000</MaxHitPoints>
 		<Defense>40</Defense>
 		<Flying/>
-
+        
         <Hero/>
 		<Level>20</Level>
         <Quest/>
 		<God/>
         <StasisImmune/>
-
+        
         <KeepDamageRecord/>
-
+        
         <AltTexture id="1">
             <AnimatedTexture><File>chars16x16rEncounters</File><Index>36</Index></AnimatedTexture>
         </AltTexture>
@@ -296,13 +298,15 @@
             <AnimatedTexture><File>chars16x16rEncounters</File><Index>37</Index></AnimatedTexture>
             <Effect particle="SwirlingMist" cooldown="0.2">XMLEffect</Effect>
         </AltTexture>
-
+		
 		<Projectile id="0">
 			<ObjectId>Cannonball</ObjectId>
 			<Damage>80</Damage>
 			<Speed>60</Speed>
 			<Size>80</Size>
 			<LifetimeMS>4000</LifetimeMS>
+			
+			<MultiHit/>
 		</Projectile>
 		<Projectile id="1">
 			<ObjectId>Giant Cannonball</ObjectId>
@@ -310,6 +314,8 @@
 			<Speed>40</Speed>
 			<Size>180</Size>
 			<LifetimeMS>4000</LifetimeMS>
+			
+			<MultiHit/>
 		</Projectile>
         
         

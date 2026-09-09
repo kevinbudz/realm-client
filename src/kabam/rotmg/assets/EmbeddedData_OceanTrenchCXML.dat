@@ -297,6 +297,7 @@
 	        <Damage>12</Damage>
 	        <Size>60</Size>
 	        <LifetimeMS>600</LifetimeMS>
+	        <MultiHit/>
 		</Projectile>
 		<Projectile id="1">
 			<ObjectId>Deep Sea Blast</ObjectId>
@@ -304,6 +305,7 @@
 	        <Damage>21</Damage>
 	        <Size>88</Size>
 	        <LifetimeMS>600</LifetimeMS>
+	        <MultiHit/>
 		</Projectile>
 		<Projectile id="2">
 			<ObjectId>Deep Sea Blast</ObjectId>
@@ -311,6 +313,7 @@
 	        <Damage>37</Damage>
 	        <Size>154</Size>
 	        <LifetimeMS>600</LifetimeMS>
+	        <MultiHit/>
 		</Projectile>
 		<Projectile id="3">
 			<ObjectId>Deep Sea Blast</ObjectId>
@@ -318,28 +321,29 @@
 	        <Damage>64</Damage>
 	        <Size>270</Size>
 	        <LifetimeMS>600</LifetimeMS>
+	        <MultiHit/>
 		</Projectile>
-
-
-
-
-
-
-
+	    
+	        
+		
+		
+		
+	        
+			
 	</Object>
-
+	
 	<Object type="0x1708" id="Fishman">
 		<Group>Ocean Trench</Group>
 		<Enemy/>
 		<Class>Character</Class>
-
+		
 		<AnimatedTexture><File>chars8x8rEncounters</File><Index>13</Index></AnimatedTexture>
-
+	        	
 		<HitSound>monster/dragons_hit</HitSound>
 		<DeathSound>monster/flaming_skulls_death</DeathSound>
-
+	        
 		<MaxHitPoints>2500</MaxHitPoints>
-
+	        
 		<Projectile id="0">
 			<ObjectId>Fishman Spear</ObjectId>
 	        <Speed>55</Speed>
@@ -355,32 +359,32 @@
 	        <LifetimeMS>3000</LifetimeMS>
 			<ConditionEffect duration="1.8">Confused</ConditionEffect>
 		</Projectile>
-
+		
 		<Size>100</Size>
 		<Defense>40</Defense>
-
-
-
-
-
-
-	</Object>
-
+	    
+	        
+		
+		
+	        
+			
+	</Object> 
+	
 	<Object type="0x1709" id="Sea Horse">
 		<Group>Ocean Trench</Group>
 		<Enemy/>
 		<Class>Character</Class>
-
+		
 		<AnimatedTexture><File>chars8x8rEncounters</File><Index>18</Index></AnimatedTexture>
-
+	        	
 		<HitSound>monster/elves_death</HitSound>
 		<DeathSound>monster/night_elves_death</DeathSound>
-
+	        
 		<MaxHitPoints>1000</MaxHitPoints>
 		<Flying/>
 		<Z>0.26</Z>
 		<ShadowSize>80</ShadowSize>
-
+	        
 		<Projectile id="0">
 			<ObjectId>Bubble</ObjectId>
 	        <Speed>35</Speed>
@@ -388,27 +392,27 @@
 	        <Size>60</Size>
 	        <LifetimeMS>1000</LifetimeMS>
 		</Projectile>
-
+	        
 		<Size>60</Size>
 		<Defense>20</Defense>
-
-
-
-
-	</Object>
-
+	        
+	        
+	        
+			
+	</Object> 
+	
 	<Object type="0x170a" id="Sea Mare">
 		<Group>Ocean Trench</Group>
 		<Enemy/>
 		<Class>Character</Class>
-
+	        
 		<AnimatedTexture><File>chars16x16rEncounters</File><Index>13</Index></AnimatedTexture>
-
+	        	
 		<HitSound>monster/ogres_hit</HitSound>
 		<DeathSound>monster/medusa_death</DeathSound>
-
+	        
 		<MaxHitPoints>6000</MaxHitPoints>
-
+		 
 		<Projectile id="0">
 			<ObjectId>Squid Shot</ObjectId>
 	   		<Speed>50</Speed>
@@ -416,7 +420,7 @@
 			<Size>100</Size>
 			<LifetimeMS>1400</LifetimeMS>
 		</Projectile>
-
+		
 		<Projectile id="1">
 			<ObjectId>Sea Horse Spinner</ObjectId>
 	        <Speed>35</Speed>
@@ -425,65 +429,67 @@
 	        <LifetimeMS>3000</LifetimeMS>
 			<ConditionEffect duration="1.6">Paralyzed</ConditionEffect>
 		</Projectile>
-
+		
 		<Size>100</Size>
 		<Defense>60</Defense>
-
-
-
-
-
-
-	</Object>
-
+	        
+		
+		
+	
+		
+		
+	</Object> 
+	
 	<Object type="0x170b" id="Ink Bubble">
         <Group>Ocean Trench</Group>
         <Enemy/>
         <Class>Character</Class>
-
+        
         <AnimatedTexture><File>chars8x8dEncounters</File><Index>19</Index></AnimatedTexture>
-
+        
         <HitSound>monster/slimes_hit</HitSound>
         <DeathSound>monster/slimes_death</DeathSound>
-
+        
         <MaxHitPoints>2000</MaxHitPoints>
 		<Flying/>
-
+        
         <Projectile id="0">
             <ObjectId>Ink Blot</ObjectId>
             <Speed>10</Speed>
             <Damage>50</Damage>
             <Size>100</Size>
             <LifetimeMS>1200</LifetimeMS>
+            <MultiHit/>
 			<ConditionEffect duration="3">Blind</ConditionEffect>
         </Projectile>
-
+        
         <Size>120</Size>
         <Defense>40</Defense>
         <XpMult>0</XpMult>
-
-
-
-    </Object>
+        
+       
+        
+    </Object> 
 
 	<Object type="0x170c" id="Giant Squid">
         <Group>Ocean Trench</Group>
         <Enemy/>
         <Class>Character</Class>
-
+        
         <AnimatedTexture><File>chars16x16dEncounters2</File><Index>17</Index></AnimatedTexture>
-
+        	
         <HitSound>monster/spider_queen_hit</HitSound>
         <DeathSound>monster/scorpions_death</DeathSound>
-
+        
         <MaxHitPoints>6000</MaxHitPoints>
-
+        
         <Projectile id="0">
             <ObjectId>Squid Sucker</ObjectId>
             <Speed>0</Speed>
             <Damage>85</Damage>
             <Size>80</Size>
             <LifetimeMS>3000</LifetimeMS>
+            <MultiHit/>
         </Projectile>
         <Projectile id="1">
             <ObjectId>Squid Shot</ObjectId>
