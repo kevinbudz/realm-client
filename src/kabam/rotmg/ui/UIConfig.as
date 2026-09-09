@@ -1,5 +1,7 @@
 package kabam.rotmg.ui
 {
+   import com.company.assembleegameclient.account.ui.ChooseNameFrame;
+   import com.company.assembleegameclient.account.ui.ChooseNameFrameMediator;
    import com.company.assembleegameclient.mapeditor.MapEditor;
    import com.company.assembleegameclient.screens.AccountScreen;
    import com.company.assembleegameclient.screens.CharacterSelectionAndNewsScreen;
@@ -121,6 +123,7 @@ import org.swiftsuspenders.Injector;
          this.mediatorMap.map(InteractPanel).toMediator(InteractPanelMediator);
          this.mediatorMap.map(ItemGrid).toMediator(ItemGridMediator);
          this.mediatorMap.map(ChooseNameRegisterDialog).toMediator(ChooseNameRegisterMediator);
+         this.mediatorMap.map(ChooseNameFrame).toMediator(ChooseNameFrameMediator);
          this.mediatorMap.map(CharacterSlotRegisterDialog).toMediator(CharacterSlotRegisterMediator);
          this.mediatorMap.map(RegisterPromptDialog).toMediator(RegisterPromptDialogMediator);
          this.mediatorMap.map(CharacterSlotNeedGoldDialog).toMediator(CharacterSlotNeedGoldMediator);

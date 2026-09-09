@@ -31,6 +31,8 @@ import kabam.rotmg.game.view.CreditDisplay;
    import kabam.rotmg.game.view.CreditDisplayMediator;
    import kabam.rotmg.game.view.GameSpriteMediator;
    import kabam.rotmg.game.view.MapOverlayMediator;
+   import kabam.rotmg.game.view.NameChangerPanel;
+   import kabam.rotmg.game.view.NameChangerPanelMediator;
    import kabam.rotmg.game.view.PortalPanelMediator;
    import kabam.rotmg.game.view.SellableObjectPanel;
    import kabam.rotmg.game.view.SellableObjectPanelMediator;
@@ -107,6 +109,7 @@ import kabam.rotmg.ui.model.TabStripModel;
          this.mediatorMap.map(GameSprite).toMediator(GameSpriteMediator);
          this.mediatorMap.map(CreditDisplay).toMediator(CreditDisplayMediator);
          this.mediatorMap.map(SellableObjectPanel).toMediator(SellableObjectPanelMediator);
+         this.mediatorMap.map(NameChangerPanel).toMediator(NameChangerPanelMediator);
       }
    }
 }

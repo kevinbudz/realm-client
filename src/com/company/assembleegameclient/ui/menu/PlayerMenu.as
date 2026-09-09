@@ -55,7 +55,10 @@ package com.company.assembleegameclient.ui.menu
          }
          if(!this.player_.ignored_)
          {
-            option = new MenuOption(AssetLibrary.getImageFromSet("lofiInterfaceBig",8),16777215,"Ignore");
+            option = new MenuOption(AssetLibrary.getImageFromSet("lofiInterfaceBig",7),16777215,"Trade");
+         option.addEventListener(MouseEvent.CLICK,this.onTrade);
+         addOption(option);
+         option = new MenuOption(AssetLibrary.getImageFromSet("lofiInterfaceBig",8),16777215,"Ignore");
             option.addEventListener(MouseEvent.CLICK,this.onIgnore);
             addOption(option);
          }
@@ -88,6 +91,12 @@ package com.company.assembleegameclient.ui.menu
       private function onUnlock(event:Event) : void
       {
          this.gs_.map.party_.unlockPlayer(this.player_);
+         remove();
+      }
+
+      private function onTrade(event:Event) : void
+      {
+         this.gs_.gsc_.requestTrade(this.playerName_);
          remove();
       }
       

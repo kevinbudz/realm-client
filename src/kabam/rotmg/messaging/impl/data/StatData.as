@@ -96,6 +96,7 @@ package kabam.rotmg.messaging.impl.data
       public static const ITEMDATA_17_STAT:int = 88;
       public static const ITEMDATA_18_STAT:int = 89;
       public static const ITEMDATA_19_STAT:int = 90;
+      public static const NAME_CHOSEN_STAT:int = 91;
        
       
       public var statType_:uint = 0;

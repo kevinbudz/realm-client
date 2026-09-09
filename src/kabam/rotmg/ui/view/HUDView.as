@@ -1,6 +1,7 @@
 package kabam.rotmg.ui.view
 {
 import com.company.assembleegameclient.game.GameSprite;
+import com.company.assembleegameclient.ui.TradePanel;
 import com.company.assembleegameclient.objects.Player;
 import com.company.assembleegameclient.ui.panels.InteractPanel;
 import com.company.assembleegameclient.ui.panels.itemgrids.EquippedGrid;
@@ -13,6 +14,9 @@ import flash.display.Sprite;
 import flash.events.Event;
 import flash.geom.Point;
 import kabam.rotmg.game.view.components.TabStripView;
+import kabam.rotmg.messaging.impl.incoming.TradeAccepted;
+import kabam.rotmg.messaging.impl.incoming.TradeChanged;
+import kabam.rotmg.messaging.impl.incoming.TradeStart;
 import kabam.rotmg.minimap.view.MiniMap;
 
 public class HUDView extends Sprite
@@ -46,6 +50,8 @@ public class HUDView extends Sprite
    private var characterDetails:CharacterDetailsView;
 
    public var interactPanel:InteractPanel;
+
+   public var tradePanel:TradePanel;
 
    private var equippedGridBG:Sprite;
 
@@ -120,6 +126,68 @@ public class HUDView extends Sprite
       if(this.interactPanel)
       {
          this.interactPanel.draw();
+      }
+   }
+
+   public function startTrade(gs:GameSprite, tradeStart:TradeStart) : void
+   {
+      if(this.tradePanel != null)
+      {
+         return;
+      }
+      this.tradePanel = new TradePanel(gs,tradeStart);
+      this.tradePanel.y = 200;
+      this.tradePanel.addEventListener(Event.CANCEL,this.onTradeCancel);
+      addChild(this.tradePanel);
+      this.characterDetails.visible = false;
+      this.statMeters.visible = false;
+      this.tabStrip.visible = false;
+      this.equippedGrid.visible = false;
+      this.equippedGridBG.visible = false;
+      this.interactPanel.visible = false;
+   }
+
+   public function tradeChanged(tradeChaged:TradeChanged) : void
+   {
+      if(this.tradePanel == null)
+      {
+         return;
+      }
+      this.tradePanel.setYourOffer(tradeChaged.offer_);
+   }
+
+   public function tradeDone() : void
+   {
+      this.removeTradePanel();
+   }
+
+   public function tradeAccepted(tradeAccepted:TradeAccepted) : void
+   {
+      if(this.tradePanel == null)
+      {
+         return;
+      }
+      this.tradePanel.youAccepted(tradeAccepted.myOffer_,tradeAccepted.yourOffer_);
+   }
+
+   private function onTradeCancel(event:Event) : void
+   {
+      this.removeTradePanel();
+   }
+
+   private function removeTradePanel() : void
+   {
+      if(this.tradePanel != null)
+      {
+         this.tradePanel.removeEventListener(Event.CANCEL,this.onTradeCancel);
+         SpriteUtil.safeRemoveChild(this,this.tradePanel);
+         this.tradePanel = null;
+         this.characterDetails.visible = true;
+         this.statMeters.visible = true;
+         this.tabStrip.visible = true;
+         this.equippedGrid.visible = true;
+         this.equippedGridBG.visible = true;
+         this.interactPanel.visible = true;
       }
    }
 }

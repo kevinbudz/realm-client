@@ -40,6 +40,7 @@ import com.company.util.AssetLibrary;
          "GuildMerchant":GuildMerchant,
          "GuildRegister":GuildRegister,
          "Merchant":Merchant,
+         "NameChanger":NameChanger,
          "ReskinVendor":ReskinVendor,
          "OneWayContainer":OneWayContainer,
          "Player":Player,

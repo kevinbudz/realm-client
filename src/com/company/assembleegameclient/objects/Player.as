@@ -75,6 +75,7 @@ import org.swiftsuspenders.Injector;
       public var accountId_:int = -1;
       public var credits_:int = 0;
       public var numStars_:int = 0;
+      public var nameChosen_:Boolean = false;
       public var fame_:int = 0;
       public var charFame_:int = 0;
       public var nextClassQuestFame_:int = -1;

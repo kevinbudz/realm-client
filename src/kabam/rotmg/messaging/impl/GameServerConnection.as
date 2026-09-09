@@ -39,6 +39,7 @@ import com.company.assembleegameclient.objects.Container;
    import com.company.assembleegameclient.ui.dialogs.Dialog;
    import com.company.assembleegameclient.ui.dialogs.NotEnoughFameDialog;
    import com.company.assembleegameclient.ui.panels.GuildInvitePanel;
+   import com.company.assembleegameclient.ui.panels.TradeRequestPanel;
    import com.company.assembleegameclient.util.Currency;
    import com.company.assembleegameclient.util.FreeList;
    import com.company.util.MoreStringUtil;
@@ -98,6 +99,7 @@ import kabam.rotmg.messaging.impl.incoming.GuildResult;
    import kabam.rotmg.messaging.impl.incoming.InvResult;
    import kabam.rotmg.messaging.impl.incoming.InvitedToGuild;
    import kabam.rotmg.messaging.impl.incoming.MapInfo;
+   import kabam.rotmg.messaging.impl.incoming.NameResult;
    import kabam.rotmg.messaging.impl.incoming.NewTick;
    import kabam.rotmg.messaging.impl.incoming.Notification;
    import kabam.rotmg.messaging.impl.incoming.PlaySound;
@@ -106,10 +108,19 @@ import kabam.rotmg.messaging.impl.incoming.GuildResult;
 import kabam.rotmg.messaging.impl.incoming.ServerPlayerShoot;
    import kabam.rotmg.messaging.impl.incoming.ShowEffect;
    import kabam.rotmg.messaging.impl.incoming.Text;
+   import kabam.rotmg.messaging.impl.incoming.TradeAccepted;
+   import kabam.rotmg.messaging.impl.incoming.TradeChanged;
+   import kabam.rotmg.messaging.impl.incoming.TradeDone;
+   import kabam.rotmg.messaging.impl.incoming.TradeRequested;
+   import kabam.rotmg.messaging.impl.incoming.TradeStart;
    import kabam.rotmg.messaging.impl.incoming.Update;
+   import kabam.rotmg.messaging.impl.outgoing.AcceptTrade;
    import kabam.rotmg.messaging.impl.outgoing.AoeAck;
    import kabam.rotmg.messaging.impl.outgoing.Buy;
+   import kabam.rotmg.messaging.impl.outgoing.CancelTrade;
    import kabam.rotmg.messaging.impl.outgoing.ChangeGuildRank;
+   import kabam.rotmg.messaging.impl.outgoing.ChangeTrade;
+   import kabam.rotmg.messaging.impl.outgoing.ChooseName;
    import kabam.rotmg.messaging.impl.outgoing.Create;
    import kabam.rotmg.messaging.impl.outgoing.CreateGuild;
    import kabam.rotmg.messaging.impl.outgoing.EditAccountList;
@@ -127,6 +138,7 @@ import kabam.rotmg.messaging.impl.outgoing.GuildInvite;
    import kabam.rotmg.messaging.impl.outgoing.PlayerHit;
    import kabam.rotmg.messaging.impl.outgoing.PlayerShoot;
    import kabam.rotmg.messaging.impl.outgoing.PlayerText;
+   import kabam.rotmg.messaging.impl.outgoing.RequestTrade;
    import kabam.rotmg.messaging.impl.outgoing.Reskin;
    import kabam.rotmg.messaging.impl.outgoing.ShootAck;
    import kabam.rotmg.messaging.impl.outgoing.SquareHit;
@@ -195,6 +207,17 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
       public static const PLAYSOUND:int = 46;
       public static const RESKIN:int = 47;
       public static const GOTOACK:int = 48;
+      public static const CHOOSENAME:int = 49;
+      public static const NAMERESULT:int = 50;
+      public static const REQUESTTRADE:int = 51;
+      public static const TRADEREQUESTED:int = 52;
+      public static const TRADESTART:int = 53;
+      public static const CHANGETRADE:int = 54;
+      public static const TRADECHANGED:int = 55;
+      public static const ACCEPTTRADE:int = 56;
+      public static const CANCELTRADE:int = 57;
+      public static const TRADEDONE:int = 58;
+      public static const TRADEACCEPTED:int = 59;
 
       public static var instance:GameServerConnection;
 
@@ -335,6 +358,17 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          messages.map(ENEMYSHOOT).toMessage(EnemyShoot).toMethod(this.onEnemyShoot);
          messages.map(INVITEDTOGUILD).toMessage(InvitedToGuild).toMethod(this.onInvitedToGuild);
          messages.map(PLAYSOUND).toMessage(PlaySound).toMethod(this.onPlaySound);
+         messages.map(CHOOSENAME).toMessage(ChooseName);
+         messages.map(REQUESTTRADE).toMessage(RequestTrade);
+         messages.map(CHANGETRADE).toMessage(ChangeTrade);
+         messages.map(ACCEPTTRADE).toMessage(AcceptTrade);
+         messages.map(CANCELTRADE).toMessage(CancelTrade);
+         messages.map(NAMERESULT).toMessage(NameResult).toMethod(this.onNameResult);
+         messages.map(TRADEREQUESTED).toMessage(TradeRequested).toMethod(this.onTradeRequested);
+         messages.map(TRADESTART).toMessage(TradeStart).toMethod(this.onTradeStart);
+         messages.map(TRADECHANGED).toMessage(TradeChanged).toMethod(this.onTradeChanged);
+         messages.map(TRADEDONE).toMessage(TradeDone).toMethod(this.onTradeDone);
+         messages.map(TRADEACCEPTED).toMessage(TradeAccepted).toMethod(this.onTradeAccepted);
       }
       
       private function unmapMessages() : void
@@ -363,6 +397,10 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          messages.unmap(ESCAPE);
          messages.unmap(JOINGUILD);
          messages.unmap(CHANGEGUILDRANK);
+         messages.unmap(REQUESTTRADE);
+         messages.unmap(CHANGETRADE);
+         messages.unmap(ACCEPTTRADE);
+         messages.unmap(CANCELTRADE);
          messages.unmap(EDITACCOUNTLIST);
          messages.unmap(FAILURE);
          messages.unmap(CREATE_SUCCESS);
@@ -386,7 +424,14 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          messages.unmap(ALLYSHOOT);
          messages.unmap(ENEMYSHOOT);
          messages.unmap(INVITEDTOGUILD);
+         messages.unmap(TRADEREQUESTED);
+         messages.unmap(TRADESTART);
+         messages.unmap(TRADECHANGED);
+         messages.unmap(TRADEDONE);
+         messages.unmap(TRADEACCEPTED);
          messages.unmap(PLAYSOUND);
+         messages.unmap(CHOOSENAME);
+         messages.unmap(NAMERESULT);
       }
       
       public function getNextDamage(minDamage:uint, maxDamage:uint) : uint
@@ -653,6 +698,13 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          gotoAck.time_ = time;
          this.serverConnection.sendMessage(gotoAck);
       }
+
+      public function chooseName(name:String) : void
+      {
+         var chooseName:ChooseName = this.messages.require(CHOOSENAME) as ChooseName;
+         chooseName.name_ = name;
+         this.serverConnection.sendMessage(chooseName);
+      }
       
       public function editAccountList(accountListId:int, add:Boolean, objectId:int) : void
       {
@@ -706,6 +758,33 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          changeGuildRank.name_ = name;
          changeGuildRank.guildRank_ = rank;
          this.serverConnection.sendMessage(changeGuildRank);
+      }
+
+      public function requestTrade(name:String) : void
+      {
+         var requestTrade:RequestTrade = this.messages.require(REQUESTTRADE) as RequestTrade;
+         requestTrade.name_ = name;
+         this.serverConnection.sendMessage(requestTrade);
+      }
+
+      public function changeTrade(offer:Vector.<Boolean>) : void
+      {
+         var changeTrade:ChangeTrade = this.messages.require(CHANGETRADE) as ChangeTrade;
+         changeTrade.offer_ = offer;
+         this.serverConnection.sendMessage(changeTrade);
+      }
+
+      public function acceptTrade(myOffer:Vector.<Boolean>, yourOffer:Vector.<Boolean>) : void
+      {
+         var acceptTrade:AcceptTrade = this.messages.require(ACCEPTTRADE) as AcceptTrade;
+         acceptTrade.myOffer_ = myOffer;
+         acceptTrade.yourOffer_ = yourOffer;
+         this.serverConnection.sendMessage(acceptTrade);
+      }
+
+      public function cancelTrade() : void
+      {
+         this.serverConnection.sendMessage(this.messages.require(CANCELTRADE));
       }
 
       private function onConnected() : void
@@ -1251,6 +1330,10 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
                case StatData.ITEMDATA_19_STAT:
                     go.itemDatas_[stat.statType_ - StatData.ITEMDATA_0_STAT] = value;
                     continue;
+               case StatData.NAME_CHOSEN_STAT:
+                  player.nameChosen_ = value != 0;
+                  go.nameBitmapData_ = null;
+                  continue;
                default:
                   trace("unhandled stat: " + stat.statType_);
                   continue;
@@ -1473,6 +1556,11 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          this.addTextLine.dispatch(new AddTextLineVO(Parameters.ERROR_CHAT_NAME,guildResult.errorText_));
          this.gs_.dispatchEvent(new GuildResultEvent(guildResult.success_,guildResult.errorText_));
       }
+
+      private function onNameResult(nameResult:NameResult) : void
+      {
+         this.gs_.dispatchEvent(new NameResultEvent(nameResult));
+      }
       
       private function onInvitedToGuild(invitedToGuild:InvitedToGuild) : void
       {
@@ -1483,6 +1571,36 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          this.addTextLine.dispatch(new AddTextLineVO("","You have been invited by " + invitedToGuild.name_ + " to join the guild " + invitedToGuild.guildName_ + ".\n  If you wish to join type \"/join " + invitedToGuild.guildName_ + "\""));
       }
       
+      private function onTradeRequested(tradeRequested:TradeRequested) : void
+      {
+         if(Parameters.data_.showTradePopup)
+         {
+            this.gs_.hudView.interactPanel.setOverride(new TradeRequestPanel(this.gs_,tradeRequested.name_));
+         }
+         this.addTextLine.dispatch(new AddTextLineVO("",tradeRequested.name_ + " wants to " + "trade with you.  Type \"/trade " + tradeRequested.name_ + "\" to trade."));
+      }
+
+      private function onTradeStart(tradeStart:TradeStart) : void
+      {
+         this.gs_.hudView.startTrade(this.gs_,tradeStart);
+      }
+
+      private function onTradeChanged(tradeChanged:TradeChanged) : void
+      {
+         this.gs_.hudView.tradeChanged(tradeChanged);
+      }
+
+      private function onTradeDone(tradeDone:TradeDone) : void
+      {
+         this.gs_.hudView.tradeDone();
+         this.addTextLine.dispatch(new AddTextLineVO("",tradeDone.description_));
+      }
+
+      private function onTradeAccepted(tradeAccepted:TradeAccepted) : void
+      {
+         this.gs_.hudView.tradeAccepted(tradeAccepted);
+      }
+
       private function onPlaySound(playSound:PlaySound) : void
       {
          SoundEffectLibrary.play(playSound.sound_);

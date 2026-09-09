@@ -27,6 +27,7 @@ import flash.net.SharedObject;
       public static const NAME_COLOUR:uint = 16572160;
 
       public static const GUILD_CREATION_PRICE:int = 1000;
+      public static const NAME_CHANGE_PRICE:int = 1000;
       public static const CHARACTER_SLOT_PRICE:int = 2000;
       public static const CHARACTER_SKIN_PRICE:int = 1000;
 
@@ -180,6 +181,7 @@ import flash.net.SharedObject;
          setDefault("drawShadows",true);
          setDefault("textBubbles",true);
          setDefault("showGuildInvitePopup",true);
+         setDefault("showTradePopup",true);
          setDefault("GPURender", false);
          setDefault("particles", true);
          setDefault("hpBars", true)

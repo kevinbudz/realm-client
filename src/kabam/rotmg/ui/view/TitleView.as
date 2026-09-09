@@ -9,6 +9,7 @@ import com.company.assembleegameclient.screens.AccountScreen;
    import com.company.assembleegameclient.ui.layout.MenuFrame;
    import com.company.assembleegameclient.ui.layout.ScaledScreen;
    import com.company.ui.SimpleText;
+   import flash.display.Bitmap;
    import flash.display.Sprite;
    import flash.filters.DropShadowFilter;
 
@@ -26,6 +27,8 @@ import org.osflash.signals.Signal;
 
       private var container:Sprite;
 
+      private var logo:Bitmap;
+
       private var playButton:TitleMenuOption;
       private var accountButton:TitleMenuOption;
       private var legendsButton:TitleMenuOption;
@@ -33,7 +36,7 @@ import org.osflash.signals.Signal;
 
       private var versionText:SimpleText;
       private var copyrightText:SimpleText;
-      
+
       public function TitleView()
       {
          super();
@@ -46,6 +49,11 @@ import org.osflash.signals.Signal;
       private function makeChildren() : void
       {
          this.container = new Sprite();
+         this.logo = new TitleView_Logo();
+         this.logo.smoothing = true;
+         this.logo.x = LayoutHelper.centerX(this.logo.width);
+         this.logo.y = 83;
+         this.container.addChild(this.logo);
          this.playButton = new TitleMenuOption(ScreenTypes.PLAY,36,true);
          this.playClicked = this.playButton.clicked;
          this.container.addChild(this.playButton);
