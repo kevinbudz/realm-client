@@ -4,6 +4,7 @@ package com.company.assembleegameclient.map
    import com.company.assembleegameclient.parameters.Parameters;
    import com.company.assembleegameclient.util.RandomUtil;
    import com.company.util.Trig;
+   import flash.display.StageScaleMode;
    import flash.geom.Matrix3D;
    import flash.geom.PerspectiveProjection;
    import flash.geom.Rectangle;
@@ -63,10 +64,33 @@ package com.company.assembleegameclient.map
       
       public function configureCamera(object:GameObject, isHallucinating:Boolean) : void
       {
-         var screenRect:Rectangle = Boolean(Parameters.data_.centerOnPlayer)?CENTER_SCREEN_RECT:OFFSET_SCREEN_RECT;
+         var screenRect:Rectangle = this.correctViewingArea(Boolean(Parameters.data_.centerOnPlayer));
          var cameraAngle:Number = Parameters.data_.cameraAngle;
          this.configure(object.x_,object.y_,12,cameraAngle,screenRect,false);
          this.isHallucinating_ = isHallucinating;
+      }
+
+      public function correctViewingArea(centerOnPlayer:Boolean) : Rectangle
+      {
+         var viewW:Number;
+         var viewH:Number;
+         var hudAllowance:Number;
+         if(Parameters.data_.stageScale == StageScaleMode.NO_SCALE)
+         {
+            viewW = WebMain.sWidth / Parameters.data_.mscale;
+            viewH = WebMain.sHeight / Parameters.data_.mscale;
+            hudAllowance = 200 / Parameters.data_.mscale;
+            if(centerOnPlayer)
+            {
+               return new Rectangle(-((viewW - hudAllowance) * 0.5),-((viewH * 13) / 24),viewW,viewH);
+            }
+            return new Rectangle(-((viewW - hudAllowance) * 0.5),-((viewH * 3) / 4),viewW,viewH);
+         }
+         if(centerOnPlayer)
+         {
+            return CENTER_SCREEN_RECT;
+         }
+         return OFFSET_SCREEN_RECT;
       }
       
       public function startJitter() : void

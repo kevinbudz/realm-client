@@ -171,6 +171,11 @@ public class Options extends Sprite
          this.resetToDefaultsButton_.y = 532;
          this.homeButton_.x = 620;
          this.homeButton_.y = 532;
+         if(Capabilities.playerType == "Desktop")
+         {
+            Parameters.data_.fullscreenMode = stage.displayState == StageDisplayState.FULL_SCREEN_INTERACTIVE;
+            Parameters.save();
+         }
          this.setSelected(this.tabs_[0]);
          stage.addEventListener(KeyboardEvent.KEY_DOWN,this.onKeyDown,false,1);
          stage.addEventListener(KeyboardEvent.KEY_UP,this.onKeyUp,false,1);
@@ -184,6 +189,12 @@ public class Options extends Sprite
       
       private function onKeyDown(event:KeyboardEvent) : void
       {
+         if(Capabilities.playerType == "Desktop" && event.keyCode == KeyCodes.ESCAPE)
+         {
+            Parameters.data_.fullscreenMode = false;
+            Parameters.save();
+            this.refresh();
+         }
          if(event.keyCode == Parameters.data_.options)
          {
             this.close();
@@ -264,7 +275,10 @@ public class Options extends Sprite
          this.addOption(new KeyMapper("escapeToNexus","Escape To Nexus","This key will instantly escape you to the Nexus"));
          this.addOption(new KeyMapper("options","Show Options","This key will bring up the options screen"));
          this.addOption(new KeyMapper("switchTabs", "Switch Tabs", "This key will switch from available tabs"));
-         this.addOption(new KeyMapper("toggleFullscreenMode","Toggle Fullscreen", "This toggles whether to go fullscreen or not"));
+         if(Capabilities.playerType == "Desktop")
+         {
+            this.addOption(new KeyMapper("toggleFullscreenMode","Toggle Fullscreen", "This toggles whether to go fullscreen or not"));
+         }
       }
       
       private function addChatOptions() : void
@@ -296,6 +310,15 @@ public class Options extends Sprite
          {
             this.addOption(new ChoiceOption("GPURender",new <String>["On","Off"],[true,false],"Hardware Acceleration","Enables Hardware Acceleration if your system supports it",null));
          }
+         if(Capabilities.playerType == "Desktop")
+         {
+            this.addOption(new ChoiceOption("fullscreenMode",new <String>["On","Off"],[true,false],"Fullscreen Mode","This toggles whether the game is fullscreen or not",this.onFullscreenChange));
+         }
+      }
+
+      private function onFullscreenChange() : void
+      {
+         stage.displayState = Parameters.data_.fullscreenMode ? StageDisplayState.FULL_SCREEN_INTERACTIVE : StageDisplayState.NORMAL;
       }
       public static function refreshCursor():void {
          var cursorData:MouseCursorData;

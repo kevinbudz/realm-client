@@ -17,6 +17,7 @@ package com.company.assembleegameclient.game
    import com.company.util.PointUtil;
    import flash.display.DisplayObject;
    import flash.display.Sprite;
+   import flash.display.StageScaleMode;
    import flash.events.Event;
    import flash.external.ExternalInterface;
    import flash.filters.ColorMatrixFilter;
@@ -92,6 +93,7 @@ import kabam.rotmg.ui.UIUtils;
          this.hudView = new HUDView();
          this.hudView.x = 600;
          addChild(this.hudView);
+         this.onScreenResize(null);
       }
       
       public function initialize() : void
@@ -112,6 +114,7 @@ import kabam.rotmg.ui.UIUtils;
          {
             isNexus_ = true;
          }
+         this.onScreenResize(null);
       }
       
       private function showSafeAreaDisplays() : void
@@ -195,6 +198,9 @@ import kabam.rotmg.ui.UIUtils;
             this.lastUpdate_ = getTimer();
             stage.addEventListener(Event.ENTER_FRAME,this.onEnterFrame);
             LoopedProcess.addProcess(new LoopedCallback(100,this.updateNearestInteractive));
+            stage.scaleMode = Parameters.data_ == null ? StageScaleMode.NO_SCALE : Parameters.data_.stageScale;
+            stage.addEventListener(Event.RESIZE,this.onScreenResize);
+            stage.dispatchEvent(new Event(Event.RESIZE));
          }
       }
       
@@ -206,6 +212,7 @@ import kabam.rotmg.ui.UIUtils;
             Renderer.inGame = false;
             this.gsc_.serverConnection.disconnect();
             stage.removeEventListener(Event.ENTER_FRAME,this.onEnterFrame);
+            stage.removeEventListener(Event.RESIZE,this.onScreenResize);
             LoopedProcess.destroyAll();
             contains(this.map) && removeChild(this.map);
             this.map.dispose();
@@ -215,6 +222,58 @@ import kabam.rotmg.ui.UIUtils;
          }
       }
       
+      public function onScreenResize(event:Event) : void
+      {
+         //Counter-scale the game view against the root fill-scaling so the map
+         //uses the real window size while HUD and chat keep a constant size.
+         var scaleX:Number = 800 / stage.stageWidth;
+         var scaleY:Number = 600 / stage.stageHeight;
+         var mapZoom:Number = stage.scaleMode != StageScaleMode.EXACT_FIT ? Parameters.data_.mscale : 1;
+         if(this.map != null)
+         {
+            this.map.scaleX = scaleX * mapZoom;
+            this.map.scaleY = scaleY * mapZoom;
+            if(this.map.hurtOverlay_ != null)
+            {
+               this.map.hurtOverlay_.drawOverlay();
+            }
+         }
+         if(this.hudView != null)
+         {
+            this.hudView.scaleX = scaleX;
+            this.hudView.scaleY = scaleY;
+            this.hudView.x = 800 - 200 * scaleX;
+            this.hudView.y = 0;
+         }
+         if(this.textBox_ != null)
+         {
+            this.textBox_.scaleX = scaleX;
+            this.textBox_.scaleY = scaleY;
+            this.textBox_.y = 600 - 600 * scaleY;
+         }
+         if(this.creditDisplay_ != null)
+         {
+            this.creditDisplay_.scaleX = scaleX;
+            this.creditDisplay_.scaleY = scaleY;
+            this.creditDisplay_.x = this.hudView != null ? this.hudView.x - 6 * scaleX : 594 * scaleX;
+            this.creditDisplay_.y = 0;
+         }
+         if(this.rankText_ != null)
+         {
+            this.rankText_.scaleX = scaleX;
+            this.rankText_.scaleY = scaleY;
+            this.rankText_.x = 8 * scaleX;
+            this.rankText_.y = 4 * scaleY;
+         }
+         if(this.guildText_ != null)
+         {
+            this.guildText_.scaleX = scaleX;
+            this.guildText_.scaleY = scaleY;
+            this.guildText_.x = 64 * scaleX;
+            this.guildText_.y = 6 * scaleY;
+         }
+      }
+
       private function onEnterFrame(event:Event) : void
       {
          var time:int = getTimer();

@@ -418,9 +418,13 @@ public class MapUserInput
             this.statsTabHotKeyInputSignal.dispatch();
             break;
          case Parameters.data_.toggleFullscreenMode:
-            //doing it like this is better because then there's no additional memory allocated to the variable, and it works if say you go fullscreen, then press ESC, and go fullscreen again.
-            //before if you did that, you'd need to press the key twice because the variable was not updated
-            this.gs_.stage.displayState = this.gs_.stage.displayState == StageDisplayState.NORMAL ? StageDisplayState.FULL_SCREEN_INTERACTIVE : StageDisplayState.NORMAL;
+            if(Capabilities.playerType == "Desktop")
+            {
+               //toggling from the live displayState (rather than the saved flag) keeps this working if you go fullscreen, press ESC, then go fullscreen again.
+               this.gs_.stage.displayState = this.gs_.stage.displayState == StageDisplayState.NORMAL ? StageDisplayState.FULL_SCREEN_INTERACTIVE : StageDisplayState.NORMAL;
+               Parameters.data_.fullscreenMode = this.gs_.stage.displayState == StageDisplayState.FULL_SCREEN_INTERACTIVE;
+               Parameters.save();
+            }
             break;
       }
       this.setPlayerMovement();

@@ -47,6 +47,8 @@ import robotlegs.bender.bundles.mvcs.MVCSBundle;
    public class WebMain extends Sprite
    {
       public static var STAGE:Stage;
+      public static var sWidth:Number = 800;
+      public static var sHeight:Number = 600;
 
       protected var context:IContext;
       
@@ -75,13 +77,25 @@ import robotlegs.bender.bundles.mvcs.MVCSBundle;
          this.hackParameters();
          this.createContext();
          new AssetLoader().load();
-         stage.scaleMode = StageScaleMode.EXACT_FIT;
+         stage.scaleMode = StageScaleMode.NO_SCALE;
+         stage.addEventListener(Event.RESIZE,this.onStageResize);
+         this.onStageResize(null);
          var startup:StartupSignal = this.context.injector.getInstance(StartupSignal);
          startup.dispatch();
          STAGE = stage;
          STAGE.addEventListener(MouseEvent.RIGHT_CLICK, onRightClick)
          STAGE.addEventListener(Event.ENTER_FRAME, onEnterFrame);
          UIUtils.toggleQuality(Parameters.data_.quality);
+         this.configureForAirIfDesktopPlayer();
+      }
+
+      private function configureForAirIfDesktopPlayer() : void
+      {
+         if(Capabilities.playerType == "Desktop")
+         {
+            Parameters.data_.fullscreenMode = false;
+            Parameters.save();
+         }
       }
 
       private static function onRightClick(event:MouseEvent) : void
@@ -92,6 +106,16 @@ import robotlegs.bender.bundles.mvcs.MVCSBundle;
       private static function onEnterFrame(event:Event) : void
       {
          SoundEffectLibrary.clear();
+      }
+
+      public function onStageResize(event:Event) : void
+      {
+         //Fill-scale the 800x600 canvas while exposing the real pixel size.
+         //059 also shifts x/y here, but that mispositions fixed-layout screens, so x/y stay 0.
+         this.scaleX = stage.stageWidth / 800;
+         this.scaleY = stage.stageHeight / 600;
+         sWidth = stage.stageWidth;
+         sHeight = stage.stageHeight;
       }
 
       private function hackParameters() : void

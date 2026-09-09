@@ -89,7 +89,7 @@ public class ItemGridMediator extends Mediator
             this.swapItemTiles(sourceTile,targetTile);
          }
       }
-      else if(target is Map || this.hudModel.gameSprite.map.mouseX < 300)
+      else if(target is Map || this.hudModel.gameSprite.mouseX < this.hudModel.gameSprite.hudView.x)
       {
          this.dropItem(sourceTile);
       }

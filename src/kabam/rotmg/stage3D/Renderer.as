@@ -228,7 +228,7 @@ package kabam.rotmg.stage3D
             this.renderScene(graphicsDatas,grahpicsData3d,mapWidth,mapHeight,camera);
          }
          this.context3D.present();
-         WebMain.STAGE.scaleMode = StageScaleMode.EXACT_FIT;
+         WebMain.STAGE.scaleMode = Parameters.data_.stageScale;
       }
       
       private function resizeStage3DBackBuffer() : void

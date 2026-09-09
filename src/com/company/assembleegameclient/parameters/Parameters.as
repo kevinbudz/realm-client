@@ -3,6 +3,7 @@ package com.company.assembleegameclient.parameters
    import com.company.util.KeyCodes;
    import com.company.util.MoreDateUtil;
    import flash.display.DisplayObject;
+import flash.display.StageScaleMode;
 import flash.events.Event;
 import flash.net.SharedObject;
    import flash.utils.Dictionary;
@@ -167,6 +168,9 @@ import flash.net.SharedObject;
          setDefault("playSFX",true);
          setDefault("playPewPew",true);
          setDefault("centerOnPlayer",true);
+         setDefault("fullscreenMode",false);
+         setDefault("stageScale",StageScaleMode.NO_SCALE);
+         setDefault("mscale",1);
          setDefault("preferredServer",null);
          setDefault("cameraAngle",7 * Math.PI / 4);
          setDefault("defaultCameraAngle",7 * Math.PI / 4);

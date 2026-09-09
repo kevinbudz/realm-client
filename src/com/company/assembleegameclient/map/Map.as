@@ -13,6 +13,7 @@ import com.company.assembleegameclient.map.mapoverlay.MapOverlay;
    import com.company.assembleegameclient.util.ConditionEffect;
    import flash.display.Graphics;
 import flash.display.GraphicsBitmapFill;
+import flash.display.StageScaleMode;
 import flash.display.GraphicsSolidFill;
 import flash.display.IGraphicsData;
 import flash.display.Sprite;
@@ -401,8 +402,16 @@ public class Map extends Sprite
          var t:Number = NaN;
          var d:Number = NaN;
          var screenRect:Rectangle = camera.clipRect_;
-         x = -screenRect.x;
-         y = -screenRect.y;
+         if(stage.scaleMode == StageScaleMode.NO_SCALE)
+         {
+            x = (-screenRect.x * 800) / (WebMain.sWidth / Parameters.data_.mscale);
+            y = (-screenRect.y * 600) / (WebMain.sHeight / Parameters.data_.mscale);
+         }
+         else
+         {
+            x = -screenRect.x;
+            y = -screenRect.y;
+         }
          var distW:Number = (-screenRect.y - screenRect.height / 2) / 50;
          var screenCenterW:Point = new Point(camera.x_ + distW * Math.cos(camera.angleRad_ - Math.PI / 2),camera.y_ + distW * Math.sin(camera.angleRad_ - Math.PI / 2));
          if(this.background_ != null)
