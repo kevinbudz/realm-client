@@ -29,7 +29,7 @@ package kabam.rotmg.dialogs.view
          var g:Graphics = this.background.graphics;
          g.clear();
          g.beginFill(color,0.6);
-         g.drawRect(0,0,800,600);
+         g.drawRect(0,0,WebMain.sWidth,WebMain.sHeight);
          g.endFill();
          this.background.visible = true;
       }

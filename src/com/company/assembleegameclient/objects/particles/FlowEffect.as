@@ -61,18 +61,18 @@ class FlowParticle extends Particle
       super(color,z,size);
       this.start_ = start;
       this.go_ = go;
-      var here:Point = new Point(x_,y_);
-      var target:Point = new Point(this.go_.x_,this.go_.y_);
-      this.maxDist_ = Point.distance(here,target);
+      var dx:Number = x_ - this.go_.x_;
+      var dy:Number = y_ - this.go_.y_;
+      this.maxDist_ = Math.sqrt(dx * dx + dy * dy);
       this.flowSpeed_ = Math.random() * 5;
    }
    
    override public function update(time:int, dt:int) : Boolean
    {
       var ACCEL:Number = 8;
-      var here:Point = new Point(x_,y_);
-      var target:Point = new Point(this.go_.x_,this.go_.y_);
-      var distToGo:Number = Point.distance(here,target);
+      var dx0:Number = x_ - this.go_.x_;
+      var dy0:Number = y_ - this.go_.y_;
+      var distToGo:Number = Math.sqrt(dx0 * dx0 + dy0 * dy0);
       if(distToGo < 0.5)
       {
          return false;
@@ -123,9 +123,9 @@ class FlowParticle2 extends Particle
    
    override public function update(time:int, dt:int) : Boolean
    {
-      var here:Point = new Point(x_,y_);
-      var target:Point = new Point(this.go_.x_,this.go_.y_);
-      var distToGo:Number = Point.distance(here,target);
+      var dx0:Number = x_ - this.go_.x_;
+      var dy0:Number = y_ - this.go_.y_;
+      var distToGo:Number = Math.sqrt(dx0 * dx0 + dy0 * dy0);
       if(distToGo < 0.5)
       {
          return false;

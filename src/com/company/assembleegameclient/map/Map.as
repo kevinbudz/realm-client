@@ -404,8 +404,8 @@ public class Map extends Sprite
          var screenRect:Rectangle = camera.clipRect_;
          if(stage.scaleMode == StageScaleMode.NO_SCALE)
          {
-            x = (-screenRect.x * 800) / (WebMain.sWidth / Parameters.data_.mscale);
-            y = (-screenRect.y * 600) / (WebMain.sHeight / Parameters.data_.mscale);
+            x = -screenRect.x * Parameters.data_.mscale;
+            y = -screenRect.y * Parameters.data_.mscale;
          }
          else
          {

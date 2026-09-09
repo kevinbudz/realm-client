@@ -27,11 +27,9 @@ package com.company.assembleegameclient.map
 
       public function drawOverlay() : void
       {
-         //Size the vignette to the live view, like 059 (which only sizes it
-         //once in the constructor). The visible width excludes the HUD strip.
          var viewW:Number = WebMain.sWidth / Parameters.data_.mscale;
          var viewH:Number = WebMain.sHeight / Parameters.data_.mscale;
-         var overlayW:Number = viewW - 200 / Parameters.data_.mscale;
+         var overlayW:Number = viewW - WebMain.hudWidth() / Parameters.data_.mscale;
          var fadeW:Number = overlayW / Math.sin(Math.PI / 4);
          var fadeH:Number = viewH / Math.sin(Math.PI / 4);
          this.gradientFill_ = new GraphicsGradientFill(GradientType.RADIAL,[16777215,16777215,16777215],[0,0,0.92],[0,155,255],GraphicsUtil.getGradientMatrix(fadeW,fadeH,0,(overlayW - fadeW) / 2,(viewH - fadeH) / 2));

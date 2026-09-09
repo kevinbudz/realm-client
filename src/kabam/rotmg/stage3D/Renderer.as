@@ -207,7 +207,7 @@ package kabam.rotmg.stage3D
       private function onRender(graphicsDatas:Vector.<IGraphicsData>, grahpicsData3d:Vector.<Object3DStage3D>, mapWidth:Number, mapHeight:Number, camera:Camera, filterIndex:uint) : void
       {
          WebMain.STAGE.scaleMode = StageScaleMode.NO_SCALE;
-         if(WebMain.STAGE.stageWidth * 3 / 4 != this.stageWidth || WebMain.STAGE.stageHeight != this.stageHeight)
+         if(this.playableWidth() != this.stageWidth || WebMain.STAGE.stageHeight != this.stageHeight)
          {
             this.resizeStage3DBackBuffer();
          }
@@ -231,15 +231,21 @@ package kabam.rotmg.stage3D
          WebMain.STAGE.scaleMode = Parameters.data_.stageScale;
       }
       
+      private function playableWidth() : Number
+      {
+         return WebMain.STAGE.stageWidth - WebMain.hudWidth();
+      }
+
       private function resizeStage3DBackBuffer() : void
       {
-         if(WebMain.STAGE.stageWidth * 3 / 4 < 1 || WebMain.STAGE.stageHeight < 1)
+         var mapW:Number = this.playableWidth();
+         if(mapW < 1 || WebMain.STAGE.stageHeight < 1)
          {
             return;
          }
          var stage3d:Stage3D = WebMain.STAGE.stage3Ds[0];
-         stage3d.context3D.configureBackBuffer(WebMain.STAGE.stageWidth * 3 / 4,WebMain.STAGE.stageHeight,2,false);
-         this.stageWidth = WebMain.STAGE.stageWidth * 3 / 4;
+         stage3d.context3D.configureBackBuffer(mapW,WebMain.STAGE.stageHeight,2,false);
+         this.stageWidth = mapW;
          this.stageHeight = WebMain.STAGE.stageHeight;
       }
       

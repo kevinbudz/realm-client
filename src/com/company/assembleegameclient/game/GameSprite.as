@@ -224,53 +224,59 @@ import kabam.rotmg.ui.UIUtils;
       
       public function onScreenResize(event:Event) : void
       {
-         //Counter-scale the game view against the root fill-scaling so the map
-         //uses the real window size while HUD and chat keep a constant size.
-         var scaleX:Number = 800 / stage.stageWidth;
-         var scaleY:Number = 600 / stage.stageHeight;
+         if(stage == null)
+         {
+            return;
+         }
+         var uiScale:Number = WebMain.uiScale();
          var mapZoom:Number = stage.scaleMode != StageScaleMode.EXACT_FIT ? Parameters.data_.mscale : 1;
          if(this.map != null)
          {
-            this.map.scaleX = scaleX * mapZoom;
-            this.map.scaleY = scaleY * mapZoom;
+            this.map.scaleX = mapZoom;
+            this.map.scaleY = mapZoom;
             if(this.map.hurtOverlay_ != null)
             {
                this.map.hurtOverlay_.drawOverlay();
             }
+            if(this.map.gradientOverlay_ != null)
+            {
+               this.map.gradientOverlay_.drawOverlay();
+            }
          }
          if(this.hudView != null)
          {
-            this.hudView.scaleX = scaleX;
-            this.hudView.scaleY = scaleY;
-            this.hudView.x = 800 - 200 * scaleX;
+            this.hudView.scaleX = uiScale;
+            this.hudView.scaleY = uiScale;
+            this.hudView.x = WebMain.sWidth - 200 * uiScale;
             this.hudView.y = 0;
          }
          if(this.textBox_ != null)
          {
-            this.textBox_.scaleX = scaleX;
-            this.textBox_.scaleY = scaleY;
-            this.textBox_.y = 600 - 600 * scaleY;
+            this.textBox_.scaleX = uiScale;
+            this.textBox_.scaleY = uiScale;
+            this.textBox_.x = 0;
+            this.textBox_.y = 0;
          }
          if(this.creditDisplay_ != null)
          {
-            this.creditDisplay_.scaleX = scaleX;
-            this.creditDisplay_.scaleY = scaleY;
-            this.creditDisplay_.x = this.hudView != null ? this.hudView.x - 6 * scaleX : 594 * scaleX;
+            this.creditDisplay_.scaleX = uiScale;
+            this.creditDisplay_.scaleY = uiScale;
+            this.creditDisplay_.x = this.hudView != null ? this.hudView.x - 6 * uiScale : WebMain.sWidth - 6 * uiScale;
             this.creditDisplay_.y = 0;
          }
          if(this.rankText_ != null)
          {
-            this.rankText_.scaleX = scaleX;
-            this.rankText_.scaleY = scaleY;
-            this.rankText_.x = 8 * scaleX;
-            this.rankText_.y = 4 * scaleY;
+            this.rankText_.scaleX = uiScale;
+            this.rankText_.scaleY = uiScale;
+            this.rankText_.x = 8 * uiScale;
+            this.rankText_.y = 4 * uiScale;
          }
          if(this.guildText_ != null)
          {
-            this.guildText_.scaleX = scaleX;
-            this.guildText_.scaleY = scaleY;
-            this.guildText_.x = 64 * scaleX;
-            this.guildText_.y = 6 * scaleY;
+            this.guildText_.scaleX = uiScale;
+            this.guildText_.scaleY = uiScale;
+            this.guildText_.x = 64 * uiScale;
+            this.guildText_.y = 6 * uiScale;
          }
       }
 
@@ -281,6 +287,14 @@ import kabam.rotmg.ui.UIUtils;
          if(player != null)
          {
             var dt:int = time - this.lastUpdate_;
+            if(dt < 0)
+            {
+               dt = 0;
+            }
+            else if(dt > 100)
+            {
+               dt = 100;
+            }
             LoopedProcess.runProcesses(time);
             this.map.update(time, dt);
             this.camera_.update(dt);

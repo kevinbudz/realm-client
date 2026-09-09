@@ -10,6 +10,7 @@ import com.company.assembleegameclient.util.StageProxy;
 import flash.display.LoaderInfo;
    import flash.display.Sprite;
 import flash.display.Stage;
+import flash.display.StageAlign;
 import flash.display.StageScaleMode;
    import flash.events.Event;
 import flash.events.MouseEvent;
@@ -77,6 +78,7 @@ import robotlegs.bender.bundles.mvcs.MVCSBundle;
          this.hackParameters();
          this.createContext();
          new AssetLoader().load();
+         stage.align = StageAlign.TOP_LEFT;
          stage.scaleMode = StageScaleMode.NO_SCALE;
          stage.addEventListener(Event.RESIZE,this.onStageResize);
          this.onStageResize(null);
@@ -108,12 +110,22 @@ import robotlegs.bender.bundles.mvcs.MVCSBundle;
          SoundEffectLibrary.clear();
       }
 
+      public static function uiScale() : Number
+      {
+         return sHeight / 600;
+      }
+
+      public static function hudWidth() : Number
+      {
+         return 200 * uiScale();
+      }
+
       public function onStageResize(event:Event) : void
       {
-         //Fill-scale the 800x600 canvas while exposing the real pixel size.
-         //059 also shifts x/y here, but that mispositions fixed-layout screens, so x/y stay 0.
-         this.scaleX = stage.stageWidth / 800;
-         this.scaleY = stage.stageHeight / 600;
+         this.scaleX = 1;
+         this.scaleY = 1;
+         this.x = 0;
+         this.y = 0;
          sWidth = stage.stageWidth;
          sHeight = stage.stageHeight;
       }

@@ -86,10 +86,11 @@ package com.company.assembleegameclient.objects.particles
             particle.timeLeft = particle.timeLeft - tDelta;
             if(particle.timeLeft <= 0)
             {
-               this.liveParticles.splice(j,1);
                map_.removeObj(particle.objectId_);
-               j--;
                this.particlePool.push(particle);
+               this.liveParticles[j] = this.liveParticles[this.liveParticles.length - 1];
+               this.liveParticles.pop();
+               j--;
             }
             else
             {

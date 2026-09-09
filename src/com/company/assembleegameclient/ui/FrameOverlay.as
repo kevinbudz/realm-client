@@ -21,7 +21,7 @@ package com.company.assembleegameclient.ui
          var g:Graphics = this.darkBox_.graphics;
          g.clear();
          g.beginFill(0,0.8);
-         g.drawRect(0,0,800,600);
+         g.drawRect(0,0,WebMain.sWidth,WebMain.sHeight);
          g.endFill();
          addChild(this.darkBox_);
          this.frame_ = frame;

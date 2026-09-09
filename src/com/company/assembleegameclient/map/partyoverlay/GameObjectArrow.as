@@ -2,6 +2,7 @@ package com.company.assembleegameclient.map.partyoverlay
 {
    import com.company.assembleegameclient.map.Camera;
    import com.company.assembleegameclient.objects.GameObject;
+   import com.company.assembleegameclient.parameters.Parameters;
    import com.company.assembleegameclient.ui.menu.Menu;
    import com.company.assembleegameclient.ui.tooltip.ToolTip;
    import com.company.util.RectangleUtil;
@@ -147,10 +148,14 @@ package com.company.assembleegameclient.map.partyoverlay
             return;
          }
          this.go_.computeSortVal(camera);
-         var clipRect:Rectangle = camera.clipRect_;
+         var clipRect:Rectangle = camera.clipRect_.clone();
+         if(this.go_.map_ != null && this.go_.map_.gs_ != null && this.go_.map_.gs_.hudView != null)
+         {
+            clipRect.right = clipRect.right - WebMain.hudWidth() / Parameters.data_.mscale;
+         }
          var playerXS:Number = this.go_.posS_[0];
          var playerYS:Number = this.go_.posS_[1];
-         if(!RectangleUtil.lineSegmentIntersectXY(camera.clipRect_,0,0,playerXS,playerYS,this.tempPoint))
+         if(!RectangleUtil.lineSegmentIntersectXY(clipRect,0,0,playerXS,playerYS,this.tempPoint))
          {
             this.go_ = null;
             visible = false;

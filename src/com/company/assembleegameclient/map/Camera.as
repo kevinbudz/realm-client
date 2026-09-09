@@ -79,7 +79,7 @@ package com.company.assembleegameclient.map
          {
             viewW = WebMain.sWidth / Parameters.data_.mscale;
             viewH = WebMain.sHeight / Parameters.data_.mscale;
-            hudAllowance = 200 / Parameters.data_.mscale;
+            hudAllowance = WebMain.hudWidth() / Parameters.data_.mscale;
             if(centerOnPlayer)
             {
                return new Rectangle(-((viewW - hudAllowance) * 0.5),-((viewH * 13) / 24),viewW,viewH);
