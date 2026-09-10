@@ -51,14 +51,19 @@ package kabam.rotmg.messaging.impl.incoming
       
       public var pos2_:WorldPosData;
 
-      
+      //True when the packet carried a second position. Throw effects use it
+      //to carry a custom flight duration (pos2.x_, milliseconds) instead of
+      //the default 1500ms.
+      public var hasPos2_:Boolean;
+
+
       public function ShowEffect(id:uint, callback:Function)
       {
          this.pos1_ = new WorldPosData();
          this.pos2_ = new WorldPosData();
          super(id,callback);
       }
-      
+
       override public function parseFromInput(data:IDataInput) : void
       {
          this.effectType_ = data.readUnsignedByte();
@@ -68,10 +73,12 @@ package kabam.rotmg.messaging.impl.incoming
 
          if (data.bytesAvailable > 0) {
             this.pos2_.parseFromInput(data);
+            this.hasPos2_ = true;
          }
          else {
             this.pos2_.x_ = 0;
             this.pos2_.y_ = 0;
+            this.hasPos2_ = false;
          }
       }
       
