@@ -27,14 +27,18 @@ import kabam.rotmg.startup.control.StartupSequence;
    import kabam.rotmg.ui.commands.EnterGameCommand;
    import kabam.rotmg.ui.commands.HUDInitCommand;
    import kabam.rotmg.ui.commands.RefreshScreenAfterLoginCommand;
+   import kabam.rotmg.ui.commands.ShowKeyUICommand;
    import kabam.rotmg.ui.commands.ShowLoadingUICommand;
    import kabam.rotmg.ui.commands.ShowTitleUICommand;
    import kabam.rotmg.ui.model.HUDModel;
    import kabam.rotmg.ui.signals.EnterGameSignal;
+   import kabam.rotmg.ui.signals.HideKeySignal;
    import kabam.rotmg.ui.signals.HUDModelInitialized;
    import kabam.rotmg.ui.signals.HUDSetupStarted;
    import kabam.rotmg.ui.signals.NameChangedSignal;
    import kabam.rotmg.ui.signals.RefreshScreenAfterLoginSignal;
+   import kabam.rotmg.ui.signals.ShowKeySignal;
+   import kabam.rotmg.ui.signals.ShowKeyUISignal;
    import kabam.rotmg.ui.signals.ShowLoadingUISignal;
    import kabam.rotmg.ui.signals.ShowTitleUISignal;
 import kabam.rotmg.ui.signals.StatsTabHotKeyInputSignal;
@@ -58,6 +62,8 @@ import kabam.rotmg.ui.view.MessageCloseDialog;
 import kabam.rotmg.ui.view.MessageCloseMediator;
 import kabam.rotmg.ui.view.HUDMediator;
    import kabam.rotmg.ui.view.HUDView;
+   import kabam.rotmg.ui.view.KeysMediator;
+   import kabam.rotmg.ui.view.KeysView;
    import kabam.rotmg.ui.view.LoadingMediator;
    import kabam.rotmg.ui.view.MapEditorMediator;
    import kabam.rotmg.ui.view.NewCharacterMediator;
@@ -132,11 +138,20 @@ import org.swiftsuspenders.Injector;
          this.mediatorMap.map(HUDView).toMediator(HUDMediator);
          this.mediatorMap.map(PotionSlotView).toMediator(PotionSlotMediator);
          this.commandMap.map(RefreshScreenAfterLoginSignal).toCommand(RefreshScreenAfterLoginCommand);
+         this.setupKeyUI();
          this.setupCharacterWindow();
          this.startup.addSignal(ShowLoadingUISignal,-1);
          this.startup.addTask(LoadAccountTask);
          this.startup.addTask(GetCharListTask);
          this.startup.addSignal(ShowTitleUISignal,StartupSequence.LAST);
+      }
+      
+      private function setupKeyUI() : void
+      {
+         this.injector.map(ShowKeySignal).toValue(new ShowKeySignal());
+         this.injector.map(HideKeySignal).toValue(new HideKeySignal());
+         this.commandMap.map(ShowKeyUISignal).toCommand(ShowKeyUICommand);
+         this.mediatorMap.map(KeysView).toMediator(KeysMediator);
       }
       
       private function setupCharacterWindow() : void

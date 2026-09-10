@@ -99,6 +99,7 @@ import kabam.rotmg.messaging.impl.incoming.GuildResult;
    import kabam.rotmg.messaging.impl.incoming.InvResult;
    import kabam.rotmg.messaging.impl.incoming.InvitedToGuild;
    import kabam.rotmg.messaging.impl.incoming.MapInfo;
+   import kabam.rotmg.messaging.impl.incoming.GlobalNotification;
    import kabam.rotmg.messaging.impl.incoming.NameResult;
    import kabam.rotmg.messaging.impl.incoming.NewTick;
    import kabam.rotmg.messaging.impl.incoming.Notification;
@@ -149,7 +150,10 @@ import kabam.rotmg.messaging.impl.outgoing.GuildInvite;
    import kabam.rotmg.minimap.control.UpdateGroundTileSignal;
    import kabam.rotmg.minimap.model.UpdateGroundTileVO;
 import kabam.rotmg.stage3D.Renderer;
+import kabam.rotmg.ui.model.Key;
 import kabam.rotmg.ui.model.UpdateGameObjectTileVO;
+import kabam.rotmg.ui.signals.ShowKeySignal;
+import kabam.rotmg.ui.signals.ShowKeyUISignal;
 import kabam.rotmg.ui.signals.UpdateBackpackTabSignal;
 import kabam.rotmg.ui.view.MessageCloseDialog;
 import kabam.rotmg.ui.view.NotEnoughGoldDialog;
@@ -218,6 +222,7 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
       public static const CANCELTRADE:int = 57;
       public static const TRADEDONE:int = 58;
       public static const TRADEACCEPTED:int = 59;
+      public static const GLOBAL_NOTIFICATION:int = 60;
 
       public static var instance:GameServerConnection;
 
@@ -369,6 +374,7 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          messages.map(TRADECHANGED).toMessage(TradeChanged).toMethod(this.onTradeChanged);
          messages.map(TRADEDONE).toMessage(TradeDone).toMethod(this.onTradeDone);
          messages.map(TRADEACCEPTED).toMessage(TradeAccepted).toMethod(this.onTradeAccepted);
+         messages.map(GLOBAL_NOTIFICATION).toMessage(GlobalNotification).toMethod(this.onGlobalNotification);
       }
       
       private function unmapMessages() : void
@@ -429,6 +435,7 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          messages.unmap(TRADECHANGED);
          messages.unmap(TRADEDONE);
          messages.unmap(TRADEACCEPTED);
+         messages.unmap(GLOBAL_NOTIFICATION);
          messages.unmap(PLAYSOUND);
          messages.unmap(CHOOSENAME);
          messages.unmap(NAMERESULT);
@@ -954,6 +961,28 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
             {
                this.gs_.map.quest_.completed();
             }
+         }
+      }
+      
+      private function onGlobalNotification(notification:GlobalNotification) : void
+      {
+         switch(notification.text)
+         {
+            case "yellow":
+               ShowKeySignal.instance.dispatch(Key.YELLOW);
+               break;
+            case "red":
+               ShowKeySignal.instance.dispatch(Key.RED);
+               break;
+            case "green":
+               ShowKeySignal.instance.dispatch(Key.GREEN);
+               break;
+            case "purple":
+               ShowKeySignal.instance.dispatch(Key.PURPLE);
+               break;
+            case "showKeyUI":
+               ShowKeyUISignal.instance.dispatch();
+               break;
          }
       }
       
