@@ -51,7 +51,7 @@ package com.company.assembleegameclient.ui.tooltip
             this.playerPanels_.push(playerPlanel);
             yVal = yVal + 32;
          }
-         this.clickMessage_.x = width / 2 - this.clickMessage_.width / 2;
+         this.clickMessage_.x = this.unscaledWidth / 2 - this.clickMessage_.width / 2;
          this.clickMessage_.y = yVal;
          draw();
       }

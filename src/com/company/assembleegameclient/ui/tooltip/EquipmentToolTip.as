@@ -9,6 +9,7 @@ import com.company.assembleegameclient.constants.InventoryOwnerTypes;
 import com.company.assembleegameclient.ui.panels.mediators.ItemGridMediator;
 import com.company.assembleegameclient.ui.tooltip.TooltipHelper;
 import com.company.assembleegameclient.util.ItemData;
+import com.company.assembleegameclient.util.TierUtil;
 import com.company.ui.SimpleText;
    import com.company.util.BitmapUtil;
    import com.company.util.KeyCodes;
@@ -126,33 +127,17 @@ import kabam.rotmg.constants.ActivationType;
       
       private function addTierText() : void
       {
-         this.tierText_ = new SimpleText(16,16777215,false,30,0);
-         this.tierText_.setBold(true);
+         this.tierText_ = TierUtil.getTierTag(this.objectType_,16);
+         if(this.tierText_ == null)
+         {
+            return;
+         }
+         this.tierText_.filters = [new DropShadowFilter(0,0,0,0.5,12,12)];
          this.tierText_.y = this.icon_.height / 2 - this.titleText_.actualHeight_ / 2;
          this.tierText_.x = MAX_WIDTH - 30;
-         if(this.objectXML_.hasOwnProperty("Consumable") == false && this.isPet() == false)
-         {
-            if(this.objectXML_.hasOwnProperty("Tier"))
-            {
-               this.tierText_.text = "T" + this.objectXML_.Tier;
-            }
-            else
-            {
-               this.tierText_.setColor(9055202);
-               this.tierText_.text = "UT";
-            }
-            this.tierText_.updateMetrics();
-            addChild(this.tierText_);
-         }
+         addChild(this.tierText_);
       }
-      
-      private function isPet() : Boolean
-      {
-         var activateTags:XMLList = null;
-         activateTags = this.objectXML_.Activate.(text() == "PermaPet");
-         return activateTags.length() >= 1;
-      }
-      
+
       private function addTitle() : void
       {
          //var prefix:String = ItemData.getPrefix(this.itemData_);

@@ -69,7 +69,7 @@ package com.company.assembleegameclient.ui.tooltip
          this.clickMessage_.text = "(Click to open menu)";
          this.clickMessage_.updateMetrics();
          this.clickMessage_.filters = [new DropShadowFilter(0,0,0)];
-         this.clickMessage_.x = width / 2 - this.clickMessage_.width / 2;
+         this.clickMessage_.x = this.unscaledWidth / 2 - this.clickMessage_.width / 2;
          this.clickMessage_.y = yOffset;
          addChild(this.clickMessage_);
       }

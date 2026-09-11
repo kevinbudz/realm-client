@@ -2,9 +2,13 @@ package com.company.assembleegameclient.ui.panels.itemgrids.itemtiles
 {
    import com.company.assembleegameclient.objects.ObjectLibrary;
    import com.company.assembleegameclient.objects.Player;
+   import com.company.assembleegameclient.parameters.Parameters;
    import com.company.assembleegameclient.ui.panels.itemgrids.ItemGrid;
+   import com.company.assembleegameclient.util.TierUtil;
+   import com.company.ui.SimpleText;
    import com.company.util.GraphicsUtil;
    import flash.display.GraphicsPath;
+   import flash.filters.GlowFilter;
    import flash.display.GraphicsSolidFill;
    import flash.display.IGraphicsData;
    import flash.display.Shape;
@@ -38,6 +42,10 @@ package com.company.assembleegameclient.ui.panels.itemgrids.itemtiles
       public var tileId:int;
       
       public var ownerGrid:ItemGrid;
+
+      private var tierText_:SimpleText;
+
+      private var tagContainer_:Sprite;
       
       public function ItemTile(id:int, parentGrid:ItemGrid)
       {
@@ -68,9 +76,11 @@ package com.company.assembleegameclient.ui.panels.itemgrids.itemtiles
       {
          if(itemId == this.itemSprite.itemId && itemData == this.itemSprite.itemData)
          {
+            this.toggleTierTag(Parameters.data_.showTierTag);
             return false;
          }
          this.itemSprite.setType(itemId, itemData);
+         this.setTierTag();
          this.updateUseability(this.ownerGrid.curPlayer);
          return true;
       }
@@ -81,6 +91,10 @@ package com.company.assembleegameclient.ui.panels.itemgrids.itemtiles
          this.itemSprite.x = WIDTH / 2;
          this.itemSprite.y = HEIGHT / 2;
          addChild(this.itemSprite);
+         if(this.tagContainer_ != null)
+         {
+            addChild(this.tagContainer_);
+         }
       }
       
       public function updateUseability(player:Player) : void
@@ -118,6 +132,47 @@ package com.company.assembleegameclient.ui.panels.itemgrids.itemtiles
       protected function getBackgroundColor() : int
       {
          return 5526612;
+      }
+
+      public function setTierTag() : void
+      {
+         this.clearTierTag();
+         if(this.itemSprite.itemId == ItemConstants.NO_ITEM)
+         {
+            return;
+         }
+         this.tierText_ = TierUtil.getTierTag(this.itemSprite.itemId,12);
+         if(this.tierText_ == null)
+         {
+            return;
+         }
+         if(this.tagContainer_ == null)
+         {
+            this.tagContainer_ = new Sprite();
+            addChild(this.tagContainer_);
+         }
+         this.tierText_.x = WIDTH - this.tierText_.width;
+         this.tierText_.y = HEIGHT / 2 + 4;
+         this.tierText_.filters = [new GlowFilter(0,1,2,2,10,1)];
+         this.toggleTierTag(Parameters.data_.showTierTag);
+         this.tagContainer_.addChild(this.tierText_);
+      }
+
+      private function clearTierTag() : void
+      {
+         if(this.tierText_ != null && this.tagContainer_ != null && this.tagContainer_.contains(this.tierText_))
+         {
+            this.tagContainer_.removeChild(this.tierText_);
+            this.tierText_ = null;
+         }
+      }
+
+      public function toggleTierTag(show:Boolean) : void
+      {
+         if(this.tierText_ != null)
+         {
+            this.tierText_.visible = show;
+         }
       }
    }
 }

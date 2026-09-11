@@ -44,6 +44,7 @@ package com.company.assembleegameclient.objects
       public var startTime_:int;
       public var angle_:Number = 0;
       public var multiHitDict_:Dictionary;
+      private var projSize_:int = 100;
       public var p_:Point3D;
       private var staticPoint_:Point;
       private var staticVector3D_:Vector3D;
@@ -90,6 +91,7 @@ package com.company.assembleegameclient.objects
          {
             size = ObjectLibrary.getSizeFromType(this.containerType_);
          }
+         this.projSize_ = size > 0 ? int(size) : 100;
          this.p_.setSize(8 * (size / 100));
          this.damage_ = 0;
       }
@@ -341,6 +343,10 @@ package com.company.assembleegameclient.objects
       override public function draw(graphicsData:Vector.<IGraphicsData>, camera:Camera, time:int) : void
       {
          var texture:BitmapData = this.texture_;
+         if(Parameters.data_.projOutline && texture != null)
+         {
+            texture = TextureRedrawer.redraw(texture,this.projSize_,true,0);
+         }
 
          var r:Number = this.props_.rotation_ == 0?Number(0):Number(time / this.props_.rotation_);
          this.staticVector3D_.x = x_;

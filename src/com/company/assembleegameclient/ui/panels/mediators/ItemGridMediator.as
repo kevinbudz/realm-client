@@ -8,6 +8,7 @@ import com.company.assembleegameclient.objects.OneWayContainer;
 import com.company.assembleegameclient.objects.Player;
 import com.company.assembleegameclient.parameters.Parameters;
 import com.company.assembleegameclient.ui.panels.itemgrids.ContainerGrid;
+import com.company.assembleegameclient.ui.panels.itemgrids.EquippedGrid;
 import com.company.assembleegameclient.ui.panels.itemgrids.InventoryGrid;
 import com.company.assembleegameclient.ui.panels.itemgrids.ItemGrid;
 import com.company.assembleegameclient.ui.panels.itemgrids.itemtiles.InteractiveItemTile;
@@ -24,6 +25,7 @@ import kabam.rotmg.game.view.components.TabStripView;
 import kabam.rotmg.messaging.impl.GameServerConnection;
 import kabam.rotmg.ui.model.HUDModel;
 import kabam.rotmg.ui.model.TabStripModel;
+import kabam.rotmg.ui.signals.ToggleShowTierTagSignal;
 import robotlegs.bender.bundles.mvcs.Mediator;
 
 public class ItemGridMediator extends Mediator
@@ -51,6 +53,9 @@ public class ItemGridMediator extends Mediator
    [Inject]
    public var tabStripModel:TabStripModel;
 
+   [Inject]
+   public var toggleShowTierTag:ToggleShowTierTagSignal;
+
    public function ItemGridMediator()
    {
       super();
@@ -63,14 +68,32 @@ public class ItemGridMediator extends Mediator
       this.view.addEventListener(ItemTileEvent.ITEM_DOUBLE_CLICK,this.onDoubleClick);
       this.view.addEventListener(ItemTileEvent.ITEM_CTRL_CLICK,this.onCtrlClick);
       this.view.addToolTip.add(this.onAddToolTip);
+      this.toggleShowTierTag.add(this.onToggleShowTierTag);
    }
 
    private function onAddToolTip(tooltip:ToolTip):void {
       this.showToolTip.dispatch(tooltip);
    }
 
+   private function onToggleShowTierTag(show:Boolean) : void
+   {
+      if(this.view is InventoryGrid)
+      {
+         (this.view as InventoryGrid).toggleTierTags(show);
+      }
+      else if(this.view is EquippedGrid)
+      {
+         (this.view as EquippedGrid).toggleTierTags(show);
+      }
+      else if(this.view is ContainerGrid)
+      {
+         (this.view as ContainerGrid).toggleTierTags(show);
+      }
+   }
+
    override public function destroy() : void
    {
+      this.toggleShowTierTag.remove(this.onToggleShowTierTag);
       super.destroy();
    }
 

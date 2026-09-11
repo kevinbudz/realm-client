@@ -42,6 +42,7 @@ import kabam.rotmg.startup.control.StartupSequence;
    import kabam.rotmg.ui.signals.ShowLoadingUISignal;
    import kabam.rotmg.ui.signals.ShowTitleUISignal;
 import kabam.rotmg.ui.signals.StatsTabHotKeyInputSignal;
+import kabam.rotmg.ui.signals.ToggleShowTierTagSignal;
 import kabam.rotmg.ui.signals.UpdateBackpackTabSignal;
 import kabam.rotmg.ui.signals.UpdateHUDSignal;
 import kabam.rotmg.ui.signals.UpdatePotionInventorySignal;
@@ -158,6 +159,7 @@ import org.swiftsuspenders.Injector;
       {
          this.injector.map(HUDModel).asSingleton();
          this.injector.map(UpdateHUDSignal).asSingleton();
+         this.injector.map(ToggleShowTierTagSignal).asSingleton();
          this.injector.map(HUDModelInitialized).asSingleton();
          this.commandMap.map(HUDSetupStarted).toCommand(HUDInitCommand);
          this.mediatorMap.map(CharacterDetailsView).toMediator(CharacterDetailsMediator);

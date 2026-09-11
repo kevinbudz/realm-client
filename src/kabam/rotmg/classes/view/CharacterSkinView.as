@@ -2,112 +2,114 @@ package kabam.rotmg.classes.view
 {
    import com.company.assembleegameclient.screens.AccountScreen;
    import com.company.assembleegameclient.screens.TitleMenuOption;
-   import com.company.rotmg.graphics.ScreenGraphic;
+   import com.company.assembleegameclient.ui.layout.MenuBackground;
+   import com.company.assembleegameclient.ui.layout.MenuFrame;
+   import com.company.assembleegameclient.ui.layout.ScaledScreen;
+   import flash.display.Graphics;
    import flash.display.Shape;
-   import flash.display.Sprite;
    import flash.events.MouseEvent;
    import kabam.rotmg.game.view.CreditDisplay;
-   import kabam.rotmg.ui.view.components.ScreenBase;
    import org.osflash.signals.Signal;
    import org.osflash.signals.natives.NativeMappedSignal;
-   
-   public class CharacterSkinView extends Sprite
+
+   public class CharacterSkinView extends ScaledScreen
    {
-      private const base:ScreenBase = makeScreenBase();
-      private const account:AccountScreen = makeAccountScreen();
-      private const lines:Shape = makeLines();
-      private const creditsDisplay:CreditDisplay = makeCreditDisplay();
-      private const graphic:ScreenGraphic = makeScreenGraphic();
-      private const playBtn:TitleMenuOption = makePlayButton();
-      private const backBtn:TitleMenuOption = makeBackButton();
-      private const list:CharacterSkinListView = makeListView();
-      private const detail:ClassDetailView = makeClassDetailView();
-      public const play:Signal = new NativeMappedSignal(playBtn,MouseEvent.CLICK);
-      public const back:Signal = new NativeMappedSignal(backBtn,MouseEvent.CLICK);
-      
+      private var creditsDisplay:CreditDisplay;
+      private var dividerLine:Shape;
+      private var playBtn:TitleMenuOption;
+      private var backBtn:TitleMenuOption;
+      private var list:CharacterSkinListView;
+      private var detail:ClassDetailView;
+      public var play:Signal;
+      public var back:Signal;
+
       public function CharacterSkinView()
       {
          super();
+         setBackground(new MenuBackground());
+         addFrame(new MenuFrame());
+         this.chrome.addChild(new AccountScreen());
+         this.makeCreditDisplay();
+         this.makeDividerLine();
+         this.makeLines();
+         this.makePlayButton();
+         this.makeBackButton();
+         this.makeListView();
+         this.makeClassDetailView();
+         this.play = new NativeMappedSignal(this.playBtn,MouseEvent.CLICK);
+         this.back = new NativeMappedSignal(this.backBtn,MouseEvent.CLICK);
+         this.layout();
       }
-      
-      private function makeScreenBase() : ScreenBase
+
+      private function makeCreditDisplay() : void
       {
-         var base:ScreenBase = new ScreenBase();
-         addChild(base);
-         return base;
+         this.creditsDisplay = new CreditDisplay();
+         this.chrome.addChild(this.creditsDisplay);
       }
-      
-      private function makeAccountScreen() : AccountScreen
+
+      private function makeDividerLine() : void
       {
-         var screen:AccountScreen = new AccountScreen();
-         addChild(screen);
-         return screen;
+         this.dividerLine = new Shape();
+         this.chrome.addChild(this.dividerLine);
       }
-      
-      private function makeCreditDisplay() : CreditDisplay
-      {
-         var display:CreditDisplay = new CreditDisplay();
-         display.x = 800;
-         display.y = 20;
-         addChild(display);
-         return display;
-      }
-      
-      private function makeLines() : Shape
+
+      private function makeLines() : void
       {
          var shape:Shape = new Shape();
          shape.graphics.clear();
          shape.graphics.lineStyle(2,5526612);
-         shape.graphics.moveTo(0,105);
-         shape.graphics.lineTo(800,105);
          shape.graphics.moveTo(346,105);
          shape.graphics.lineTo(346,526);
-         addChild(shape);
-         return shape;
+         this.content.addChild(shape);
       }
-      
-      private function makeScreenGraphic() : ScreenGraphic
+
+      private function makePlayButton() : void
       {
-         var graphic:ScreenGraphic = new ScreenGraphic();
-         addChild(graphic);
-         return graphic;
+         this.playBtn = new TitleMenuOption("play",36,false);
+         this.playBtn.x = 400 - this.playBtn.width / 2;
+         this.playBtn.y = 520;
+         this.content.addChild(this.playBtn);
       }
-      
-      private function makePlayButton() : TitleMenuOption
+
+      private function makeBackButton() : void
       {
-         var option:TitleMenuOption = null;
-         option = new TitleMenuOption("play",36,false);
-         option.x = 400 - option.width / 2;
-         option.y = 520;
-         addChild(option);
-         return option;
+         this.backBtn = new TitleMenuOption("back",22,false);
+         this.backBtn.x = 30;
+         this.backBtn.y = 534;
+         this.content.addChild(this.backBtn);
       }
-      
-      private function makeBackButton() : TitleMenuOption
+
+      private function makeListView() : void
       {
-         var option:TitleMenuOption = new TitleMenuOption("back",22,false);
-         option.x = 30;
-         option.y = 534;
-         addChild(option);
-         return option;
+         this.list = new CharacterSkinListView();
+         this.list.x = 351;
+         this.list.y = 110;
+         this.content.addChild(this.list);
       }
-      
-      private function makeListView() : CharacterSkinListView
+
+      private function makeClassDetailView() : void
       {
-         var view:CharacterSkinListView = new CharacterSkinListView();
-         view.x = 351;
-         view.y = 110;
-         addChild(view);
-         return view;
+         this.detail = new ClassDetailView();
+         this.detail.x = 5;
+         this.detail.y = 110;
+         this.content.addChild(this.detail);
       }
-      
-      private function makeClassDetailView() : ClassDetailView
+
+      override protected function layoutChrome(stageWidth:Number, stageHeight:Number, scale:Number) : void
       {
-         var view:ClassDetailView = new ClassDetailView();
-         view.x = 5;
-         view.y = 110;
-         addChild(view);
-         return view;
+         if (this.creditsDisplay != null)
+         {
+            this.creditsDisplay.scaleX = scale;
+            this.creditsDisplay.scaleY = scale;
+            this.creditsDisplay.x = stageWidth;
+            this.creditsDisplay.y = 20 * scale;
+         }
+         var g:Graphics = this.dividerLine.graphics;
+         g.clear();
+         g.lineStyle(2 * scale,5526612);
+         g.moveTo(0,105 * scale);
+         g.lineTo(stageWidth,105 * scale);
+         g.lineStyle();
       }
 
       public function setPlayButtonEnabled(activate:Boolean):void {

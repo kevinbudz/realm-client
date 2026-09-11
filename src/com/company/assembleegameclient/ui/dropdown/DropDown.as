@@ -1,5 +1,6 @@
 package com.company.assembleegameclient.ui.dropdown
 {
+   import com.company.assembleegameclient.ui.layout.LayoutHelper;
    import com.company.ui.SimpleText;
    import flash.display.Sprite;
    import flash.events.Event;
@@ -121,12 +122,33 @@ package com.company.assembleegameclient.ui.dropdown
          }
          this.all_.addEventListener(MouseEvent.ROLL_OUT,this.onOut);
          stage.addChild(this.all_);
+         this.applyListScale();
+         stage.addEventListener(Event.RESIZE,this.onListResize);
       }
-      
+
       private function hideAll() : void
       {
          this.all_.removeEventListener(MouseEvent.ROLL_OUT,this.onOut);
+         stage.removeEventListener(Event.RESIZE,this.onListResize);
          stage.removeChild(this.all_);
+      }
+
+      private function onListResize(event:Event) : void
+      {
+         this.applyListScale();
+      }
+
+      /**
+       * Scales the open list by the window height, like the rest of
+       * the menu UI. The list is parented to the stage (outside any
+       * scaled content), so it must scale itself; its position is
+       * already in stage pixels via localToGlobal.
+       */
+      private function applyListScale() : void
+      {
+         var scale:Number = stage != null ? LayoutHelper.scaleForHeight(stage.stageHeight) : 1;
+         this.all_.scaleX = scale;
+         this.all_.scaleY = scale;
       }
       
       private function onSelect(event:MouseEvent) : void

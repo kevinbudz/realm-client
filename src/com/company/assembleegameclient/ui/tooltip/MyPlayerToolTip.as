@@ -104,7 +104,7 @@ package com.company.assembleegameclient.ui.tooltip
       {
          this.hpBar_.draw(this.player_.hp_,this.player_.maxHP_,this.player_.maxHPBoost_,this.player_.maxHPMax_);
          this.mpBar_.draw(this.player_.mp_,this.player_.maxMP_,this.player_.maxMPBoost_,this.player_.maxMPMax_);
-         this.lineBreak_.setWidthColor(width - 10,1842204);
+         this.lineBreak_.setWidthColor(this.unscaledWidth - 10,1842204);
          super.draw();
       }
    }

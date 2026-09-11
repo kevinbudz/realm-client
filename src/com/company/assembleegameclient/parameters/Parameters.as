@@ -185,6 +185,8 @@ import flash.net.SharedObject;
          setDefault("GPURender", false);
          setDefault("particles", true);
          setDefault("hpBars", true)
+         setDefault("showTierTag", true);
+         setDefault("projOutline", true);
          setDefault("allyShots", true);
          setDefault("allyDamage", true);
          setDefault("allyNotifs", true);

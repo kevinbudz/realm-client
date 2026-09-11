@@ -119,6 +119,24 @@ package com.company.assembleegameclient.ui.tooltip
          this.scaleY = scale;
       }
 
+      /**
+       * Width in local design units. The built-in width is multiplied
+       * by scaleX, so drawing code must use this: tooltips keep the
+       * scale applied by their last stay on stage, and measuring the
+       * scaled width would bake that scale into the redrawn content
+       * and compound on every draw.
+       */
+      protected function get unscaledWidth() : Number
+      {
+         return this.scaleX != 0 ? width / this.scaleX : width;
+      }
+
+      /** Height in local design units; see unscaledWidth. */
+      protected function get unscaledHeight() : Number
+      {
+         return this.scaleY != 0 ? height / this.scaleY : height;
+      }
+
       private function position() : void
       {
          if(stage == null)
@@ -158,8 +176,8 @@ package com.company.assembleegameclient.ui.tooltip
          this.outlineFill_.color = this.outline_;
          this.outlineFill_.alpha = this.outlineAlpha_;
          graphics.clear();
-         this.contentWidth_ = width;
-         this.contentHeight_ = height;
+         this.contentWidth_ = this.unscaledWidth;
+         this.contentHeight_ = this.unscaledHeight;
          GraphicsUtil.clearPath(this.path_);
          GraphicsUtil.drawCutEdgeRect(-6,-6,this.contentWidth_ + 12,this.contentHeight_ + 12,4,[1,1,1,1],this.path_);
          graphics.drawGraphicsData(this.graphicsData_);

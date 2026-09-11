@@ -1,5 +1,6 @@
 package com.company.assembleegameclient.ui.panels.itemgrids.itemtiles
 {
+   import com.company.assembleegameclient.parameters.Parameters;
    import com.company.assembleegameclient.ui.panels.itemgrids.ItemGrid;
    import flash.display.DisplayObject;
    import flash.events.Event;
@@ -154,15 +155,17 @@ package com.company.assembleegameclient.ui.panels.itemgrids.itemtiles
          itemSprite.x = e.stageX;
          itemSprite.y = e.stageY;
          itemSprite.addEventListener(MouseEvent.MOUSE_UP,this.endDrag);
+         this.toggleTierTag(false);
          this.beginDragCallback();
       }
-      
+
       private function endDrag(e:MouseEvent) : void
       {
          this.isDragging = false;
          itemSprite.stopDrag();
          itemSprite.removeEventListener(MouseEvent.MOUSE_UP,this.endDrag);
          dispatchEvent(new ItemTileEvent(ItemTileEvent.ITEM_MOVE,this));
+         this.toggleTierTag(Parameters.data_.showTierTag);
          this.endDragCallback();
       }
       

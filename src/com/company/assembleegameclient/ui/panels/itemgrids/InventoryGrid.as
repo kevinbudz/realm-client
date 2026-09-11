@@ -57,5 +57,13 @@ public class InventoryGrid extends ItemGrid
          }
       }
    }
+
+   public function toggleTierTags(show:Boolean) : void
+   {
+      for(var i:int = 0; i < this.NUM_SLOTS; i++)
+      {
+         this.tiles[i].toggleTierTag(show);
+      }
+   }
 }
 }

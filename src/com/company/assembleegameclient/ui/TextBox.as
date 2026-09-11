@@ -220,19 +220,13 @@ package com.company.assembleegameclient.ui
          var textLine:TextLine = null;
          var yPos:Number = 0;
 
-         textLine = textBlock.createTextLine(textLine,yPos == 0?Number(this.w_ - 4):Number(this.w_ - 4 - INDENT));
-         textLine.x = yPos == 0?Number(0):Number(INDENT);
-         textLine.y = textLine.ascent + yPos;
-         yPos = yPos + Math.max(MIN_LINE_HEIGHT,textLine.height);
-         blockSprite.addChild(textLine);
-
-         /*while(textLine = textBlock.createTextLine(textLine,yPos == 0?Number(this.w_ - 4):Number(this.w_ - 4 - INDENT)))
+         while(textLine = textBlock.createTextLine(textLine,yPos == 0?Number(this.w_ - 4):Number(this.w_ - 4 - INDENT)))
          {
             textLine.x = yPos == 0?Number(0):Number(INDENT);
             textLine.y = textLine.ascent + yPos;
             yPos = yPos + Math.max(MIN_LINE_HEIGHT,textLine.height);
             blockSprite.addChild(textLine);
-         }*/
+         }
          if(this.textSpriteYPos_ != 0)
          {
             this.textSpriteYPos_ = this.textSpriteYPos_ + BLOCK_SPACING;

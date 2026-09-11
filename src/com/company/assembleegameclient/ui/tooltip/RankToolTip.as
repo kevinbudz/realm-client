@@ -70,7 +70,7 @@ package com.company.assembleegameclient.ui.tooltip
       
       override public function draw() : void
       {
-         this.lineBreak_.setWidthColor(width - 10,1842204);
+         this.lineBreak_.setWidthColor(this.unscaledWidth - 10,1842204);
          super.draw();
       }
    }

@@ -903,22 +903,23 @@ public class GameObject extends BasicObject
       {
          var fPerc:Number = NaN;
          var bw:Number = NaN;
-         var isPlayer:Boolean = props_.isPlayer_;
          if(this.hpbarPath_ == null)
          {
             this.hpbarBackFill_ = new GraphicsSolidFill();
             this.hpbarBackPath_ = new GraphicsPath(GraphicsUtil.QUAD_COMMANDS,new Vector.<Number>());
             this.hpbarFill_ = new GraphicsSolidFill();
             this.hpbarPath_ = new GraphicsPath(GraphicsUtil.QUAD_COMMANDS,new Vector.<Number>());
-            this.hpbarBackFill_.color = 5526612;
-            this.hpbarFill_.color = 1113856;
          }
-
-         var sw:int = size_ / 4;
-         var w:int = isPlayer ? DEFAULT_HP_BAR_WIDTH : (sw < 25) ? 25 : sw;
-         var h:int = isPlayer ? DEFAULT_HP_BAR_HEIGHT : 3;
+         if(!(this is Player) && this.hp_ > this.maxHP_)
+         {
+            this.maxHP_ = this.hp_;
+         }
+         this.hpbarBackFill_.color = 0x111111;
+         var w:int = 20;
+         var h:int = 5;
          this.hpbarBackPath_.data.length = 0;
-         this.hpbarBackPath_.data.push(posS_[0] - w,posS_[1] + yOffset,posS_[0] + w,posS_[1] + yOffset,posS_[0] + w,posS_[1] + yOffset + h,posS_[0] - w,posS_[1] + yOffset + h);
+         var pad:Number = 1.2;
+         this.hpbarBackPath_.data.push(posS_[0] - w - pad,posS_[1] + yOffset - pad,posS_[0] + w + pad,posS_[1] + yOffset - pad,posS_[0] + w + pad,posS_[1] + yOffset + h + pad,posS_[0] - w - pad,posS_[1] + yOffset + h + pad);
 
          graphicsData.push(this.hpbarBackFill_);
          graphicsData.push(this.hpbarBackPath_);
@@ -931,6 +932,7 @@ public class GameObject extends BasicObject
             this.hpbarPath_.data.length = 0;
             this.hpbarPath_.data.push(posS_[0] - w,posS_[1] + yOffset,posS_[0] - w + bw,posS_[1] + yOffset,posS_[0] - w + bw,posS_[1] + yOffset + h,posS_[0] - w,posS_[1] + yOffset + h);
 
+            this.hpbarFill_.color = fPerc < 0.5 ? (fPerc < 0.2 ? 14684176 : 16744464) : 0x10FF00;
             graphicsData.push(this.hpbarFill_);
             graphicsData.push(this.hpbarPath_);
             graphicsData.push(GraphicsUtil.END_FILL);
