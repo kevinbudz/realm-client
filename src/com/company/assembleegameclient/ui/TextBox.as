@@ -2,6 +2,8 @@ package com.company.assembleegameclient.ui
 {
    import com.company.assembleegameclient.game.GameSprite;
    import com.company.assembleegameclient.parameters.Parameters;
+   import com.company.assembleegameclient.tutorial.Tutorial;
+   import com.company.assembleegameclient.tutorial.doneAction;
    import com.company.assembleegameclient.util.TextureRedrawer;
    import com.company.util.AssetLibrary;
    import flash.display.Bitmap;
@@ -379,6 +381,7 @@ package com.company.assembleegameclient.ui
                   if(this.gs_.map.player_ != null)
                   {
                      this.gs_.gsc_.playerText(this.inputField_.text);
+                     doneAction(this.gs_,Tutorial.TEXT_ACTION);
                   }
                   this.inputField_.text = "";
                }

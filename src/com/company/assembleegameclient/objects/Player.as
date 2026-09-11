@@ -7,6 +7,8 @@ package com.company.assembleegameclient.objects
    import com.company.assembleegameclient.objects.particles.LevelUpEffect;
    import com.company.assembleegameclient.parameters.Parameters;
    import com.company.assembleegameclient.sound.SoundEffectLibrary;
+   import com.company.assembleegameclient.tutorial.Tutorial;
+   import com.company.assembleegameclient.tutorial.doneAction;
    import com.company.assembleegameclient.util.AnimatedChar;
    import com.company.assembleegameclient.util.ConditionEffect;
    import com.company.assembleegameclient.util.FameUtil;
@@ -985,6 +987,7 @@ import org.swiftsuspenders.Injector;
          {
             return;
          }
+         doneAction(map_.gs_,Tutorial.ATTACK_ACTION);
          attackAngle_ = attackAngle;
          attackStart_ = time;
          this.doShoot(attackStart_,weaponType, itemData, weaponXML,attackAngle_,false);

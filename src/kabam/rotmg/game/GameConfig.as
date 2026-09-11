@@ -3,6 +3,7 @@ package kabam.rotmg.game
    import com.company.assembleegameclient.game.GameSprite;
    import com.company.assembleegameclient.map.Map;
    import com.company.assembleegameclient.map.MapMediator;
+   import com.company.assembleegameclient.map.QueueStatusTextSignal;
    import com.company.assembleegameclient.map.mapoverlay.MapOverlay;
    import com.company.assembleegameclient.ui.TextBox;
    import com.company.assembleegameclient.ui.panels.InteractPanel;
@@ -88,6 +89,7 @@ import kabam.rotmg.ui.model.TabStripModel;
          this.injector.map(DisconnectGameSignal).asSingleton();
          this.injector.map(TabStripModel).asSingleton();
          this.injector.map(ExitGameSignal).asSingleton();
+         this.injector.map(QueueStatusTextSignal).asSingleton();
          this.makeStatusDisplayMappings();
          this.mediatorMap.map(PortalPanel).toMediator(PortalPanelMediator);
          this.mediatorMap.map(InteractPanel).toMediator(InteractPanelMediator);

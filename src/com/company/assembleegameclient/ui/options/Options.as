@@ -313,6 +313,9 @@ public class Options extends ScaledScreen
          this.addOption(new ChoiceOption("showGuildInvitePopup",new <String>["On","Off"],[true,false],"Show Guild Invite Panel","This toggles whether to show guild invites in the " + "lower-right panel or just in chat.",null));
          this.addOption(new ChoiceOption("particles", new <String>["On","Off"], [true,false], "Particles", "If enabled, particles which are not necessary for gameplay are rendered (e.g. hit/death particles).", null));
          this.addOption(new ChoiceOption("hpBars", new <String>["On","Off"], [true,false], "Health Bars", "Enabling this will render health bars below entities.", null));
+         this.addOption(new ChoiceOption("allyShots", new <String>["On","Off"], [true,false], "Ally Shots", "This toggles whether to show and render ally shots. Disable this to improve performance.", null));
+         this.addOption(new ChoiceOption("allyDamage", new <String>["On","Off"], [true,false], "Ally Damage", "This toggles whether to show damage dealt to and by allies. Disable this to improve performance.", null));
+         this.addOption(new ChoiceOption("allyNotifs", new <String>["On","Off"], [true,false], "Ally Notifications", "This toggles whether to show notifications targeted at other players. Disable this to improve performance.", null));
          this.addOption(new ChoiceOption("quality", new <String>["High","Low"], [true,false], "Quality", "Enabling this will render UI elements at higher/lower quality.", onQualityToggle));
          this.addOption(new ChoiceOption("cursor", new <String>[
              "OS","0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"],

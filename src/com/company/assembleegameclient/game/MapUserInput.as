@@ -4,6 +4,8 @@ import com.company.assembleegameclient.map.Square;
 import com.company.assembleegameclient.objects.ObjectLibrary;
 import com.company.assembleegameclient.objects.Player;
 import com.company.assembleegameclient.parameters.Parameters;
+import com.company.assembleegameclient.tutorial.Tutorial;
+import com.company.assembleegameclient.tutorial.doneAction;
 import com.company.assembleegameclient.ui.options.Options;
 import com.company.util.KeyCodes;
 import flash.display.Stage;
@@ -221,6 +223,7 @@ public class MapUserInput
          return;
       }
 
+      doneAction(this.gs_,Tutorial.ATTACK_ACTION);
       if(Parameters.GPURenderFrame)
       {
          if(event.currentTarget == event.target || event.target == this.gs_.map || event.target == this.gs_)
@@ -271,6 +274,7 @@ public class MapUserInput
    {
       var angle:Number = NaN;
       var player:Player = null;
+      doneAction(this.gs_,Tutorial.UPDATE_ACTION);
       if(this.enablePlayerInput_ && (this.mouseDown_ || this.autofire_))
       {
          angle = Math.atan2(this.gs_.map.mouseY,this.gs_.map.mouseX);
@@ -318,15 +322,19 @@ public class MapUserInput
       switch(event.keyCode)
       {
          case Parameters.data_.moveUp:
+            doneAction(this.gs_,Tutorial.MOVE_FORWARD_ACTION);
             this.moveUp_ = true;
             break;
          case Parameters.data_.moveDown:
+            doneAction(this.gs_,Tutorial.MOVE_BACKWARD_ACTION);
             this.moveDown_ = true;
             break;
          case Parameters.data_.moveLeft:
+            doneAction(this.gs_,Tutorial.MOVE_LEFT_ACTION);
             this.moveLeft_ = true;
             break;
          case Parameters.data_.moveRight:
+            doneAction(this.gs_,Tutorial.MOVE_RIGHT_ACTION);
             this.moveRight_ = true;
             break;
          case Parameters.data_.rotateLeft:
@@ -334,6 +342,7 @@ public class MapUserInput
             {
                break;
             }
+            doneAction(this.gs_,Tutorial.ROTATE_LEFT_ACTION);
             this.rotateLeft_ = true;
             break;
          case Parameters.data_.rotateRight:
@@ -341,6 +350,7 @@ public class MapUserInput
             {
                break;
             }
+            doneAction(this.gs_,Tutorial.ROTATE_RIGHT_ACTION);
             this.rotateRight_ = true;
             break;
          case Parameters.data_.resetToDefaultCameraAngle:

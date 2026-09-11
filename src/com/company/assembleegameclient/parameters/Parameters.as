@@ -185,6 +185,9 @@ import flash.net.SharedObject;
          setDefault("GPURender", false);
          setDefault("particles", true);
          setDefault("hpBars", true)
+         setDefault("allyShots", true);
+         setDefault("allyDamage", true);
+         setDefault("allyNotifs", true);
          setDefault("quality", true);
          setDefault("cursor", "4");
       }

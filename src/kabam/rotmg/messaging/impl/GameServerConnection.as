@@ -817,6 +817,10 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
       
       private function onDamage(damage:Damage) : void
       {
+         if (!Parameters.data_.allyDamage && damage.targetId_ != playerId_)
+         {
+            return;
+         }
          var map:Map = this.gs_.map;
          var target:GameObject = map.goDict_[damage.targetId_];
          if(target != null)
@@ -827,6 +831,11 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
       
       private function onServerPlayerShoot(serverPlayerShoot:ServerPlayerShoot) : void
       {
+         var needsAck:Boolean = serverPlayerShoot.ownerId_ == this.playerId_;
+         if (!Parameters.data_.allyShots && !needsAck)
+         {
+            return;
+         }
          //var owner:GameObject = this.gs_.map.goDict_[serverPlayerShoot.ownerId_];
          for (var i:int = 0; i < serverPlayerShoot.damageList_.length; i++)
          {
@@ -844,6 +853,10 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
       
       private function onAllyShoot(allyShoot:AllyShoot) : void
       {
+         if (!Parameters.data_.allyShots)
+         {
+            return;
+         }
          var i:int;
          var owner:GameObject = this.gs_.map.goDict_[allyShoot.ownerId_];
          var weaponXML:XML =  ObjectLibrary.xmlLibrary_[allyShoot.containerType_];
@@ -955,6 +968,10 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
 
          if(go != null)
          {
+            if (!Parameters.data_.allyNotifs && go.props_.isPlayer_ && notification.objectId_ != playerId_)
+            {
+               return;
+            }
             text = new CharacterStatusText(go,notification.text_,notification.color_,2000);
             this.gs_.map.mapOverlay_.addStatusText(text);
             if(go == this.player && notification.text_ == "Quest Complete!")
@@ -1426,11 +1443,18 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
                }
                else
                {
-                  player.levelUpEffect("Level Up!");
+                  if (Parameters.data_.allyNotifs)
+                  {
+                     player.levelUpEffect("Level Up!");
+                  }
                }
             }
             else if(player.exp_ > pExp)
             {
+               if (!Parameters.data_.allyNotifs && !isMyObject)
+               {
+                  return;
+               }
                player.handleExpUp(player.exp_ - pExp);
                if (player.charFame_ > pFame) {
                   player.handleFameUp(player.charFame_ - pFame)

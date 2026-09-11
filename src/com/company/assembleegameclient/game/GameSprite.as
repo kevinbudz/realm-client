@@ -10,6 +10,7 @@ package com.company.assembleegameclient.game
    import com.company.assembleegameclient.ui.GuildText;
    import com.company.assembleegameclient.ui.RankText;
    import com.company.assembleegameclient.ui.TextBox;
+   import com.company.assembleegameclient.tutorial.Tutorial;
    import com.company.assembleegameclient.util.TextureRedrawer;
    import com.company.util.CachingColorTransformer;
    import com.company.util.MoreColorUtil;
@@ -50,6 +51,8 @@ import kabam.rotmg.ui.UIUtils;
       public var gsc_:GameServerConnection;
       public var mui_:MapUserInput;
       public var textBox_:TextBox;
+      public var tutorial_:Tutorial;
+      public var idleWatcher_:IdleWatcher;
       public var isNexus_:Boolean = false;
       public var hudView:HUDView;
       public var rankText_:RankText;
@@ -75,6 +78,7 @@ import kabam.rotmg.ui.UIUtils;
          this.mui_ = new MapUserInput(this);
          this.textBox_ = new TextBox(this,600,600);
          addChild(this.textBox_);
+         this.idleWatcher_ = new IdleWatcher();
       }
       
       public function setFocus(focus:GameObject) : void
@@ -110,11 +114,22 @@ import kabam.rotmg.ui.UIUtils;
             this.showSafeAreaDisplays();
          }
 
+         if(this.map.name_ == "Tutorial")
+         {
+            this.startTutorial();
+         }
+
          if (this.map.name_ == "Nexus")
          {
             isNexus_ = true;
          }
          this.onScreenResize(null);
+      }
+
+      private function startTutorial() : void
+      {
+         this.tutorial_ = new Tutorial(this);
+         addChild(this.tutorial_);
       }
       
       private function showSafeAreaDisplays() : void
@@ -195,6 +210,7 @@ import kabam.rotmg.ui.UIUtils;
             this.isGameStarted = true;
             Renderer.inGame = true;
             this.gsc_.connect();
+            this.idleWatcher_.start(this);
             this.lastUpdate_ = getTimer();
             stage.addEventListener(Event.ENTER_FRAME,this.onEnterFrame);
             LoopedProcess.addProcess(new LoopedCallback(100,this.updateNearestInteractive));
@@ -210,6 +226,7 @@ import kabam.rotmg.ui.UIUtils;
          {
             this.isGameStarted = false;
             Renderer.inGame = false;
+            this.idleWatcher_.stop();
             this.gsc_.serverConnection.disconnect();
             stage.removeEventListener(Event.ENTER_FRAME,this.onEnterFrame);
             stage.removeEventListener(Event.RESIZE,this.onScreenResize);
@@ -294,6 +311,11 @@ import kabam.rotmg.ui.UIUtils;
             else if(dt > 100)
             {
                dt = 100;
+            }
+            if(this.idleWatcher_.update(dt))
+            {
+               this.closed.dispatch();
+               return;
             }
             LoopedProcess.runProcesses(time);
             this.map.update(time, dt);
