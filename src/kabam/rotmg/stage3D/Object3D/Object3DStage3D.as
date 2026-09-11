@@ -68,7 +68,6 @@ package kabam.rotmg.stage3D.Object3D
       public function UpdateModelMatrix(widthOffset:Number, heightOffset:Number) : void
       {
          this.modelMatrix_.identity();
-         this.modelMatrix_.appendRotation(-90,Vector3D.Z_AXIS);
          this.modelMatrix_.appendRotation(-this.zRotation_,Vector3D.Z_AXIS);
          this.modelMatrix_.appendTranslation(this.position.x,this.position.y,0);
          this.modelMatrix_.appendTranslation(widthOffset,heightOffset,0);
