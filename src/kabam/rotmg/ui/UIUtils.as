@@ -37,5 +37,32 @@ public class UIUtils
             WebMain.STAGE.quality = hq ? StageQuality.HIGH : StageQuality.LOW;
          }
       }
+
+      public static function applyVSync(vsync:Boolean) : void
+      {
+         if (WebMain.STAGE != null) {
+            try {
+               WebMain.STAGE.vsyncEnabled = vsync;
+            } catch (e:Error) {
+            }
+         }
+      }
+
+      private static const MAX_FPS_DEFAULT:Number = 60;
+      private static const MAX_FPS_UNCAPPED:Number = 1000;
+
+      public static function applyMaxFPS(value:*) : void
+      {
+         var fps:Number = Number(value);
+         if (value === null || value === undefined || isNaN(fps)) {
+            fps = MAX_FPS_DEFAULT;
+         }
+         if (WebMain.STAGE != null) {
+            try {
+               WebMain.STAGE.frameRate = fps <= 0 ? MAX_FPS_UNCAPPED : Math.min(Math.max(fps,1),MAX_FPS_UNCAPPED);
+            } catch (e:Error) {
+            }
+         }
+      }
    }
 }

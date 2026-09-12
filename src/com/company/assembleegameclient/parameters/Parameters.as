@@ -191,6 +191,8 @@ import flash.net.SharedObject;
          setDefault("allyDamage", true);
          setDefault("allyNotifs", true);
          setDefault("quality", true);
+         setDefault("vsync", true);
+         setDefault("maxFPS", 60);
          setDefault("cursor", "4");
       }
    }

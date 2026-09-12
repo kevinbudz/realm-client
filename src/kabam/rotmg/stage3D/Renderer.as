@@ -47,6 +47,9 @@ package kabam.rotmg.stage3D
       private static const POST_FILTER_POSITIONS:Vector.<Number> = new <Number>[-1,1,0,0,1,1,1,0,1,-1,1,1,-1,-1,0,1];
       
       private static const POST_FILTER_TRIS:Vector.<uint> = new <uint>[0,2,3,0,1,2];
+      
+      // fc4 for the shadow program: (0.5 uv centre, 2 = 1/half-extent, 1, 0)
+      private static const SHADOW_FRAGMENT_CONSTANTS:Vector.<Number> = new <Number>[0.5,2,1,0];
        
       
       [Inject]
@@ -175,10 +178,28 @@ package kabam.rotmg.stage3D
          var blurFSAGAL:ByteArray = assembler.agalcode;
          this.blurPostProcessing_ = context3D.createProgram();
          this.blurPostProcessing_.upload(blurVSAGAL,blurFSAGAL);
-         var shadowVS:String = "m44 op, va0, vc0\n" + "mov v0, va1\n" + "mov v1, va2\n";
+         // Shadow (radial GraphicsGradientFill) program.
+         // va0 = unit-quad position, va1 = uv (0..1). v0 = uv.
+         // fc4 = (0.5, 2, 1, 0) helpers, fc5 = shadow colour rgb, fc6 = (alphaCenter, alphaEdge, 0, 0)
+         // alpha = lerp(alphaCenter, alphaEdge, min(1, r)) with r = 1 on the inscribed ellipse,
+         // which is exactly the software radial gradient (ratios 0..255, spread pad).
+         var shadowVS:String = "m44 op, va0, vc0\n" + "mov v0, va1\n";
          assembler.assemble(Context3DProgramType.VERTEX,shadowVS);
          var shadowVSAGAL:ByteArray = assembler.agalcode;
-         var shadowFS:String = "sub ft0.xy, v1.xy, fc4.xx\n" + "mul ft0.xy, ft0.xy, ft0.xy\n" + "add ft0.x, ft0.x, ft0.y\n" + "slt ft0.y, ft0.x, fc4.y\n" + "mul oc, v0, ft0.yyyy\n";
+         var shadowFS:String = [
+            "mov ft0, fc5",                 // rgb = shadow colour, w overwritten below
+            "sub ft1, v0, fc4.xxxx",        // uv - 0.5
+            "mul ft1, ft1, ft1",
+            "add ft1.x, ft1.x, ft1.y",      // d^2 (0.25 on the ellipse)
+            "sqt ft1.x, ft1.x",             // d
+            "mul ft1.x, ft1.x, fc4.y",      // r = 2d
+            "min ft1.x, ft1.x, fc4.z",      // pad: clamp r to 1
+            "sub ft1.y, fc4.z, ft1.x",      // 1 - r
+            "mul ft1.y, ft1.y, fc6.x",      // alphaCenter * (1 - r)
+            "mul ft1.x, ft1.x, fc6.y",      // alphaEdge * r
+            "add ft0.w, ft1.x, ft1.y",      // alpha
+            "mov oc, ft0"
+         ].join("\n");
          assembler.assemble(Context3DProgramType.FRAGMENT,shadowFS);
          var shadowFSAGAL:ByteArray = assembler.agalcode;
          this.shadowProgram_ = context3D.createProgram();
@@ -337,7 +358,7 @@ package kabam.rotmg.stage3D
                finalTransform.append(this.graphic3D_.getMatrix3D());
                finalTransform.appendTranslation(ndcX,ndcY,0);
                this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,finalTransform,true);
-               this.context3D.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,4,Vector.<Number>([0.5,0.25,0,0]));
+               this.context3D.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,4,SHADOW_FRAGMENT_CONSTANTS);
                this.graphic3D_.renderShadow(this.context3D);
             }
             if(graphicsData == null && grahpicsData3d.length != 0)

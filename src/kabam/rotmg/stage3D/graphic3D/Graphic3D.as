@@ -19,10 +19,16 @@ import flash.display3D.Context3DProgramType;
    
    public class Graphic3D
    {
+      // Unit quad for gradient (shadow) fills: xyz position, uv. Scaled to the gradient box in shadowTransform.
       private static const gradientVertex:Vector.<Number> = Vector.<Number>(
-              [-0.5, 0.5, 0, 0, 0, 0, 0.01, 0, 1, 0.5, 0.5, 0, 0, 0, 0, 0.3, 1, 1,
-                 -0.5, -0.5, 0, 0, 0, 0, 0.1, 0, 0, 0.5, -0.5, 0, 0, 0, 0, 0.2, 1, 0]);
+              [-0.5, 0.5, 0, 0, 1,
+                0.5, 0.5, 0, 1, 1,
+               -0.5, -0.5, 0, 0, 0,
+                0.5, -0.5, 0, 1, 0]);
       private static const indices:Vector.<uint> = Vector.<uint>([0,1,2,2,1,3]);
+      
+      // Matrix.createGradientBox maps a 1638.4-unit gradient square onto the box (a = width / 1638.4).
+      private static const GRADIENT_BOX_SIZE:Number = 1638.4;
 
       public var texture:TextureProxy;
       public var matrix3D:Matrix3D;
@@ -51,10 +57,14 @@ import flash.display3D.Context3DProgramType;
       private var ctMult:Vector.<Number>;
       private var ctOffset:Vector.<Number>;
       private var rawMatrix3D:Vector.<Number>;
+      private var gradientColor:Vector.<Number>;
+      private var gradientAlpha:Vector.<Number>;
       
       public function Graphic3D()
       {
          this.matrix3D = new Matrix3D();
+         this.gradientColor = new Vector.<Number>(4, true);
+         this.gradientAlpha = new Vector.<Number>(4, true);
          this.sinkOffset = new Vector.<Number>(4, true);
          this.ctMult = new Vector.<Number>(4, true);
          this.ctOffset = new Vector.<Number>(4, true);
@@ -91,27 +101,57 @@ import flash.display3D.Context3DProgramType;
          c3d.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT, 3, ctOffset);
       }
       
+      /**
+       * Prepares a radial GraphicsGradientFill (object / projectile shadows) for the GPU shadow program.
+       * Mirrors the software fill: colors[0] at alphas[0] in the centre fading linearly to alphas[last]
+       * at the ellipse inscribed in the gradient box (spread = pad, so alpha stays at alphas[last] outside).
+       * Uploads fc5 = (r, g, b, 0) and fc6 = (alphaCenter, alphaEdge, 0, 0).
+       * width / height are the half back-buffer extents in world-scaled pixels (NDC divisor).
+       */
       public function setGradientFill(gradientFill:GraphicsGradientFill, context3D:Context3DProxy, width:Number, height:Number) : void
       {
          this.shadowMatrix2D = gradientFill.matrix;
+         var c3d:Context3D = context3D.GetContext3D();
          if(this.gradientVB == null || this.gradientIB == null)
          {
-            this.gradientVB = context3D.GetContext3D().createVertexBuffer(4,9);
+            this.gradientVB = c3d.createVertexBuffer(4,5);
             this.gradientVB.uploadFromVector(gradientVertex,0,4);
-            this.gradientIB = context3D.GetContext3D().createIndexBuffer(6);
+            this.gradientIB = c3d.createIndexBuffer(6);
             this.gradientIB.uploadFromVector(indices,0,6);
          }
+         var color:uint = 0;
+         var alphaCenter:Number = 1;
+         var alphaEdge:Number = 0;
+         if(gradientFill.colors != null && gradientFill.colors.length > 0)
+         {
+            color = uint(gradientFill.colors[0]);
+         }
+         if(gradientFill.alphas != null && gradientFill.alphas.length > 0)
+         {
+            alphaCenter = Number(gradientFill.alphas[0]);
+            alphaEdge = Number(gradientFill.alphas[gradientFill.alphas.length - 1]);
+         }
+         this.gradientColor[0] = ((color >> 16) & 255) / 255;
+         this.gradientColor[1] = ((color >> 8) & 255) / 255;
+         this.gradientColor[2] = (color & 255) / 255;
+         this.gradientColor[3] = 0;
+         this.gradientAlpha[0] = alphaCenter;
+         this.gradientAlpha[1] = alphaEdge;
+         c3d.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,5,this.gradientColor);
+         c3d.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,6,this.gradientAlpha);
          this.shadowTransform(width,height);
       }
       
+      // Unit quad -> gradient box in NDC. The quad must cover the full box (2w x 2h screen px) so the
+      // shader's normalised radius hits 1 exactly on the inscribed ellipse, as the software gradient does.
       private function shadowTransform(width:Number, height:Number) : void
       {
          this.matrix3D.identity();
          var raw:Vector.<Number> = this.matrix3D.rawData;
-         raw[4] = -this.shadowMatrix2D.c;
-         raw[1] = -this.shadowMatrix2D.b;
-         raw[0] = this.shadowMatrix2D.a * 4;
-         raw[5] = this.shadowMatrix2D.d * 4;
+         raw[4] = -this.shadowMatrix2D.c * GRADIENT_BOX_SIZE / width;
+         raw[1] = -this.shadowMatrix2D.b * GRADIENT_BOX_SIZE / height;
+         raw[0] = this.shadowMatrix2D.a * GRADIENT_BOX_SIZE / width;
+         raw[5] = this.shadowMatrix2D.d * GRADIENT_BOX_SIZE / height;
          raw[12] = this.shadowMatrix2D.tx / width;
          raw[13] = -this.shadowMatrix2D.ty / height;
          this.matrix3D.rawData = raw;
@@ -159,8 +199,8 @@ import flash.display3D.Context3DProgramType;
       {
          var c3d:Context3D = c3dProxy.GetContext3D();
          c3d.setVertexBufferAt(0,this.gradientVB,0,Context3DVertexBufferFormat.FLOAT_3);
-         c3d.setVertexBufferAt(1,this.gradientVB,3,Context3DVertexBufferFormat.FLOAT_4);
-         c3d.setVertexBufferAt(2,this.gradientVB,7,Context3DVertexBufferFormat.FLOAT_2);
+         c3d.setVertexBufferAt(1,this.gradientVB,3,Context3DVertexBufferFormat.FLOAT_2);
+         c3d.setVertexBufferAt(2,null);
          c3d.setTextureAt(0,null);
          c3d.drawTriangles(this.gradientIB);
       }

@@ -116,6 +116,8 @@ public class Options extends ScaledScreen
          Parameters.setDefaults();
          Parameters.save();
          this.refresh();
+         UIUtils.applyVSync(Parameters.data_.vsync !== false);
+         UIUtils.applyMaxFPS(Parameters.data_.maxFPS);
       }
       
       private function onHomeClick(event:MouseEvent) : void
@@ -321,6 +323,8 @@ public class Options extends ScaledScreen
          this.addOption(new ChoiceOption("allyDamage", new <String>["On","Off"], [true,false], "Ally Damage", "This toggles whether to show damage dealt to and by allies. Disable this to improve performance.", null));
          this.addOption(new ChoiceOption("allyNotifs", new <String>["On","Off"], [true,false], "Ally Notifications", "This toggles whether to show notifications targeted at other players. Disable this to improve performance.", null));
          this.addOption(new ChoiceOption("quality", new <String>["High","Low"], [true,false], "Quality", "Enabling this will render UI elements at higher/lower quality.", onQualityToggle));
+         this.addOption(new ChoiceOption("vsync", new <String>["On","Off"], [true,false], "VSync", "Synchronizes rendering with the display refresh to prevent screen tearing.", onVsyncToggle));
+         this.addOption(new ChoiceOption("maxFPS", new <String>["30","60","120","144","165","240","Unlimited"], [30,60,120,144,165,240,0], "Max FPS", "Caps the frame rate. Unlimited renders as fast as possible (up to your display refresh with VSync on).", onMaxFPSToggle));
          this.addOption(new ChoiceOption("cursor", new <String>[
              "OS","0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"],
       [MouseCursor.AUTO, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"], "Cursor", "Changing this will give you a new mouse cursor.", refreshCursor));
@@ -357,6 +361,16 @@ public class Options extends ScaledScreen
       private static function onQualityToggle() : void
       {
          UIUtils.toggleQuality(Parameters.data_.quality);
+      }
+
+      private static function onVsyncToggle() : void
+      {
+         UIUtils.applyVSync(Parameters.data_.vsync !== false);
+      }
+
+      private static function onMaxFPSToggle() : void
+      {
+         UIUtils.applyMaxFPS(Parameters.data_.maxFPS);
       }
       
       private static function onDefaultCameraAngleChange() : void

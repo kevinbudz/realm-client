@@ -14,6 +14,7 @@ import flash.display.StageAlign;
 import flash.display.StageScaleMode;
    import flash.events.Event;
 import flash.events.MouseEvent;
+import flash.events.VsyncStateChangeAvailabilityEvent;
 import flash.system.Capabilities;
 import flash.system.Security;
 
@@ -87,7 +88,10 @@ import robotlegs.bender.bundles.mvcs.MVCSBundle;
          STAGE = stage;
          STAGE.addEventListener(MouseEvent.RIGHT_CLICK, onRightClick)
          STAGE.addEventListener(Event.ENTER_FRAME, onEnterFrame);
+         STAGE.addEventListener(VsyncStateChangeAvailabilityEvent.VSYNC_STATE_CHANGE_AVAILABILITY, onVsyncAvailability);
          UIUtils.toggleQuality(Parameters.data_.quality);
+         UIUtils.applyVSync(Parameters.data_.vsync !== false);
+         UIUtils.applyMaxFPS(Parameters.data_.maxFPS);
          this.configureForAirIfDesktopPlayer();
       }
 
@@ -108,6 +112,13 @@ import robotlegs.bender.bundles.mvcs.MVCSBundle;
       private static function onEnterFrame(event:Event) : void
       {
          SoundEffectLibrary.clear();
+      }
+
+      private function onVsyncAvailability(event:VsyncStateChangeAvailabilityEvent) : void
+      {
+         if (event.available) {
+            UIUtils.applyVSync(Parameters.data_.vsync !== false);
+         }
       }
 
       public static function uiScale() : Number
