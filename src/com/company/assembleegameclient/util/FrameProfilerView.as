@@ -11,10 +11,11 @@ package com.company.assembleegameclient.util
     * On-screen readout for FrameProfiler. Enables the profiler while on stage and disables it
     * when removed, so there's zero cost when the overlay is hidden.
     *
-    * Single column layout: frame, then scene. Frame nests script and render as
-    * collapsible sub-groups, all sharing one look: bold label, value, arrow on the
-    * right. Click a header row to toggle it. Detail rows use a bold key column
-    * with values lined up in a second column.
+    * Single column layout: software nests every other group. Software nests
+    * frame and scene; frame nests script and render as collapsible sub-groups,
+    * all sharing one look: bold label, value, arrow on the right. Click a
+    * header row to toggle it. Detail rows use a bold key column with values
+    * lined up in a second column.
     *
     * Accounting (every level sums): all instrumented sections run inside the
     * enterFrame handler, i.e. inside avgScript. "script" is the non-draw CPU
@@ -25,11 +26,12 @@ package com.company.assembleegameclient.util
     */
    public class FrameProfilerView extends Sprite
    {
-      private static const GROUP_FRAME:int = 0;
-      private static const GROUP_SCRIPT:int = 1;
-      private static const GROUP_RENDER:int = 2;
-      private static const GROUP_SCENE:int = 3;
-      private static const GROUP_COUNT:int = 4;
+      private static const GROUP_SOFTWARE:int = 0;
+      private static const GROUP_FRAME:int = 1;
+      private static const GROUP_SCRIPT:int = 2;
+      private static const GROUP_RENDER:int = 3;
+      private static const GROUP_SCENE:int = 4;
+      private static const GROUP_COUNT:int = 5;
 
       private static const ARROW_SIZE:Number = 8;
       private static const ARROW_GAP:Number = 4;
@@ -46,8 +48,6 @@ package com.company.assembleegameclient.util
       private static const RENDER_SUB_SECTIONS:Vector.<int> = new <int>[FrameProfiler.GPU_SCENE,FrameProfiler.GPU_SWAP,
          FrameProfiler.GPU_SOFTWARE,FrameProfiler.GPU_BUILD,FrameProfiler.GPU_ATLAS,FrameProfiler.GPU_DRAW];
 
-      private var headerKey_:SimpleText;
-      private var headerVal_:SimpleText;
       private var heads_:Vector.<Sprite> = new Vector.<Sprite>(GROUP_COUNT,true);
       private var headLabels_:Vector.<SimpleText> = new Vector.<SimpleText>(GROUP_COUNT,true);
       private var headVals_:Vector.<SimpleText> = new Vector.<SimpleText>(GROUP_COUNT,true);
@@ -59,18 +59,13 @@ package com.company.assembleegameclient.util
       private var bodyRows_:Vector.<Sprite> = new Vector.<Sprite>(GROUP_COUNT * MAX_BODY_ROWS,true);
       private var bodyRowKeys_:Vector.<SimpleText> = new Vector.<SimpleText>(GROUP_COUNT * MAX_BODY_ROWS,true);
       private var bodyRowVals_:Vector.<SimpleText> = new Vector.<SimpleText>(GROUP_COUNT * MAX_BODY_ROWS,true);
-      private var expanded_:Vector.<Boolean> = new <Boolean>[true,true,true,false];
+      private var expanded_:Vector.<Boolean> = new <Boolean>[true,true,true,true,false];
       private var atlas_:SimpleText;
       private var lastSerial_:int = -1;
 
       public function FrameProfilerView()
       {
          super();
-         this.headerKey_ = makeText(true);
-         addChild(this.headerKey_);
-         this.headerVal_ = makeText(false);
-         addChild(this.headerVal_);
-
          for(var g:int = 0; g < GROUP_COUNT; g++)
          {
             var head:Sprite = new Sprite();
@@ -120,14 +115,13 @@ package com.company.assembleegameclient.util
          FrameProfiler.reset();
          FrameProfiler.enabled = true;
          this.lastSerial_ = -1;
-         this.headerKey_.text = "profiling...";
-         this.headerKey_.useTextDimensions();
-         this.headerVal_.text = "";
          for(var g:int = 0; g < GROUP_COUNT; g++)
          {
             this.heads_[g].visible = false;
             this.bodies_[g].visible = false;
          }
+         setHead(GROUP_SOFTWARE,"profiling...","");
+         this.heads_[GROUP_SOFTWARE].visible = true;
          this.atlas_.visible = false;
          stage.addEventListener(Event.ENTER_FRAME,this.onEnterFrame);
       }
@@ -167,15 +161,12 @@ package com.company.assembleegameclient.util
 
       private function render() : void
       {
-         this.headerKey_.text = Parameters.GPURenderFrame ? "gpu" : "software";
-         this.headerVal_.text = "  " + FrameProfiler.reportedFrames + " fps";
-         layoutRow(0,this.headerKey_,this.headerVal_);
-
          var renderSum:Number = sumSections(RENDER_TOP_SECTIONS);
          var scriptVal:Number = Math.max(0,FrameProfiler.avgScript - renderSum);
          var frameVal:Number = FrameProfiler.avgFrame;
          var renderVal:Number = Math.max(0,frameVal - scriptVal);
 
+         setHead(GROUP_SOFTWARE,Parameters.GPURenderFrame ? "gpu" : "software","  " + FrameProfiler.reportedFrames + " fps");
          setHead(GROUP_FRAME,"frame","  " + fmt(frameVal));
          setHead(GROUP_SCRIPT,"script","  " + fmt(scriptVal));
          setScriptBody(scriptVal);
@@ -193,26 +184,36 @@ package com.company.assembleegameclient.util
          }
 
          var y:Number = 0;
-         this.headerKey_.y = 0;
-         this.headerVal_.y = 0;
-         y += this.headerKey_.height;
-         y = placeHead(GROUP_FRAME,0,y);
-         this.bodies_[GROUP_FRAME].visible = false;
-         if(this.expanded_[GROUP_FRAME])
+         y = placeHead(GROUP_SOFTWARE,0,y);
+         this.bodies_[GROUP_SOFTWARE].visible = false;
+         if(this.expanded_[GROUP_SOFTWARE])
          {
-            y = placeGroup(GROUP_RENDER,BODY_INDENT,y);
-            y = placeGroup(GROUP_SCRIPT,BODY_INDENT,y);
+            y = placeHead(GROUP_FRAME,BODY_INDENT,y);
+            this.bodies_[GROUP_FRAME].visible = false;
+            if(this.expanded_[GROUP_FRAME])
+            {
+               y = placeGroup(GROUP_RENDER,BODY_INDENT * 2,y);
+               y = placeGroup(GROUP_SCRIPT,BODY_INDENT * 2,y);
+            }
+            else
+            {
+               hideGroup(GROUP_SCRIPT);
+               hideGroup(GROUP_RENDER);
+            }
+            y = placeGroup(GROUP_SCENE,BODY_INDENT,y);
          }
          else
          {
+            hideGroup(GROUP_FRAME);
             hideGroup(GROUP_SCRIPT);
             hideGroup(GROUP_RENDER);
+            hideGroup(GROUP_SCENE);
          }
-         y = placeGroup(GROUP_SCENE,0,y);
-         this.atlas_.visible = showAtlas;
-         if(showAtlas)
+         var showAtlasLine:Boolean = showAtlas && this.expanded_[GROUP_SOFTWARE];
+         this.atlas_.visible = showAtlasLine;
+         if(showAtlasLine)
          {
-            this.atlas_.x = 0;
+            this.atlas_.x = BODY_INDENT;
             this.atlas_.y = y;
          }
       }
