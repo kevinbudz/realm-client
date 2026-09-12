@@ -125,26 +125,43 @@ package kabam.rotmg.stage3D.Object3D
                   continue;
                case "usemtl":
                   materialName = fields[1];
-                  if(group !== null)
+                  if(group === null || group._faces.length == 0)
                   {
-                     group.materialName = materialName;
+                     // no faces yet: current group simply takes the material
+                     if(group !== null)
+                     {
+                        group.materialName = materialName;
+                     }
+                  }
+                  else if(group.materialName != materialName)
+                  {
+                     // material changed mid-group (e.g. table: usemtl Solid1 without a new g):
+                     // start a new group so per-face material matches the software parser
+                     group = new OBJGroup(group.name,materialName);
+                     this.groups.push(group);
                   }
                   continue;
                default:
                   continue;
             }
          }
+         var faceNormal:Vector.<Number> = new Vector.<Number>(3,true);
+         var normalKey:String = null;
          for each(group in this.groups)
          {
             group._indices.length = 0;
             for each(face in group._faces)
             {
                il = face.length - 1;
+               // Face-equivalent shading: same normal the software path derives in
+               // ObjectFace3D.computeLighting (Plane3D.computeNormal on face[0], face[1], face[last]).
+               this.computeFaceNormal(face,positions,faceNormal);
+               normalKey = faceNormal.join(",");
                for(i = 1; i < il; i++)
                {
-                  group._indices.push(this.mergeTuple(face[i],positions,normals,uvs));
-                  group._indices.push(this.mergeTuple(face[0],positions,normals,uvs));
-                  group._indices.push(this.mergeTuple(face[i + 1],positions,normals,uvs));
+                  group._indices.push(this.mergeTuple(face[i],normalKey,positions,faceNormal,uvs));
+                  group._indices.push(this.mergeTuple(face[0],normalKey,positions,faceNormal,uvs));
+                  group._indices.push(this.mergeTuple(face[i + 1],normalKey,positions,faceNormal,uvs));
                }
             }
             group._faces = null;
@@ -153,26 +170,53 @@ package kabam.rotmg.stage3D.Object3D
          this._tupleIndices = null;
       }
       
-      protected function mergeTuple(tuple:String, positions:Vector.<Number>, normals:Vector.<Number>, uvs:Vector.<Number>) : uint
+      private static function positionIndex(tuple:String) : int
+      {
+         return parseInt(tuple.split("/")[0],10) - 1;
+      }
+      
+      // Mirrors Plane3D.computeNormal(p0, p1, p2) with p0 = face[0], p1 = face[1], p2 = face[last].
+      protected function computeFaceNormal(face:Vector.<String>, positions:Vector.<Number>, result:Vector.<Number>) : void
+      {
+         var i0:int = positionIndex(face[0]) * 3;
+         var i1:int = positionIndex(face[1]) * 3;
+         var i2:int = positionIndex(face[face.length - 1]) * 3;
+         var ux:Number = positions[i1] - positions[i0];
+         var uy:Number = positions[i1 + 1] - positions[i0 + 1];
+         var uz:Number = positions[i1 + 2] - positions[i0 + 2];
+         var vx:Number = positions[i2] - positions[i0];
+         var vy:Number = positions[i2 + 1] - positions[i0 + 1];
+         var vz:Number = positions[i2 + 2] - positions[i0 + 2];
+         var nx:Number = uy * vz - uz * vy;
+         var ny:Number = uz * vx - ux * vz;
+         var nz:Number = ux * vy - uy * vx;
+         var len:Number = Math.sqrt(nx * nx + ny * ny + nz * nz);
+         if(len > 0)
+         {
+            nx = nx / len;
+            ny = ny / len;
+            nz = nz / len;
+         }
+         result[0] = nx;
+         result[1] = ny;
+         result[2] = nz;
+      }
+      
+      protected function mergeTuple(tuple:String, normalKey:String, positions:Vector.<Number>, faceNormal:Vector.<Number>, uvs:Vector.<Number>) : uint
       {
          var faceIndices:Array = null;
          var index:uint = 0;
-         if(this._tupleIndices[tuple] !== undefined)
+         // Vertices are shared only when position/uv AND face normal agree, so each
+         // face keeps its own flat shade like the software renderer.
+         var key:String = tuple + "|" + normalKey;
+         if(this._tupleIndices[key] !== undefined)
          {
-            return this._tupleIndices[tuple];
+            return this._tupleIndices[key];
          }
          faceIndices = tuple.split("/");
          index = parseInt(faceIndices[0],10) - 1;
          this._vertices.push(positions[index * 3 + 0],positions[index * 3 + 1],positions[index * 3 + 2]);
-         if(faceIndices.length > 2 && faceIndices[2].length > 0)
-         {
-            index = parseInt(faceIndices[2],10) - 1;
-            this._vertices.push(normals[index * 3 + 0],normals[index * 3 + 1],normals[index * 3 + 2]);
-         }
-         else
-         {
-            this._vertices.push(0,0,0);
-         }
+         this._vertices.push(faceNormal[0],faceNormal[1],faceNormal[2]);
          if(faceIndices.length > 1 && faceIndices[1].length > 0)
          {
             index = parseInt(faceIndices[1],10) - 1;
@@ -182,7 +226,7 @@ package kabam.rotmg.stage3D.Object3D
          {
             this._vertices.push(0,0);
          }
-         return this._tupleIndices[tuple] = this._tupleIndex++;
+         return this._tupleIndices[key] = this._tupleIndex++;
       }
    }
 }

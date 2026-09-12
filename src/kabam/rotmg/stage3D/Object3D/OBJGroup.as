@@ -25,6 +25,12 @@ package kabam.rotmg.stage3D.Object3D
          this._indices = new Vector.<uint>();
       }
       
+      // Same rule as Model3D.parseFromOBJ: usemtl Solid* => ModelFace3D.useTexture_ = false
+      public function get isSolid() : Boolean
+      {
+         return this.materialName != null && this.materialName.substr(0,5) == "Solid";
+      }
+      
       public function dispose() : void
       {
          if(this.indexBuffer != null)

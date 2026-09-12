@@ -148,8 +148,11 @@ public class GameObject extends BasicObject
          {
             this.obj3D_ = Model3D.getObject3D(String(objectXML.Model));
             this.object3d_ = Model3D.getStage3dObject3D(String(objectXML.Model));
-            if (this.texture_ != null) {
-               this.object3d_.setBitMapData(this.texture_);
+            if (this.object3d_ != null) {
+               this.object3d_.setColor(this.props_.color_);
+               if (this.texture_ != null) {
+                  this.object3d_.setBitMapData(this.texture_);
+               }
             }
          }
          var animationsData:AnimationsData = ObjectLibrary.typeToAnimationsData_[this.objectType_];

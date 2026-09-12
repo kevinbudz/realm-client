@@ -1,6 +1,7 @@
 package kabam.rotmg.stage3D
 {
    import com.adobe.utils.AGALMiniAssembler;
+   import com.company.assembleegameclient.engine3d.Lighting3D;
    import com.company.assembleegameclient.map.Camera;
    import com.company.assembleegameclient.parameters.Parameters;
    import flash.display.GraphicsBitmapFill;
@@ -18,6 +19,7 @@ package kabam.rotmg.stage3D
    import flash.display3D.VertexBuffer3D;
    import flash.display3D.textures.Texture;
    import flash.geom.Matrix3D;
+   import flash.geom.Vector3D;
    import flash.utils.ByteArray;
    import kabam.rotmg.stage3D.Object3D.Object3DStage3D;
    import kabam.rotmg.stage3D.graphic3D.Graphic3D;
@@ -86,12 +88,57 @@ package kabam.rotmg.stage3D
       
       protected var _fragmentShader:String;
       
+      protected var _solidFragmentShader:String;
+      
+      private var solidProgram_:Program3D;
+      
+      // Lighting3D.LIGHT_VECTOR = normalize(1, 3, 2), world space
+      private static const MODEL_LIGHT_CONSTANTS:Vector.<Number> = createLightConstants();
+      
+      // (1 - ambient, ambient, 0, 1) with ambient = 0.75 (ObjectFace3D.computeLighting)
+      private static const MODEL_SHADE_CONSTANTS:Vector.<Number> = new <Number>[0.25,0.75,0,1];
+      
+      private static function createLightConstants() : Vector.<Number>
+      {
+         var l:Vector3D = Lighting3D.LIGHT_VECTOR;
+         return new <Number>[l.x,l.y,l.z,0];
+      }
+      
       protected var blurFragmentConstants_:Vector.<Number>;
       
       public function Renderer(render3D:Render3D)
       {
-         this._vertexShader = ["m44 op, va0, vc0","m44 v0, va0, vc8","m44 v1, va1, vc8","mov v2, va2"].join("\n");
-         this._fragmentShader = ["tex oc, v2, fs0 <2d,clamp>"].join("\n");
+         // Model vertex program. Mirrors the software path (ObjectFace3D.computeLighting):
+         //   shade = ambient + (1 - ambient) * max(0, normalW . L)   with ambient = 0.75
+         // va0 = position, va1 = face normal (object space), va2 = uv
+         // vc0..3  = model * wToS * NDC        vc8..11 = model matrix (rotation + translation)
+         // vc12    = world light vector L      vc13    = (1 - ambient, ambient, 0, 1)
+         // v0 = shade (xxxx), v1 = uv
+         this._vertexShader = [
+            "m44 op, va0, vc0",
+            "mov vt0, vc13.zzzz",          // fully init temp, w = 0 so translation does not leak
+            "mov vt0.xyz, va1.xyz",
+            "m44 vt1, vt0, vc8",           // world-space normal (rotation only, stays unit length)
+            "mov vt2, vc13.zzzz",
+            "dp3 vt2.x, vt1.xyz, vc12.xyz",
+            "max vt2.x, vt2.x, vc13.z",    // max(0, n . L)
+            "mul vt2.x, vt2.x, vc13.x",    // * (1 - ambient)
+            "add vt2.x, vt2.x, vc13.y",    // + ambient
+            "mov v0, vt2.xxxx",
+            "mov v1, va2"
+         ].join("\n");
+         // Textured group: sprite texel * shade on RGB (same as TextureRedrawer.redrawFace ColorTransform multiply)
+         this._fragmentShader = [
+            "tex ft0, v1, fs0 <2d,clamp>",
+            "mul ft0.xyz, ft0.xyz, v0.xxx",
+            "mov oc, ft0"
+         ].join("\n");
+         // Solid* group / no sprite: flat props_.color_ (fc0) * shade on RGB (MoreColorUtil.transformColor)
+         this._solidFragmentShader = [
+            "mov ft0, fc0",
+            "mul ft0.xyz, fc0.xyz, v0.xxx",
+            "mov oc, ft0"
+         ].join("\n");
          this.blurFragmentConstants_ = Vector.<Number>([0.4,0.6,0.4,1.5]);
          super();
          Renderer.inGame = false;
@@ -107,6 +154,10 @@ package kabam.rotmg.stage3D
          fsAssembler.assemble(Context3DProgramType.FRAGMENT,this._fragmentShader);
          this.program2 = context3D.createProgram();
          this.program2.upload(vsAssembler.agalcode,fsAssembler.agalcode);
+         var solidFsAssembler:AGALMiniAssembler = new AGALMiniAssembler();
+         solidFsAssembler.assemble(Context3DProgramType.FRAGMENT,this._solidFragmentShader);
+         this.solidProgram_ = context3D.createProgram();
+         this.solidProgram_.upload(vsAssembler.agalcode,solidFsAssembler.agalcode);
          var fragSource:String = "tex ft0, v0, fs0 <2d,clamp,linear>\n" + "dp3 ft0.x, ft0, fc0\n" + "mov ft0.y, ft0.x\n" + "mov ft0.z, ft0.x\n" + "mov oc, ft0\n";
          var vertSource:String = "mov op, va0\n" + "add vt0, vc0.xxxx, va0\n" + "div vt0, vt0, vc0.yyyy\n" + "sub vt0.y, vc0.x, vt0.y\n" + "mov v0, vt0\n";
          var assembler:AGALMiniAssembler = new AGALMiniAssembler();
@@ -143,7 +194,7 @@ package kabam.rotmg.stage3D
       private function onRender(graphicsDatas:Vector.<IGraphicsData>, grahpicsData3d:Vector.<Object3DStage3D>, mapWidth:Number, mapHeight:Number, camera:Camera, filterIndex:uint) : void
       {
          WebMain.STAGE.scaleMode = StageScaleMode.NO_SCALE;
-         if(this.playableWidth() != this.stageWidth || WebMain.STAGE.stageHeight != this.stageHeight)
+         if(int(this.playableWidth()) != this.stageWidth || int(WebMain.STAGE.stageHeight) != this.stageHeight)
          {
             this.resizeStage3DBackBuffer();
          }
@@ -174,15 +225,16 @@ package kabam.rotmg.stage3D
 
       private function resizeStage3DBackBuffer() : void
       {
-         var mapW:Number = this.playableWidth();
-         if(mapW < 1 || WebMain.STAGE.stageHeight < 1)
+         var mapW:int = int(this.playableWidth());
+         var mapH:int = int(WebMain.STAGE.stageHeight);
+         if(mapW < 1 || mapH < 1)
          {
             return;
          }
          var stage3d:Stage3D = WebMain.STAGE.stage3Ds[0];
-         stage3d.context3D.configureBackBuffer(mapW,WebMain.STAGE.stageHeight,2,true);
+         stage3d.context3D.configureBackBuffer(mapW,mapH,2,true);
          this.stageWidth = mapW;
-         this.stageHeight = WebMain.STAGE.stageHeight;
+         this.stageHeight = mapH;
       }
       
       private function renderWithPostEffect(graphicsDatas:Vector.<IGraphicsData>, grahpicsData3d:Vector.<Object3DStage3D>, mapWidth:Number, mapHeight:Number, camera:Camera, filterIndex:uint) : void
@@ -235,9 +287,26 @@ package kabam.rotmg.stage3D
       {
          var test:int = 0;
          var graphicsData:IGraphicsData = null;
+         var zoom:Number = 1;
+         var halfW:Number = Stage3DConfig.HALF_WIDTH;
+         var halfH:Number = Stage3DConfig.HALF_HEIGHT;
+         var ndcX:Number = this.tX / Stage3DConfig.WIDTH;
+         var ndcY:Number = this.tY / Stage3DConfig.HEIGHT;
          this.context3D.clear();
          var finalTransform:Matrix3D = new Matrix3D();
          var index3d:uint = 0;
+         if(Renderer.inGame && camera.clipRect_ != null && this.stageWidth > 0 && this.stageHeight > 0)
+         {
+            zoom = Parameters.data_.stageScale == StageScaleMode.NO_SCALE ? Number(Parameters.data_.mscale) : Number(1);
+            if(zoom <= 0)
+            {
+               zoom = 1;
+            }
+            halfW = this.stageWidth / (2 * zoom);
+            halfH = this.stageHeight / (2 * zoom);
+            ndcX = -2 * camera.clipRect_.x * zoom / this.stageWidth - 1;
+            ndcY = 1 + 2 * camera.clipRect_.y * zoom / this.stageHeight;
+         }
          for each(graphicsData in graphicsDatas)
          {
             this.context3D.GetContext3D().setCulling(Context3DTriangleFace.NONE);
@@ -255,18 +324,18 @@ package kabam.rotmg.stage3D
                this.graphic3D_.setGraphic(GraphicsBitmapFill(graphicsData),this.context3D);
                finalTransform.identity();
                finalTransform.append(this.graphic3D_.getMatrix3D());
-               finalTransform.appendScale(1 / Stage3DConfig.HALF_WIDTH,1 / Stage3DConfig.HALF_HEIGHT,1);
-               finalTransform.appendTranslation(this.tX / Stage3DConfig.WIDTH,this.tY / Stage3DConfig.HEIGHT,0);
+               finalTransform.appendScale(1 / halfW,1 / halfH,1);
+               finalTransform.appendTranslation(ndcX,ndcY,0);
                this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,finalTransform,true);
                this.graphic3D_.render(this.context3D);
             }
             if(graphicsData is GraphicsGradientFill)
             {
                this.context3D.GetContext3D().setProgram(this.shadowProgram_);
-               this.graphic3D_.setGradientFill(GraphicsGradientFill(graphicsData),this.context3D,Stage3DConfig.HALF_WIDTH,Stage3DConfig.HALF_HEIGHT);
+               this.graphic3D_.setGradientFill(GraphicsGradientFill(graphicsData),this.context3D,halfW,halfH);
                finalTransform.identity();
                finalTransform.append(this.graphic3D_.getMatrix3D());
-               finalTransform.appendTranslation(this.tX / Stage3DConfig.WIDTH,this.tY / Stage3DConfig.HEIGHT,0);
+               finalTransform.appendTranslation(ndcX,ndcY,0);
                this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,finalTransform,true);
                this.context3D.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,4,Vector.<Number>([0.5,0.25,0,0]));
                this.graphic3D_.renderShadow(this.context3D);
@@ -281,11 +350,13 @@ package kabam.rotmg.stage3D
                   finalTransform.identity();
                   finalTransform.append(grahpicsData3d[index3d].GetModelMatrix());
                   finalTransform.append(camera.wToS_);
-                  finalTransform.appendScale(1 / Stage3DConfig.HALF_WIDTH,-1 / Stage3DConfig.HALF_HEIGHT,0.001);
-                  finalTransform.appendTranslation(this.tX / Stage3DConfig.WIDTH,this.tY / Stage3DConfig.HEIGHT,0);
+                  finalTransform.appendScale(1 / halfW,-1 / halfH,0.001);
+                  finalTransform.appendTranslation(ndcX,ndcY,0);
                   this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,finalTransform,true);
                   this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,8,grahpicsData3d[index3d].GetModelMatrix(),true);
-                  grahpicsData3d[index3d].draw(this.context3D.GetContext3D());
+                  this.context3D.setProgramConstantsFromVector(Context3DProgramType.VERTEX,12,MODEL_LIGHT_CONSTANTS);
+                  this.context3D.setProgramConstantsFromVector(Context3DProgramType.VERTEX,13,MODEL_SHADE_CONSTANTS);
+                  grahpicsData3d[index3d].draw(this.context3D.GetContext3D(),this.program2,this.solidProgram_);
                   index3d++;
                }
                catch(e:Error)
