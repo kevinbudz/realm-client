@@ -180,7 +180,7 @@ package kabam.rotmg.stage3D
             return;
          }
          var stage3d:Stage3D = WebMain.STAGE.stage3Ds[0];
-         stage3d.context3D.configureBackBuffer(mapW,WebMain.STAGE.stageHeight,2,false);
+         stage3d.context3D.configureBackBuffer(mapW,WebMain.STAGE.stageHeight,2,true);
          this.stageWidth = mapW;
          this.stageHeight = WebMain.STAGE.stageHeight;
       }
