@@ -6,6 +6,7 @@ import com.company.assembleegameclient.objects.Player;
 import com.company.assembleegameclient.parameters.Parameters;
 import com.company.assembleegameclient.tutorial.Tutorial;
 import com.company.assembleegameclient.tutorial.doneAction;
+import com.company.assembleegameclient.ui.RankText;
 import com.company.assembleegameclient.ui.options.Options;
 import com.company.util.KeyCodes;
 import flash.display.Stage;
@@ -31,13 +32,14 @@ import kabam.rotmg.ui.model.TabStripModel;
 import kabam.rotmg.ui.signals.StatsTabHotKeyInputSignal;
 
 import com.company.assembleegameclient.util.FrameProfilerView;
-import net.hires.debug.Stats;
 import org.swiftsuspenders.Injector;
 
 public class MapUserInput
 {
-   private static var stats_:Stats = new Stats();
    private static var profiler_:FrameProfilerView = new FrameProfilerView();
+   private static var layoutUiScale_:Number = NaN;
+   private static var layoutRankH_:Number = NaN;
+   private static var layoutProfH_:Number = NaN;
 
    public var gs_:GameSprite;
    private var moveLeft_:Boolean = false;
@@ -506,24 +508,49 @@ public class MapUserInput
       }
    }
 
+   public static function layoutProfiler(gs:GameSprite) : void
+   {
+      if(!gs.contains(profiler_))
+      {
+         return;
+      }
+      // Anchor below the star count using its live geometry, which already
+      // includes uiScale, so this stays correct at any window size.
+      // The profiler itself scales with uiScale too.
+      var uiScale:Number = WebMain.uiScale();
+      profiler_.scaleX = uiScale;
+      profiler_.scaleY = uiScale;
+      var rank:RankText = gs.rankText_;
+      var rankH:Number = rank != null ? rank.height : -1;
+      var profH:Number = profiler_.height;
+      if(uiScale == layoutUiScale_ && rankH == layoutRankH_ && profH == layoutProfH_)
+      {
+         return;
+      }
+      layoutUiScale_ = uiScale;
+      layoutRankH_ = rankH;
+      layoutProfH_ = profH;
+      var left:Number = 8 * uiScale;
+      var top:Number = 4 * uiScale;
+      if(rank != null)
+      {
+         left = rank.x;
+         top = rank.y + rank.height;
+      }
+      profiler_.x = left;
+      profiler_.y = top + 4 * uiScale;
+   }
+
    private function togglePerformanceStats() : void
    {
-      if(this.gs_.contains(stats_))
+      if(this.gs_.contains(profiler_))
       {
-         this.gs_.removeChild(stats_);
-         this.gs_.removeChild(this.gs_.gsc_.jitterWatcher_);
          this.gs_.removeChild(profiler_);
-         this.gs_.gsc_.disableJitterWatcher();
       }
       else
       {
-         this.gs_.addChild(stats_);
-         this.gs_.gsc_.enableJitterWatcher();
-         this.gs_.gsc_.jitterWatcher_.y = stats_.height;
-         this.gs_.addChild(this.gs_.gsc_.jitterWatcher_);
-         profiler_.x = stats_.width + 4;
-         profiler_.y = 0;
          this.gs_.addChild(profiler_);
+         layoutProfiler(this.gs_);
       }
    }
 }

@@ -296,6 +296,7 @@ import kabam.rotmg.ui.UIUtils;
             this.guildText_.x = 64 * uiScale;
             this.guildText_.y = 6 * uiScale;
          }
+         MapUserInput.layoutProfiler(this);
       }
 
       private function onEnterFrame(event:Event) : void
@@ -346,6 +347,7 @@ import kabam.rotmg.ui.UIUtils;
             }
             FrameProfiler.end(FrameProfiler.HUD);
          }
+         MapUserInput.layoutProfiler(this);
          FrameProfiler.frameEnd();
       }
    }
