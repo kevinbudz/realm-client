@@ -55,9 +55,13 @@ package com.company.assembleegameclient.util
          s += "render+idle " + fmt(FrameProfiler.avgRender) + "\n";
          for(var i:int = 0; i < FrameProfiler.SECTION_COUNT; i++)
          {
-            s += "  " + pad(FrameProfiler.SECTION_NAMES[i], 9) + fmt(FrameProfiler.avgSection[i]) + "\n";
+            s += "  " + pad(FrameProfiler.SECTION_NAMES[i], 11) + fmt(FrameProfiler.avgSection[i]) + "\n";
          }
          s += "objs " + int(FrameProfiler.avgObjects) + "  tiles " + int(FrameProfiler.avgTiles) + "  gfx " + int(FrameProfiler.avgGraphicsData) + "  drawCalls " + int(FrameProfiler.avgDrawCalls);
+         if(Parameters.GPURenderFrame && FrameProfiler.atlasInfo.length > 0)
+         {
+            s += "\n" + FrameProfiler.atlasInfo;
+         }
          this.text_.text = s;
          this.text_.useTextDimensions();
       }

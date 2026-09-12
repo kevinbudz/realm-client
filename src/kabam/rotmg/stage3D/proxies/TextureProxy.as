@@ -14,6 +14,9 @@ package kabam.rotmg.stage3D.proxies
       
       protected var height:int;
       
+      // Render-frame serial of the last use (TextureFactory LRU eviction).
+      public var lastUsed:int = 0;
+      
       public function TextureProxy(texture:Texture)
       {
          super();

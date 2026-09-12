@@ -239,7 +239,7 @@ package kabam.rotmg.stage3D
          }
          else
          {
-            this.renderScene(graphicsDatas,grahpicsData3d,mapWidth,mapHeight,camera);
+            this.renderScene(graphicsDatas,grahpicsData3d,mapWidth,mapHeight,camera,null);
          }
          FrameProfiler.end(FrameProfiler.GPU_SCENE);
          FrameProfiler.begin(FrameProfiler.GPU_SWAP);
@@ -269,8 +269,8 @@ package kabam.rotmg.stage3D
       
       private function renderWithPostEffect(graphicsDatas:Vector.<IGraphicsData>, grahpicsData3d:Vector.<Object3DStage3D>, mapWidth:Number, mapHeight:Number, camera:Camera, filterIndex:uint) : void
       {
-         this.context3D.GetContext3D().setRenderToTexture(this.sceneTexture_,true);
-         this.renderScene(graphicsDatas,grahpicsData3d,mapWidth,mapHeight,camera);
+         // renderScene binds sceneTexture_ as the render target itself (after any atlas uploads).
+         this.renderScene(graphicsDatas,grahpicsData3d,mapWidth,mapHeight,camera,this.sceneTexture_);
          this.context3D.GetContext3D().setRenderToBackBuffer();
          switch(filterIndex)
          {
@@ -313,7 +313,14 @@ package kabam.rotmg.stage3D
          this.context3D.GetContext3D().drawTriangles(this.postFilterIndexBuffer_);
       }
       
-      private function renderScene(graphicsDatas:Vector.<IGraphicsData>, grahpicsData3d:Vector.<Object3DStage3D>, mapWidth:Number, mapHeight:Number, camera:Camera) : void
+      /**
+       * Two-phase scene render. Phase 1 walks graphicsDatas in order, batching ordinary sprite
+       * quads (Graphic3D.batchQuad) and recording everything else as a command at its position.
+       * New atlas sprites are then uploaded, the render target (back buffer or `target`) is bound
+       * and cleared, and phase 2 replays the commands: one drawTriangles per run of batched quads,
+       * and the unchanged per-item paths for shadows, 3D models and custom-vertex-buffer quads.
+       */
+      private function renderScene(graphicsDatas:Vector.<IGraphicsData>, grahpicsData3d:Vector.<Object3DStage3D>, mapWidth:Number, mapHeight:Number, camera:Camera, target:Texture) : void
       {
          var test:int = 0;
          var graphicsData:IGraphicsData = null;
@@ -322,7 +329,6 @@ package kabam.rotmg.stage3D
          var halfH:Number = Stage3DConfig.HALF_HEIGHT;
          var ndcX:Number = this.tX / Stage3DConfig.WIDTH;
          var ndcY:Number = this.tY / Stage3DConfig.HEIGHT;
-         this.context3D.clear();
          var finalTransform:Matrix3D = this.finalTransform_;
          var index3d:uint = 0;
          if(Renderer.inGame && camera.clipRect_ != null && this.stageWidth > 0 && this.stageHeight > 0)
@@ -338,10 +344,13 @@ package kabam.rotmg.stage3D
             ndcY = 1 + 2 * camera.clipRect_.y * zoom / this.stageHeight;
          }
          var c3d:Context3D = this.context3D.GetContext3D();
+         var g:Graphic3D = this.graphic3D_;
          var bitmapFill:GraphicsBitmapFill = null;
          var n:int = graphicsDatas.length;
-         c3d.setCulling(Context3DTriangleFace.NONE);
-         this.graphic3D_.invalidateState();
+
+         // ---- phase 1: batch sprite quads, record everything else in order ----
+         FrameProfiler.begin(FrameProfiler.GPU_BUILD);
+         g.batchBegin(c3d,halfW,halfH,ndcX,ndcY);
          for(var gi:int = 0; gi < n; gi++)
          {
             graphicsData = graphicsDatas[gi];
@@ -361,11 +370,66 @@ package kabam.rotmg.stage3D
                   trace("ERROR CAUGHT -- Invalid Bitmap Data");
                   continue;
                }
-               this.graphic3D_.drawQuad(bitmapFill,this.context3D,halfW,halfH,ndcX,ndcY);
+               if(!g.batchQuad(bitmapFill))
+               {
+                  g.batchMark(Graphic3D.CMD_QUAD,gi);
+               }
                continue;
             }
             if(graphicsData is GraphicsGradientFill)
             {
+               g.batchMark(Graphic3D.CMD_SHADOW,gi);
+               continue;
+            }
+            if(graphicsData == null && grahpicsData3d.length != 0)
+            {
+               g.batchMark(Graphic3D.CMD_MODEL,0);
+            }
+         }
+         FrameProfiler.end(FrameProfiler.GPU_BUILD);
+
+         // ---- atlas uploads (render-to-texture), then bind + clear the scene target ----
+         FrameProfiler.begin(FrameProfiler.GPU_ATLAS);
+         var targetChanged:Boolean = false;
+         if(g.hasPendingAtlasUploads())
+         {
+            targetChanged = g.flushAtlas(this.context3D);
+         }
+         if(target != null)
+         {
+            c3d.setRenderToTexture(target,true);
+         }
+         else if(targetChanged)
+         {
+            c3d.setRenderToBackBuffer();
+         }
+         FrameProfiler.end(FrameProfiler.GPU_ATLAS);
+         this.context3D.clear();
+
+         // ---- phase 2: replay in order ----
+         FrameProfiler.begin(FrameProfiler.GPU_DRAW);
+         c3d.setCulling(Context3DTriangleFace.NONE);
+         g.invalidateState();
+         g.batchUpload();
+         var cmdType:Vector.<int> = g.cmdType;
+         var cmdArg:Vector.<int> = g.cmdArg;
+         var cmdCount:int = g.cmdCount;
+         for(var ci:int = 0; ci < cmdCount; ci++)
+         {
+            var cmd:int = cmdType[ci];
+            if(cmd == Graphic3D.CMD_RUN)
+            {
+               g.drawRun(this.context3D,cmdArg[ci]);
+               continue;
+            }
+            if(cmd == Graphic3D.CMD_QUAD)
+            {
+               g.drawQuad(GraphicsBitmapFill(graphicsDatas[cmdArg[ci]]),this.context3D,halfW,halfH,ndcX,ndcY);
+               continue;
+            }
+            if(cmd == Graphic3D.CMD_SHADOW)
+            {
+               graphicsData = graphicsDatas[cmdArg[ci]];
                c3d.setProgram(this.shadowProgram_);
                this.graphic3D_.setGradientFill(GraphicsGradientFill(graphicsData),this.context3D,halfW,halfH);
                finalTransform.identity();
@@ -377,7 +441,7 @@ package kabam.rotmg.stage3D
                this.graphic3D_.invalidateState();
                continue;
             }
-            if(graphicsData == null && grahpicsData3d.length != 0)
+            if(cmd == Graphic3D.CMD_MODEL)
             {
                try
                {
@@ -407,6 +471,7 @@ package kabam.rotmg.stage3D
                }
             }
          }
+         FrameProfiler.end(FrameProfiler.GPU_DRAW);
       }
       
       private function setTranslationToGame() : void

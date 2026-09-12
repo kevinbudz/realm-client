@@ -27,12 +27,16 @@ package com.company.assembleegameclient.util
       public static const GPU_SCENE:int = 11;     // renderScene: per-quad Context3D calls
       public static const GPU_SWAP:int = 12;      // Context3D.present(): may block on GPU/vsync
       public static const GPU_SOFTWARE:int = 13;  // software-fill fallback pass
-      public static const SECTION_COUNT:int = 14;
+      // Sub-sections of GPU_SCENE.
+      public static const GPU_BUILD:int = 14;     // phase 1: per-quad transform + run building (CPU)
+      public static const GPU_ATLAS:int = 15;     // atlas uploads / render-to-texture blits
+      public static const GPU_DRAW:int = 16;      // phase 2: vertex upload + draw calls
+      public static const SECTION_COUNT:int = 17;
 
       public static const SECTION_NAMES:Vector.<String> = new <String>[
          "update", "tiles", "collect", "sort", "drawUnder", "shadows",
          "drawObjs", "topTiles", "present", "overlays", "hud",
-         " gpuScene", " gpuSwap", " gpuSoft"];
+         " gpuScene", " gpuSwap", " gpuSoft", "  gpuBuild", "  gpuAtlas", "  gpuDraw"];
 
       private static const REPORT_INTERVAL_MS:int = 1000;
 
@@ -68,6 +72,7 @@ package com.company.assembleegameclient.util
       public static var frameTiles:int = 0;
       public static var frameGraphicsData:int = 0;
       public static var frameDrawCalls:int = 0;  // always incremented; cheap, and reset here each frame
+      public static var atlasInfo:String = "";   // GPU mode: sprite atlas status line
 
       public static function frameStart() : void
       {

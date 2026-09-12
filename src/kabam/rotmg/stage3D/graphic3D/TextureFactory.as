@@ -13,6 +13,14 @@ package kabam.rotmg.stage3D.graphic3D
       private static var textures:Dictionary = new Dictionary();
       private static var flippedTextures:Dictionary = new Dictionary();
       private static var count:int = 0;
+      private static var atlas:SpriteAtlas;
+      
+      // Individual (non-atlas) textures are evicted once this many exist; only textures not
+      // used in the current frame are dropped, so nothing referenced by pending draws goes away.
+      private static const MAX_INDIVIDUAL:int = 1000;
+      
+      // Render-frame serial, advanced by Graphic3D.batchBegin. Used for LRU bookkeeping.
+      public static var frame:int = 0;
        
       
       [Inject]
@@ -78,6 +86,11 @@ package kabam.rotmg.stage3D.graphic3D
          }
          flippedTextures = new Dictionary();
          count = 0;
+         if(atlas != null)
+         {
+            atlas.dispose();
+            atlas = null;
+         }
       }
       
       public static function disposeNormalTextures() : void
@@ -88,6 +101,35 @@ package kabam.rotmg.stage3D.graphic3D
             texture.dispose();
          }
          textures = new Dictionary();
+         count = 0;
+      }
+      
+      /** Drops individual textures that were not used this frame. Called when over the limit. */
+      private static function evictUnused() : void
+      {
+         var key:Object = null;
+         var texture:TextureProxy = null;
+         var removed:int = 0;
+         for(key in textures)
+         {
+            texture = textures[key];
+            if(texture.lastUsed < frame)
+            {
+               texture.dispose();
+               delete textures[key];
+               removed++;
+            }
+         }
+         count -= removed;
+      }
+      
+      public function getAtlas() : SpriteAtlas
+      {
+         if(atlas == null)
+         {
+            atlas = new SpriteAtlas(this.context3D.GetContext3D());
+         }
+         return atlas;
       }
       
       public function make(bitmapData:BitmapData) : TextureProxy
@@ -100,9 +142,11 @@ package kabam.rotmg.stage3D.graphic3D
          {
             return null;
          }
-         if(bitmapData in textures)
+         texture = textures[bitmapData];
+         if(texture != null)
          {
-            return textures[bitmapData];
+            texture.lastUsed = frame;
+            return texture;
          }
          width = getNextPowerOf2(bitmapData.width);
          height = getNextPowerOf2(bitmapData.height);
@@ -110,10 +154,10 @@ package kabam.rotmg.stage3D.graphic3D
          bitmapTexture = new BitmapData(width,height,true,0);
          bitmapTexture.copyPixels(bitmapData,bitmapData.rect,new Point(0,0));
          texture.uploadFromBitmapData(bitmapTexture);
-         if(count > 1000)
+         texture.lastUsed = frame;
+         if(count >= MAX_INDIVIDUAL)
          {
-            disposeNormalTextures();
-            count = 0;
+            evictUnused();
          }
          textures[bitmapData] = texture;
          count++;
