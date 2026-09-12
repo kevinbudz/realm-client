@@ -48,12 +48,8 @@ package kabam.rotmg.stage3D
       
       public static function getColorTransform(bitmap:BitmapData) : ColorTransform
       {
-         var colorTransform:ColorTransform = null;
-         if(bitmap in colorTransforms)
-         {
-            colorTransform = colorTransforms[bitmap];
-         }
-         else
+         var colorTransform:ColorTransform = colorTransforms[bitmap];
+         if(colorTransform == null)
          {
             colorTransform = new ColorTransform();
             colorTransforms[bitmap] = colorTransform;
@@ -75,11 +71,8 @@ package kabam.rotmg.stage3D
       
       public static function getOffsetUV(bitmapFill:GraphicsBitmapFill) : Vector.<Number>
       {
-         if(textureOffsets[bitmapFill] != null)
-         {
-            return textureOffsets[bitmapFill];
-         }
-         return DEFAULT_OFFSET;
+         var offset:Vector.<Number> = textureOffsets[bitmapFill];
+         return offset != null ? offset : DEFAULT_OFFSET;
       }
       
       private static function testOffsetUV(bitmapFill:GraphicsBitmapFill) : void
@@ -110,11 +103,8 @@ package kabam.rotmg.stage3D
       
       public static function getSinkLevel(bitmapFill:GraphicsBitmapFill) : Number
       {
-         if(waterSinks[bitmapFill] != null && waterSinks[bitmapFill] is Number)
-         {
-            return waterSinks[bitmapFill];
-         }
-         return 0;
+         var sink:* = waterSinks[bitmapFill];
+         return sink is Number ? Number(sink) : 0;
       }
       
       public static function setVertexBuffer(bitmapFill:GraphicsBitmapFill, verts:Vector.<Number>) : void
@@ -137,11 +127,7 @@ package kabam.rotmg.stage3D
       
       public static function getVertexBuffer(bitmapFill:GraphicsBitmapFill) : VertexBuffer3D
       {
-         if(vertexBuffers[bitmapFill] != null && vertexBuffers[bitmapFill] is VertexBuffer3D)
-         {
-            return vertexBuffers[bitmapFill];
-         }
-         return null;
+         return vertexBuffers[bitmapFill] as VertexBuffer3D;
       }
       
       public static function clearSink(bitmapFill:GraphicsBitmapFill) : void
@@ -172,11 +158,7 @@ package kabam.rotmg.stage3D
       
       public static function isSoftwareDraw(bitmapFill:GraphicsBitmapFill) : Boolean
       {
-         if(softwareDraw[bitmapFill] != null && softwareDraw[bitmapFill] is Boolean)
-         {
-            return softwareDraw[bitmapFill];
-         }
-         return false;
+         return softwareDraw[bitmapFill] === true;
       }
       
       public static function setSoftwareDrawSolid(solidFill:GraphicsSolidFill, value:Boolean) : void
@@ -194,11 +176,7 @@ package kabam.rotmg.stage3D
       
       public static function isSoftwareDrawSolid(solidFill:GraphicsSolidFill) : Boolean
       {
-         if(softwareDrawSolid[solidFill] != null && softwareDrawSolid[solidFill] is Boolean)
-         {
-            return softwareDrawSolid[solidFill];
-         }
-         return false;
+         return softwareDrawSolid[solidFill] === true;
       }
       
       public static function dispose() : void

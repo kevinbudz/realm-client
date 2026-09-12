@@ -30,12 +30,14 @@ import kabam.rotmg.minimap.control.MiniMapZoomSignal;
 import kabam.rotmg.ui.model.TabStripModel;
 import kabam.rotmg.ui.signals.StatsTabHotKeyInputSignal;
 
+import com.company.assembleegameclient.util.FrameProfilerView;
 import net.hires.debug.Stats;
 import org.swiftsuspenders.Injector;
 
 public class MapUserInput
 {
    private static var stats_:Stats = new Stats();
+   private static var profiler_:FrameProfilerView = new FrameProfilerView();
 
    public var gs_:GameSprite;
    private var moveLeft_:Boolean = false;
@@ -510,6 +512,7 @@ public class MapUserInput
       {
          this.gs_.removeChild(stats_);
          this.gs_.removeChild(this.gs_.gsc_.jitterWatcher_);
+         this.gs_.removeChild(profiler_);
          this.gs_.gsc_.disableJitterWatcher();
       }
       else
@@ -518,6 +521,9 @@ public class MapUserInput
          this.gs_.gsc_.enableJitterWatcher();
          this.gs_.gsc_.jitterWatcher_.y = stats_.height;
          this.gs_.addChild(this.gs_.gsc_.jitterWatcher_);
+         profiler_.x = stats_.width + 4;
+         profiler_.y = 0;
+         this.gs_.addChild(profiler_);
       }
    }
 }

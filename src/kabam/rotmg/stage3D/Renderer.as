@@ -4,6 +4,7 @@ package kabam.rotmg.stage3D
    import com.company.assembleegameclient.engine3d.Lighting3D;
    import com.company.assembleegameclient.map.Camera;
    import com.company.assembleegameclient.parameters.Parameters;
+   import com.company.assembleegameclient.util.FrameProfiler;
    import flash.display.GraphicsBitmapFill;
    import flash.display.GraphicsGradientFill;
    import flash.display.IGraphicsData;
@@ -74,6 +75,10 @@ package kabam.rotmg.stage3D
       private var shadowProgram_:Program3D;
       
       private var graphic3D_:Graphic3D;
+      
+      private static const IDENTITY_MATRIX:Matrix3D = new Matrix3D();
+      
+      private var finalTransform_:Matrix3D = new Matrix3D();
       
       private var stageWidth:Number = 600;
       
@@ -227,6 +232,7 @@ package kabam.rotmg.stage3D
          {
             this.setTranslationToTitle();
          }
+         FrameProfiler.begin(FrameProfiler.GPU_SCENE);
          if(filterIndex > 0)
          {
             this.renderWithPostEffect(graphicsDatas,grahpicsData3d,mapWidth,mapHeight,camera,filterIndex);
@@ -235,7 +241,10 @@ package kabam.rotmg.stage3D
          {
             this.renderScene(graphicsDatas,grahpicsData3d,mapWidth,mapHeight,camera);
          }
+         FrameProfiler.end(FrameProfiler.GPU_SCENE);
+         FrameProfiler.begin(FrameProfiler.GPU_SWAP);
          this.context3D.present();
+         FrameProfiler.end(FrameProfiler.GPU_SWAP);
          WebMain.STAGE.scaleMode = Parameters.data_.stageScale;
       }
       
@@ -297,7 +306,7 @@ package kabam.rotmg.stage3D
                   this.blurFactor = this.blurFactor * -1;
                }
                this.blurFragmentConstants_[3] = this.blurFragmentConstants_[3] + this.blurFactor;
-               this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,new Matrix3D());
+               this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,IDENTITY_MATRIX);
                this.context3D.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,0,this.blurFragmentConstants_,this.blurFragmentConstants_.length / 4);
          }
          this.context3D.GetContext3D().clear(0,0,0,1);
@@ -314,7 +323,7 @@ package kabam.rotmg.stage3D
          var ndcX:Number = this.tX / Stage3DConfig.WIDTH;
          var ndcY:Number = this.tY / Stage3DConfig.HEIGHT;
          this.context3D.clear();
-         var finalTransform:Matrix3D = new Matrix3D();
+         var finalTransform:Matrix3D = this.finalTransform_;
          var index3d:uint = 0;
          if(Renderer.inGame && camera.clipRect_ != null && this.stageWidth > 0 && this.stageHeight > 0)
          {
@@ -328,31 +337,36 @@ package kabam.rotmg.stage3D
             ndcX = -2 * camera.clipRect_.x * zoom / this.stageWidth - 1;
             ndcY = 1 + 2 * camera.clipRect_.y * zoom / this.stageHeight;
          }
-         for each(graphicsData in graphicsDatas)
+         var c3d:Context3D = this.context3D.GetContext3D();
+         var bitmapFill:GraphicsBitmapFill = null;
+         var n:int = graphicsDatas.length;
+         c3d.setCulling(Context3DTriangleFace.NONE);
+         this.graphic3D_.invalidateState();
+         for(var gi:int = 0; gi < n; gi++)
          {
-            this.context3D.GetContext3D().setCulling(Context3DTriangleFace.NONE);
-            if(graphicsData is GraphicsBitmapFill && !GraphicsFillExtra.isSoftwareDraw(GraphicsBitmapFill(graphicsData)))
+            graphicsData = graphicsDatas[gi];
+            bitmapFill = graphicsData as GraphicsBitmapFill;
+            if(bitmapFill != null)
             {
+               if(GraphicsFillExtra.isSoftwareDraw(bitmapFill))
+               {
+                  continue;
+               }
                try
                {
-                  test = GraphicsBitmapFill(graphicsData).bitmapData.width;
+                  test = bitmapFill.bitmapData.width;
                }
                catch(e:Error)
                {
                   trace("ERROR CAUGHT -- Invalid Bitmap Data");
                   continue;
                }
-               this.graphic3D_.setGraphic(GraphicsBitmapFill(graphicsData),this.context3D);
-               finalTransform.identity();
-               finalTransform.append(this.graphic3D_.getMatrix3D());
-               finalTransform.appendScale(1 / halfW,1 / halfH,1);
-               finalTransform.appendTranslation(ndcX,ndcY,0);
-               this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,finalTransform,true);
-               this.graphic3D_.render(this.context3D);
+               this.graphic3D_.drawQuad(bitmapFill,this.context3D,halfW,halfH,ndcX,ndcY);
+               continue;
             }
             if(graphicsData is GraphicsGradientFill)
             {
-               this.context3D.GetContext3D().setProgram(this.shadowProgram_);
+               c3d.setProgram(this.shadowProgram_);
                this.graphic3D_.setGradientFill(GraphicsGradientFill(graphicsData),this.context3D,halfW,halfH);
                finalTransform.identity();
                finalTransform.append(this.graphic3D_.getMatrix3D());
@@ -360,6 +374,8 @@ package kabam.rotmg.stage3D
                this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,finalTransform,true);
                this.context3D.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,4,SHADOW_FRAGMENT_CONSTANTS);
                this.graphic3D_.renderShadow(this.context3D);
+               this.graphic3D_.invalidateState();
+               continue;
             }
             if(graphicsData == null && grahpicsData3d.length != 0)
             {
@@ -379,9 +395,13 @@ package kabam.rotmg.stage3D
                   this.context3D.setProgramConstantsFromVector(Context3DProgramType.VERTEX,13,MODEL_SHADE_CONSTANTS);
                   grahpicsData3d[index3d].draw(this.context3D.GetContext3D(),this.program2,this.solidProgram_);
                   index3d++;
+                  c3d.setCulling(Context3DTriangleFace.NONE);
+                  this.graphic3D_.invalidateState();
                }
                catch(e:Error)
                {
+                  c3d.setCulling(Context3DTriangleFace.NONE);
+                  this.graphic3D_.invalidateState();
                   trace("ERROR CAUGHT -- Invalid Bitmap Data");
                   continue;
                }

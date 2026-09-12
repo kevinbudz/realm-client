@@ -1,5 +1,6 @@
 package kabam.rotmg.stage3D.graphic3D
 {
+   import com.company.assembleegameclient.util.FrameProfiler;
    import flash.display.BitmapData;
    import flash.display.GraphicsBitmapFill;
    import flash.display.GraphicsGradientFill;
@@ -59,6 +60,23 @@ import flash.display3D.Context3DProgramType;
       private var rawMatrix3D:Vector.<Number>;
       private var gradientColor:Vector.<Number>;
       private var gradientAlpha:Vector.<Number>;
+
+      // --- Fast path state (see drawQuad) ---
+      // Scratch for the per-quad final transform (previously allocated per frame in Renderer).
+      private var finalTransform:Matrix3D;
+      // fc2 (multipliers) and fc3 (offsets) uploaded together in one call.
+      private var ctConstants:Vector.<Number>;
+      // Context3D state we know is currently bound; avoids redundant native calls between quads.
+      private var stateTexture:TextureProxy;
+      private var stateRepeat:int = -1;
+      private var stateVB:VertexBuffer3D;
+      private var stateSlot2Cleared:Boolean = false;
+      private var stateOffsetValid:Boolean = false;
+      private var stateOffset0:Number = 0;
+      private var stateOffset1:Number = 0;
+      private var stateOffset2:Number = 0;
+      private var stateOffset3:Number = 0;
+      private var stateCtValid:Boolean = false;
       
       public function Graphic3D()
       {
@@ -69,7 +87,132 @@ import flash.display3D.Context3DProgramType;
          this.ctMult = new Vector.<Number>(4, true);
          this.ctOffset = new Vector.<Number>(4, true);
          this.rawMatrix3D = new Vector.<Number>(16, true);
+         this.finalTransform = new Matrix3D();
+         this.ctConstants = new Vector.<Number>(8, true);
          super();
+      }
+
+      /**
+       * Forget what we believe is bound on the Context3D. Call at the start of a render pass and
+       * after anything else (shadow program, 3D models, post effects) touches program / texture /
+       * vertex buffer state.
+       */
+      public function invalidateState() : void
+      {
+         this.stateTexture = null;
+         this.stateRepeat = -1;
+         this.stateVB = null;
+         this.stateSlot2Cleared = false;
+         this.stateOffsetValid = false;
+         this.stateCtValid = false;
+      }
+
+      /**
+       * Equivalent to setGraphic() + the Renderer's finalTransform maths + render(). The transform
+       * is computed with exactly the same Matrix3D calls as before; the saving is that Context3D
+       * state calls (program, texture, vertex buffers, uv offset, colour transform) are skipped
+       * when unchanged from the previous quad. halfW/halfH are the NDC divisors, ndcX/ndcY the
+       * NDC translation.
+       */
+      public function drawQuad(fill:GraphicsBitmapFill, c3dProxy:Context3DProxy, halfW:Number, halfH:Number, ndcX:Number, ndcY:Number) : void
+      {
+         var bmd:BitmapData = fill.bitmapData;
+         var tex:TextureProxy = this.textureFactory.make(bmd);
+         if(tex == null)
+         {
+            return;
+         }
+         var c3d:Context3D = c3dProxy.GetContext3D();
+
+         // --- program ---
+         var repeatIdx:int = fill.repeat ? 1 : 0;
+         if(repeatIdx != this.stateRepeat)
+         {
+            c3dProxy.setProgram(Program3DFactory.getInstance().getProgram(c3dProxy,fill.repeat));
+            this.stateRepeat = repeatIdx;
+         }
+
+         // --- texture ---
+         if(tex != this.stateTexture)
+         {
+            c3dProxy.setTextureAt(0,tex);
+            this.stateTexture = tex;
+         }
+
+         // --- vertex buffers ---
+         var custom:VertexBuffer3D = GraphicsFillExtra.getVertexBuffer(fill);
+         var vb:VertexBuffer3D = custom != null ? custom : this.vertexBuffer.getVertexBuffer3D();
+         if(vb != this.stateVB)
+         {
+            c3d.setVertexBufferAt(0,vb,0,Context3DVertexBufferFormat.FLOAT_3);
+            c3d.setVertexBufferAt(1,vb,3,Context3DVertexBufferFormat.FLOAT_2);
+            this.stateVB = vb;
+         }
+         if(!this.stateSlot2Cleared)
+         {
+            c3d.setVertexBufferAt(2,null);
+            this.stateSlot2Cleared = true;
+         }
+
+         // --- vertex transform: same Matrix3D chain as setGraphic()/transform() + the Renderer's finalTransform ---
+         this.texture = tex;
+         this.matrix2D = fill.matrix;
+         this.transform();
+         var f:Matrix3D = this.finalTransform;
+         f.identity();
+         f.append(this.matrix3D);
+         f.appendScale(1 / halfW,1 / halfH,1);
+         f.appendTranslation(ndcX,ndcY,0);
+         c3dProxy.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,f,true);
+
+         // --- uv offset (vc4): animated tiles / water sink ---
+         var offset:Vector.<Number> = GraphicsFillExtra.getOffsetUV(fill);
+         var sink:Number = GraphicsFillExtra.getSinkLevel(fill);
+         if(sink != 0)
+         {
+            this.sinkOffset[1] = -sink;
+            offset = this.sinkOffset;
+         }
+         var o0:Number = offset[0];
+         var o1:Number = offset[1];
+         var o2:Number = offset[2];
+         var o3:Number = offset[3];
+         if(!this.stateOffsetValid || o0 != this.stateOffset0 || o1 != this.stateOffset1 || o2 != this.stateOffset2 || o3 != this.stateOffset3)
+         {
+            c3d.setProgramConstantsFromVector(Context3DProgramType.VERTEX,4,offset);
+            this.stateOffset0 = o0;
+            this.stateOffset1 = o1;
+            this.stateOffset2 = o2;
+            this.stateOffset3 = o3;
+            this.stateOffsetValid = true;
+         }
+
+         // --- colour transform (fc2, fc3) ---
+         var ct:ColorTransform = GraphicsFillExtra.getColorTransform(bmd);
+         var cc:Vector.<Number> = this.ctConstants;
+         var rm:Number = ct.redMultiplier;
+         var gm:Number = ct.greenMultiplier;
+         var bm:Number = ct.blueMultiplier;
+         var am:Number = ct.alphaMultiplier;
+         var ro:Number = ct.redOffset / 0xFF;
+         var go:Number = ct.greenOffset / 0xFF;
+         var bo:Number = ct.blueOffset / 0xFF;
+         var ao:Number = ct.alphaOffset / 0xFF;
+         if(!this.stateCtValid || cc[0] != rm || cc[1] != gm || cc[2] != bm || cc[3] != am || cc[4] != ro || cc[5] != go || cc[6] != bo || cc[7] != ao)
+         {
+            cc[0] = rm;
+            cc[1] = gm;
+            cc[2] = bm;
+            cc[3] = am;
+            cc[4] = ro;
+            cc[5] = go;
+            cc[6] = bo;
+            cc[7] = ao;
+            c3d.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,2,cc,2);
+            this.stateCtValid = true;
+         }
+
+         c3dProxy.drawTriangles(this.indexBuffer);
       }
       
       public function setGraphic(graphicsBitmapFill:GraphicsBitmapFill, context3D:Context3DProxy) : void
@@ -202,6 +345,7 @@ import flash.display3D.Context3DProgramType;
          c3d.setVertexBufferAt(1,this.gradientVB,3,Context3DVertexBufferFormat.FLOAT_2);
          c3d.setVertexBufferAt(2,null);
          c3d.setTextureAt(0,null);
+         FrameProfiler.frameDrawCalls++;
          c3d.drawTriangles(this.gradientIB);
       }
       

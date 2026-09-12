@@ -11,6 +11,7 @@ package com.company.assembleegameclient.game
    import com.company.assembleegameclient.ui.RankText;
    import com.company.assembleegameclient.ui.TextBox;
    import com.company.assembleegameclient.tutorial.Tutorial;
+   import com.company.assembleegameclient.util.FrameProfiler;
    import com.company.assembleegameclient.util.TextureRedrawer;
    import com.company.util.CachingColorTransformer;
    import com.company.util.MoreColorUtil;
@@ -299,6 +300,7 @@ import kabam.rotmg.ui.UIUtils;
 
       private function onEnterFrame(event:Event) : void
       {
+         FrameProfiler.frameStart();
          var time:int = getTimer();
          var player:Player = this.map.player_;
          if(player != null)
@@ -317,9 +319,11 @@ import kabam.rotmg.ui.UIUtils;
                this.closed.dispatch();
                return;
             }
+            FrameProfiler.begin(FrameProfiler.UPDATE);
             LoopedProcess.runProcesses(time);
             this.map.update(time, dt);
             this.camera_.update(dt);
+            FrameProfiler.end(FrameProfiler.UPDATE);
 
             if(this.focus)
             {
@@ -327,6 +331,7 @@ import kabam.rotmg.ui.UIUtils;
                this.map.draw(this.camera_,time);
             }
 
+            FrameProfiler.begin(FrameProfiler.HUD);
             this.creditDisplay_.draw(player.credits_,player.fame_);
             this.drawCharacterWindow.dispatch(player);
             if(this.map.showDisplays_)
@@ -334,8 +339,10 @@ import kabam.rotmg.ui.UIUtils;
                this.rankText_.draw(player.numStars_);
                this.guildText_.draw(player.guildName_,player.guildRank_);
             }
+            FrameProfiler.end(FrameProfiler.HUD);
          }
          this.lastUpdate_ = time;
+         FrameProfiler.frameEnd();
       }
    }
 }

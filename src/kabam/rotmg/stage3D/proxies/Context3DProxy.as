@@ -1,5 +1,6 @@
 package kabam.rotmg.stage3D.proxies
 {
+   import com.company.assembleegameclient.util.FrameProfiler;
    import flash.display3D.Context3D;
    import flash.geom.Matrix3D;
    
@@ -82,6 +83,7 @@ package kabam.rotmg.stage3D.proxies
       
       public function drawTriangles(indexBuffer:IndexBuffer3DProxy) : void
       {
+         FrameProfiler.frameDrawCalls++;
          this.context3D.drawTriangles(indexBuffer.getIndexBuffer3D());
       }
       

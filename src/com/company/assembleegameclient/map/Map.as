@@ -11,6 +11,7 @@ import com.company.assembleegameclient.map.mapoverlay.MapOverlay;
    import com.company.assembleegameclient.objects.Player;
    import com.company.assembleegameclient.parameters.Parameters;
    import com.company.assembleegameclient.util.ConditionEffect;
+   import com.company.assembleegameclient.util.FrameProfiler;
    import flash.display.Graphics;
 import flash.display.GraphicsBitmapFill;
 import flash.display.StageScaleMode;
@@ -36,8 +37,6 @@ import org.osflash.signals.Signal;
 
 public class Map extends Sprite
    {
-      private static const VISIBLE_SORT_FIELDS:Array = ["sortVal_","objectId_"];
-      private static const VISIBLE_SORT_PARAMS:Array = [Array.NUMERIC,Array.NUMERIC];
       protected static const BLIND_FILTER:ColorMatrixFilter = new ColorMatrixFilter([0.05,0.05,0.05,0,0,0.05,0.05,0.05,0,0,0.05,0.05,0.05,0,0,0.05,0.05,0.05,1,0]);
       protected static var BREATH_CT:ColorTransform = new ColorTransform(255 / 255,55 / 255,0 / 255,0);
 
@@ -58,6 +57,11 @@ public class Map extends Sprite
       public var squares_:Vector.<Square>;
       public var goDict_:Dictionary;
       public var boDict_:Dictionary;
+      // Flat lists mirroring goDict_/boDict_ for fast per-frame iteration (Dictionary for-each is slow
+      // in AVM2). Kept sorted by (sortVal_, objectId_) between frames so the per-frame insertion sort
+      // is close to O(n); draw order is identical to the old Array.sortOn.
+      public var goList_:Vector.<GameObject>;
+      public var boList_:Vector.<BasicObject>;
       public var merchLookup_:Object;
       public var player_:Player = null;
       public var party_:Party = null;
@@ -69,8 +73,11 @@ public class Map extends Sprite
       private var graphicsDataStageSoftware_:Vector.<IGraphicsData>;
       private var graphicsData3d_:Vector.<Object3DStage3D>;
       private var lastSoftwareClear:Boolean = false;
-      public var visible_:Array;
-      public var visibleUnder_:Array;
+      public var visible_:Vector.<BasicObject>;
+      public var visibleUnder_:Vector.<BasicObject>;
+      private var visibleGo_:Vector.<BasicObject>;
+      private var visibleBo_:Vector.<BasicObject>;
+      private var screenCenterW_:Point;
       public var visibleSquares_:Vector.<Square>;
       public var topSquares_:Vector.<Square>;
       public var signalRenderSwitch:Signal;
@@ -90,14 +97,19 @@ public class Map extends Sprite
          this.squares_ = new Vector.<Square>();
          this.goDict_ = new Dictionary();
          this.boDict_ = new Dictionary();
+         this.goList_ = new Vector.<GameObject>();
+         this.boList_ = new Vector.<BasicObject>();
          this.merchLookup_ = new Object();
          this.objsToAdd_ = new Vector.<BasicObject>();
          this.idsToRemove_ = new Vector.<int>();
          this.graphicsData_ = new Vector.<IGraphicsData>();
          this.graphicsDataStageSoftware_ = new Vector.<IGraphicsData>();
          this.graphicsData3d_ = new Vector.<Object3DStage3D>();
-         this.visible_ = new Array();
-         this.visibleUnder_ = new Array();
+         this.visible_ = new Vector.<BasicObject>();
+         this.visibleUnder_ = new Vector.<BasicObject>();
+         this.visibleGo_ = new Vector.<BasicObject>();
+         this.visibleBo_ = new Vector.<BasicObject>();
+         this.screenCenterW_ = new Point();
          this.visibleSquares_ = new Vector.<Square>();
          this.topSquares_ = new Vector.<Square>();
          super();
@@ -159,16 +171,22 @@ public class Map extends Sprite
          this.squareList_ = null;
          this.squares_.length = 0;
          this.squares_ = null;
-         for each(go in this.goDict_)
+         for each(go in this.goList_)
          {
             go.dispose();
          }
          this.goDict_ = null;
-         for each(bo in this.boDict_)
+         this.goList_ = null;
+         for each(bo in this.boList_)
          {
             bo.dispose();
          }
          this.boDict_ = null;
+         this.boList_ = null;
+         this.visible_ = null;
+         this.visibleUnder_ = null;
+         this.visibleGo_ = null;
+         this.visibleBo_ = null;
          this.merchLookup_ = null;
          this.player_ = null;
          this.party_ = null;
@@ -187,11 +205,16 @@ public class Map extends Sprite
          var bo:BasicObject = null;
          var go:GameObject = null;
          var objId:int = 0;
+         var i:int = 0;
+         var n:int = 0;
          this.inUpdate_ = true;
 
          this.hittable_.length = 0;
-         for each(go in this.goDict_)
+         var goList:Vector.<GameObject> = this.goList_;
+         n = goList.length;
+         for(i = 0; i < n; i++)
          {
+            go = goList[i];
             if(!go.update(time,dt))
             {
                this.idsToRemove_.push(go.objectId_);
@@ -208,8 +231,11 @@ public class Map extends Sprite
             }
          }
 
-         for each(bo in this.boDict_)
+         var boList:Vector.<BasicObject> = this.boList_;
+         n = boList.length;
+         for(i = 0; i < n; i++)
          {
+            bo = boList[i];
             if(!bo.update(time,dt))
             {
                this.idsToRemove_.push(bo.objectId_);
@@ -306,13 +332,22 @@ public class Map extends Sprite
             trace("ERROR: adding: " + bo);
             return;
          }
-         var dict:Dictionary = bo is GameObject?this.goDict_:this.boDict_;
+         var go:GameObject = bo as GameObject;
+         var dict:Dictionary = go != null?this.goDict_:this.boDict_;
          if(dict[bo.objectId_] != null)
          {
             trace("ERROR: duplicate add: " + bo + " would replace: " + dict[bo.objectId_]);
             return;
          }
          dict[bo.objectId_] = bo;
+         if(go != null)
+         {
+            this.goList_.push(go);
+         }
+         else
+         {
+            this.boList_.push(bo);
+         }
       }
       
       public function removeObj(objectId:int) : void
@@ -329,9 +364,18 @@ public class Map extends Sprite
       
       public function internalRemoveObj(objectId:int) : void
       {
+         var idx:int = 0;
          var dict:Dictionary = this.goDict_;
          var bo:BasicObject = dict[objectId];
-         if(bo == null)
+         if(bo != null)
+         {
+            idx = this.goList_.indexOf(GameObject(bo));
+            if(idx >= 0)
+            {
+               this.goList_.splice(idx,1);
+            }
+         }
+         else
          {
             dict = this.boDict_;
             bo = dict[objectId];
@@ -339,9 +383,109 @@ public class Map extends Sprite
             {
                return;
             }
+            idx = this.boList_.indexOf(bo);
+            if(idx >= 0)
+            {
+               this.boList_.splice(idx,1);
+            }
          }
          bo.removeFromMap();
          delete dict[objectId];
+      }
+
+      // Insertion sort by (sortVal_, objectId_) ascending. The lists persist across frames and
+      // screen-space depth changes little between frames, so this is ~O(n) in practice.
+      private static function sortGameObjects(v:Vector.<GameObject>) : void
+      {
+         var n:int = v.length;
+         var cur:GameObject = null;
+         var prev:GameObject = null;
+         var curSort:int = 0;
+         var curId:int = 0;
+         var j:int = 0;
+         for(var i:int = 1; i < n; i++)
+         {
+            cur = v[i];
+            curSort = cur.sortVal_;
+            curId = cur.objectId_;
+            j = i - 1;
+            prev = v[j];
+            while(prev.sortVal_ > curSort || prev.sortVal_ == curSort && prev.objectId_ > curId)
+            {
+               v[j + 1] = prev;
+               j--;
+               if(j < 0)
+               {
+                  break;
+               }
+               prev = v[j];
+            }
+            v[j + 1] = cur;
+         }
+      }
+
+      private static function sortBasicObjects(v:Vector.<BasicObject>) : void
+      {
+         var n:int = v.length;
+         var cur:BasicObject = null;
+         var prev:BasicObject = null;
+         var curSort:int = 0;
+         var curId:int = 0;
+         var j:int = 0;
+         for(var i:int = 1; i < n; i++)
+         {
+            cur = v[i];
+            curSort = cur.sortVal_;
+            curId = cur.objectId_;
+            j = i - 1;
+            prev = v[j];
+            while(prev.sortVal_ > curSort || prev.sortVal_ == curSort && prev.objectId_ > curId)
+            {
+               v[j + 1] = prev;
+               j--;
+               if(j < 0)
+               {
+                  break;
+               }
+               prev = v[j];
+            }
+            v[j + 1] = cur;
+         }
+      }
+
+      // Merge two sorted vectors into `out` preserving (sortVal_, objectId_) order.
+      private static function mergeSorted(a:Vector.<BasicObject>, b:Vector.<BasicObject>, out:Vector.<BasicObject>) : void
+      {
+         var an:int = a.length;
+         var bn:int = b.length;
+         var ai:int = 0;
+         var bi:int = 0;
+         var x:BasicObject = null;
+         var y:BasicObject = null;
+         out.length = 0;
+         while(ai < an && bi < bn)
+         {
+            x = a[ai];
+            y = b[bi];
+            if(y.sortVal_ < x.sortVal_ || y.sortVal_ == x.sortVal_ && y.objectId_ < x.objectId_)
+            {
+               out.push(y);
+               bi++;
+            }
+            else
+            {
+               out.push(x);
+               ai++;
+            }
+         }
+         while(ai < an)
+         {
+            out.push(a[ai++]);
+         }
+         while(bi < bn)
+         {
+            out.push(b[bi++]);
+         }
       }
       
       public function getSquare(posX:Number, posY:Number) : Square
@@ -413,7 +557,9 @@ public class Map extends Sprite
             y = -screenRect.y;
          }
          var distW:Number = (-screenRect.y - screenRect.height / 2) / 50;
-         var screenCenterW:Point = new Point(camera.x_ + distW * Math.cos(camera.angleRad_ - Math.PI / 2),camera.y_ + distW * Math.sin(camera.angleRad_ - Math.PI / 2));
+         var screenCenterW:Point = this.screenCenterW_;
+         screenCenterW.x = camera.x_ + distW * Math.cos(camera.angleRad_ - Math.PI / 2);
+         screenCenterW.y = camera.y_ + distW * Math.sin(camera.angleRad_ - Math.PI / 2);
          if(this.background_ != null)
          {
             this.background_.draw(camera,time);
@@ -435,20 +581,26 @@ public class Map extends Sprite
          this.graphicsData3d_.length = 0;
 
          // visible tiles
+         FrameProfiler.begin(FrameProfiler.TILES);
+         var squares:Vector.<Square> = this.squares_;
+         var graphicsData:Vector.<IGraphicsData> = this.graphicsData_;
+         var maxDistSq:Number = camera.maxDistSq_;
+         var centerX:Number = screenCenterW.x;
+         var centerY:Number = screenCenterW.y;
          for(var xi:int = xStart; xi <= xEnd; xi++)
          {
             for(yi = yStart; yi <= yEnd; yi++)
             {
-               square = this.squares_[xi + yi * this.width_];
+               square = squares[xi + yi * this.width_];
                if(square != null)
                {
-                  dX = screenCenterW.x - square.center_.x;
-                  dY = screenCenterW.y - square.center_.y;
+                  dX = centerX - square.center_.x;
+                  dY = centerY - square.center_.y;
                   distSq = dX * dX + dY * dY;
-                  if(distSq <= camera.maxDistSq_)
+                  if(distSq <= maxDistSq)
                   {
                      square.lastVisible_ = time;
-                     square.draw(this.graphicsData_,camera,time);
+                     square.draw(graphicsData,camera,time);
                      this.visibleSquares_.push(square);
                      if(square.topFace_ != null)
                      {
@@ -458,86 +610,140 @@ public class Map extends Sprite
                }
             }
          }
+         FrameProfiler.end(FrameProfiler.TILES);
 
-         // visible game objects
-         for each(go in this.goDict_)
+         // visibility + screen-space depth for every object
+         FrameProfiler.begin(FrameProfiler.COLLECT);
+         var goList:Vector.<GameObject> = this.goList_;
+         var boList:Vector.<BasicObject> = this.boList_;
+         var n:int = goList.length;
+         for(i = 0; i < n; i++)
          {
-            go.drawn_ = false;
+            go = goList[i];
             square = go.square_;
-            if(!(square == null || square.lastVisible_ != time))
+            if(square != null && square.lastVisible_ == time)
             {
                go.drawn_ = true;
                go.computeSortVal(camera);
-               if(go.props_.drawUnder_)
-               {
-                  if(go.props_.drawOnGround_)
-                  {
-                     go.draw(this.graphicsData_,camera,time);
-                  }
-                  else
-                  {
-                     this.visibleUnder_.push(go);
-                  }
-               }
-               else
-               {
-                  this.visible_.push(go);
-               }
+            }
+            else
+            {
+               go.drawn_ = false;
             }
          }
-
-         // visible basic objects (projectiles, particles and such)
-         for each(bo in this.boDict_)
+         n = boList.length;
+         for(i = 0; i < n; i++)
          {
-            bo.drawn_ = false;
+            bo = boList[i];
             square = bo.square_;
-            if(!(square == null || square.lastVisible_ != time))
+            if(square != null && square.lastVisible_ == time)
             {
                bo.drawn_ = true;
                bo.computeSortVal(camera);
-               this.visible_.push(bo);
             }
-         }
-
-         // draw visible under
-         if(this.visibleUnder_.length > 0)
-         {
-            this.visibleUnder_.sortOn(VISIBLE_SORT_FIELDS,VISIBLE_SORT_PARAMS);
-            for each(bo in this.visibleUnder_)
+            else
             {
-               bo.draw(this.graphicsData_,camera,time);
+               bo.drawn_ = false;
             }
          }
+         FrameProfiler.end(FrameProfiler.COLLECT);
+
+         // sort (nearly-sorted persistent lists), then split/merge into draw lists
+         FrameProfiler.begin(FrameProfiler.SORT);
+         sortGameObjects(goList);
+         sortBasicObjects(boList);
+         this.visibleGo_.length = 0;
+         this.visibleBo_.length = 0;
+         n = goList.length;
+         for(i = 0; i < n; i++)
+         {
+            go = goList[i];
+            if(!go.drawn_)
+            {
+               continue;
+            }
+            if(go.props_.drawUnder_)
+            {
+               if(go.props_.drawOnGround_)
+               {
+                  go.draw(graphicsData,camera,time);
+               }
+               else
+               {
+                  this.visibleUnder_.push(go);
+               }
+            }
+            else
+            {
+               this.visibleGo_.push(go);
+            }
+         }
+         n = boList.length;
+         for(i = 0; i < n; i++)
+         {
+            bo = boList[i];
+            if(bo.drawn_)
+            {
+               this.visibleBo_.push(bo);
+            }
+         }
+         mergeSorted(this.visibleGo_,this.visibleBo_,this.visible_);
+         FrameProfiler.end(FrameProfiler.SORT);
+
+         // draw visible under (already sorted: built in order from the sorted goList_)
+         FrameProfiler.begin(FrameProfiler.DRAW_UNDER);
+         var visibleUnder:Vector.<BasicObject> = this.visibleUnder_;
+         n = visibleUnder.length;
+         for(i = 0; i < n; i++)
+         {
+            visibleUnder[i].draw(graphicsData,camera,time);
+         }
+         FrameProfiler.end(FrameProfiler.DRAW_UNDER);
 
          // draw shadows
-         this.visible_.sortOn(VISIBLE_SORT_FIELDS,VISIBLE_SORT_PARAMS);
+         var visible:Vector.<BasicObject> = this.visible_;
+         n = visible.length;
+         FrameProfiler.begin(FrameProfiler.SHADOWS);
          if(Parameters.data_.drawShadows)
          {
-            for each(bo in this.visible_)
+            for(i = 0; i < n; i++)
             {
+               bo = visible[i];
                if(bo.hasShadow_)
                {
-                  bo.drawShadow(this.graphicsData_,camera,time);
+                  bo.drawShadow(graphicsData,camera,time);
                }
             }
          }
+         FrameProfiler.end(FrameProfiler.SHADOWS);
 
          // draw visible
-         for each(bo in this.visible_)
+         FrameProfiler.begin(FrameProfiler.DRAW_OBJECTS);
+         for(i = 0; i < n; i++)
          {
-            bo.draw(this.graphicsData_,camera,time);
+            bo = visible[i];
+            bo.draw(graphicsData,camera,time);
             if (isGpuRender) {
                bo.draw3d(this.graphicsData3d_);
             }
          }
+         FrameProfiler.end(FrameProfiler.DRAW_OBJECTS);
 
          // draw top squares
-         if(this.topSquares_.length > 0)
+         FrameProfiler.begin(FrameProfiler.TOP_TILES);
+         var topSquares:Vector.<Square> = this.topSquares_;
+         n = topSquares.length;
+         for(i = 0; i < n; i++)
          {
-            for each(square in this.topSquares_)
-            {
-               square.drawTop(this.graphicsData_,camera,time);
-            }
+            topSquares[i].drawTop(graphicsData,camera,time);
+         }
+         FrameProfiler.end(FrameProfiler.TOP_TILES);
+
+         if(FrameProfiler.enabled)
+         {
+            FrameProfiler.frameObjects = visible.length + visibleUnder.length;
+            FrameProfiler.frameTiles = this.visibleSquares_.length;
+            FrameProfiler.frameGraphicsData = graphicsData.length;
          }
 
          // draw breath overlay
@@ -569,24 +775,34 @@ public class Map extends Sprite
          }
 
          // draw hw capable screen filters
+         FrameProfiler.begin(FrameProfiler.PRESENT);
          if(isGpuRender && Renderer.inGame)
          {
             filter = this.getFilterIndex();
             render3D = StaticInjectorContext.getInjector().getInstance(Render3D);
             render3D.dispatch(this.graphicsData_,this.graphicsData3d_,width_,height_,camera,filter);
-            for(i = 0; i < this.graphicsData_.length; i++)
+            FrameProfiler.begin(FrameProfiler.GPU_SOFTWARE);
+            var gfxCount:int = graphicsData.length;
+            var gfxItem:IGraphicsData = null;
+            var bmpFill:GraphicsBitmapFill = null;
+            var solidFill:GraphicsSolidFill = null;
+            var softwareData:Vector.<IGraphicsData> = this.graphicsDataStageSoftware_;
+            for(i = 0; i < gfxCount; i++)
             {
-               if(this.graphicsData_[i] is GraphicsBitmapFill && GraphicsFillExtra.isSoftwareDraw(GraphicsBitmapFill(this.graphicsData_[i])))
+               gfxItem = graphicsData[i];
+               bmpFill = gfxItem as GraphicsBitmapFill;
+               if(bmpFill != null)
                {
-                  this.graphicsDataStageSoftware_.push(this.graphicsData_[i]);
-                  this.graphicsDataStageSoftware_.push(this.graphicsData_[i + 1]);
-                  this.graphicsDataStageSoftware_.push(this.graphicsData_[i + 2]);
+                  if(GraphicsFillExtra.isSoftwareDraw(bmpFill))
+                  {
+                     softwareData.push(gfxItem,graphicsData[i + 1],graphicsData[i + 2]);
+                  }
+                  continue;
                }
-               else if(this.graphicsData_[i] is GraphicsSolidFill && GraphicsFillExtra.isSoftwareDrawSolid(GraphicsSolidFill(this.graphicsData_[i])))
+               solidFill = gfxItem as GraphicsSolidFill;
+               if(solidFill != null && GraphicsFillExtra.isSoftwareDrawSolid(solidFill))
                {
-                  this.graphicsDataStageSoftware_.push(this.graphicsData_[i]);
-                  this.graphicsDataStageSoftware_.push(this.graphicsData_[i + 1]);
-                  this.graphicsDataStageSoftware_.push(this.graphicsData_[i + 2]);
+                  softwareData.push(gfxItem,graphicsData[i + 1],graphicsData[i + 2]);
                }
             }
             if(this.graphicsDataStageSoftware_.length > 0)
@@ -607,12 +823,14 @@ public class Map extends Sprite
             {
                GraphicsFillExtra.manageSize();
             }
+            FrameProfiler.end(FrameProfiler.GPU_SOFTWARE);
          }
          else
          {
             map_.graphics.clear();
             map_.graphics.drawGraphicsData(this.graphicsData_);
          }
+         FrameProfiler.end(FrameProfiler.PRESENT);
 
          // draw filters
          this.map_.filters.length = 0;
@@ -635,8 +853,10 @@ public class Map extends Sprite
             this.map_.filters = [];
          }
 
+         FrameProfiler.begin(FrameProfiler.OVERLAYS);
          this.mapOverlay_.draw(camera,time);
          this.partyOverlay_.draw(camera,time);
+         FrameProfiler.end(FrameProfiler.OVERLAYS);
       }
       private function getFilterIndex() : uint
       {
