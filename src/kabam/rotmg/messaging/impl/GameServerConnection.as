@@ -37,6 +37,7 @@ import com.company.assembleegameclient.objects.Container;
    import com.company.assembleegameclient.parameters.Parameters;
    import com.company.assembleegameclient.sound.SoundEffectLibrary;
    import com.company.assembleegameclient.ui.dialogs.Dialog;
+   import com.company.assembleegameclient.ui.dialogs.ErrorDialog;
    import com.company.assembleegameclient.ui.dialogs.NotEnoughFameDialog;
    import com.company.assembleegameclient.ui.panels.GuildInvitePanel;
    import com.company.assembleegameclient.ui.panels.TradeRequestPanel;
@@ -103,6 +104,7 @@ import kabam.rotmg.messaging.impl.incoming.GuildResult;
    import kabam.rotmg.messaging.impl.incoming.NameResult;
    import kabam.rotmg.messaging.impl.incoming.NewTick;
    import kabam.rotmg.messaging.impl.incoming.Notification;
+   import kabam.rotmg.messaging.impl.incoming.Ping;
    import kabam.rotmg.messaging.impl.incoming.PlaySound;
    import kabam.rotmg.messaging.impl.incoming.QuestObjId;
    import kabam.rotmg.messaging.impl.incoming.Reconnect;
@@ -139,6 +141,7 @@ import kabam.rotmg.messaging.impl.outgoing.GuildInvite;
    import kabam.rotmg.messaging.impl.outgoing.PlayerHit;
    import kabam.rotmg.messaging.impl.outgoing.PlayerShoot;
    import kabam.rotmg.messaging.impl.outgoing.PlayerText;
+   import kabam.rotmg.messaging.impl.outgoing.Pong;
    import kabam.rotmg.messaging.impl.outgoing.RequestTrade;
    import kabam.rotmg.messaging.impl.outgoing.Reskin;
    import kabam.rotmg.messaging.impl.outgoing.ShootAck;
@@ -155,6 +158,7 @@ import kabam.rotmg.ui.model.UpdateGameObjectTileVO;
 import kabam.rotmg.ui.signals.ShowKeySignal;
 import kabam.rotmg.ui.signals.ShowKeyUISignal;
 import kabam.rotmg.ui.signals.UpdateBackpackTabSignal;
+import kabam.rotmg.ui.signals.UpdateHUDSignal;
 import kabam.rotmg.ui.view.MessageCloseDialog;
 import kabam.rotmg.ui.view.NotEnoughGoldDialog;
    import org.swiftsuspenders.Injector;
@@ -223,6 +227,8 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
       public static const TRADEDONE:int = 58;
       public static const TRADEACCEPTED:int = 59;
       public static const GLOBAL_NOTIFICATION:int = 60;
+      public static const PING:int = 61;
+      public static const PONG:int = 62;
 
       public static var instance:GameServerConnection;
 
@@ -242,6 +248,8 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
       private var playerId_:int = -1;
       private var player:Player;
       public var outstandingBuy_:OutstandingBuy = null;
+      private var pendingInvOps_:Array = [];
+      private var updateHUD:UpdateHUDSignal;
       private var rand_:Random = null;
       private var death:Death;
       private var addTextLine:AddTextLineSignal;
@@ -275,6 +283,7 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          this.messages = this.injector.getInstance(MessageProvider);
          this.model = this.injector.getInstance(GameModel);
          this.playerModel = this.injector.getInstance(PlayerModel);
+         this.updateHUD = this.injector.getInstance(UpdateHUDSignal);
          instance = this;
          this.gs_ = gs;
          this.gameId_ = gameId;
@@ -285,9 +294,10 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
       
       public function disconnect() : void
       {
+         this.pendingInvOps_.length = 0;
          this.removeServerConnectionListeners();
-         this.unmapMessages();
          this.serverConnection.disconnect();
+         this.unmapMessages();
       }
       
       private function removeServerConnectionListeners() : void
@@ -375,6 +385,8 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          messages.map(TRADEDONE).toMessage(TradeDone).toMethod(this.onTradeDone);
          messages.map(TRADEACCEPTED).toMessage(TradeAccepted).toMethod(this.onTradeAccepted);
          messages.map(GLOBAL_NOTIFICATION).toMessage(GlobalNotification).toMethod(this.onGlobalNotification);
+         messages.map(PING).toMessage(Ping).toMethod(this.onPing);
+         messages.map(PONG).toMessage(Pong);
       }
       
       private function unmapMessages() : void
@@ -436,6 +448,8 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          messages.unmap(TRADEDONE);
          messages.unmap(TRADEACCEPTED);
          messages.unmap(GLOBAL_NOTIFICATION);
+         messages.unmap(PING);
+         messages.unmap(PONG);
          messages.unmap(PLAYSOUND);
          messages.unmap(CHOOSENAME);
          messages.unmap(NAMERESULT);
@@ -502,6 +516,18 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          }
          go.onGoto(gotoPkt.pos_.x_, gotoPkt.pos_.y_, this.gs_.lastUpdate_);
       }
+
+      private function onPing(ping:Ping) : void
+      {
+         if(this.gs_ == null || this.serverConnection == null)
+         {
+            return;
+         }
+         var pong:Pong = this.messages.require(PONG) as Pong;
+         pong.serial_ = ping.serial_;
+         pong.time_ = this.gs_.lastUpdate_;
+         this.serverConnection.sendMessage(pong);
+      }
       
       public function playerHit(bulletId:int) : void
       {
@@ -557,6 +583,11 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          {
             return false;
          }
+         var prevItem1:int = this.readSlotItem(sourceObj,slotId1);
+         var prevData1:int = this.readSlotData(sourceObj,slotId1);
+         var prevItem2:int = this.readSlotItem(targetObj,slotId2);
+         var prevData2:int = this.readSlotData(targetObj,slotId2);
+         this.enqueueInvOp(sourceObj != null ? sourceObj.objectId_ : -1,slotId1,prevItem1,prevData1,targetObj != null ? targetObj.objectId_ : -1,slotId2,prevItem2,prevData2);
          var invSwap:InvSwap = this.messages.require(INVSWAP) as InvSwap;
          invSwap.time_ = this.gs_.lastUpdate_;
          invSwap.position_.x_ = player.x_;
@@ -610,15 +641,37 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
 
       public function invDrop(object:GameObject, slotId:int) : void
       {
+         var prevItem:int = this.readSlotItem(object,slotId);
+         var prevData:int = this.readSlotData(object,slotId);
+         this.enqueueInvOp(object != null ? object.objectId_ : -1,slotId,prevItem,prevData);
          var invDrop:InvDrop = this.messages.require(INVDROP) as InvDrop;
          invDrop.slotId_ = slotId;
          this.serverConnection.sendMessage(invDrop);
-         object.equipment_[slotId] = -1;
-         object.itemDatas_[slotId] = -1;
+         if(object != null && object.equipment_ != null && slotId >= 0 && slotId < object.equipment_.length)
+         {
+            object.equipment_[slotId] = -1;
+            if(object.itemDatas_ != null && slotId < object.itemDatas_.length)
+            {
+               object.itemDatas_[slotId] = -1;
+            }
+         }
       }
 
       public function useItem(time:int, objectId:int, slotId:int, posX:Number, posY:Number) : void
       {
+         var owner:GameObject = this.gs_ != null && this.gs_.map != null ? this.gs_.map.goDict_[objectId] : null;
+         this.enqueueInvOp(objectId,slotId,this.readSlotItem(owner,slotId),this.readSlotData(owner,slotId));
+         if(this.player != null)
+         {
+            if(slotId == PotionInventoryModel.HEALTH_POTION_SLOT && this.player.healthPotionCount_ > 0)
+            {
+               this.player.healthPotionCount_--;
+            }
+            else if(slotId == PotionInventoryModel.MAGIC_POTION_SLOT && this.player.magicPotionCount_ > 0)
+            {
+               this.player.magicPotionCount_--;
+            }
+         }
          var useItemMess:UseItem = this.messages.require(USEITEM) as UseItem;
          useItemMess.time_ = time;
          useItemMess.slotObject_.objectId_ = objectId;
@@ -644,6 +697,7 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
 
       private function applyUseItem(owner:GameObject, slotId:int, objectType:int, itemData:XML) : void
       {
+         this.enqueueInvOp(owner != null ? owner.objectId_ : -1,slotId,this.readSlotItem(owner,slotId),this.readSlotData(owner,slotId));
          var useItem:UseItem = this.messages.require(USEITEM) as UseItem;
          useItem.time_ = gs_.lastUpdate_;
          useItem.slotObject_.objectId_ = owner.objectId_;
@@ -653,8 +707,14 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          this.serverConnection.sendMessage(useItem);
          if(itemData.hasOwnProperty("Consumable"))
          {
-            owner.equipment_[slotId] = -1;
-            owner.itemDatas_[slotId] = -1;
+            if(owner != null && owner.equipment_ != null && slotId >= 0 && slotId < owner.equipment_.length)
+            {
+               owner.equipment_[slotId] = -1;
+               if(owner.itemDatas_ != null && slotId < owner.itemDatas_.length)
+               {
+                  owner.itemDatas_[slotId] = -1;
+               }
+            }
          }
       }
       
@@ -836,7 +896,16 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          {
             return;
          }
-         //var owner:GameObject = this.gs_.map.goDict_[serverPlayerShoot.ownerId_];
+         if(needsAck)
+         {
+            this.shootAck(this.gs_.lastUpdate_);
+         }
+         var owner:GameObject = this.gs_.map.goDict_[serverPlayerShoot.ownerId_];
+         if(owner == null)
+         {
+            trace("onServerPlayerShoot: unknown owner " + serverPlayerShoot.ownerId_);
+            return;
+         }
          for (var i:int = 0; i < serverPlayerShoot.damageList_.length; i++)
          {
             var proj:Projectile = FreeList.newObject(Projectile) as Projectile;
@@ -845,10 +914,7 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
             proj.setDamage(serverPlayerShoot.damageList_[i]);
             this.gs_.map.addObj(proj, serverPlayerShoot.startingPos_.x_, serverPlayerShoot.startingPos_.y_);
          }
-         if(serverPlayerShoot.ownerId_ == this.playerId_)
-         {
-            this.shootAck(this.gs_.lastUpdate_);
-         }
+         owner.setAttack(serverPlayerShoot.containerType_, serverPlayerShoot.angle_);
       }
       
       private function onAllyShoot(allyShoot:AllyShoot) : void
@@ -860,6 +926,11 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          var i:int;
          var owner:GameObject = this.gs_.map.goDict_[allyShoot.ownerId_];
          var weaponXML:XML =  ObjectLibrary.xmlLibrary_[allyShoot.containerType_];
+         if(owner == null || weaponXML == null)
+         {
+            trace("onAllyShoot: missing owner or weaponXML ownerId=" + allyShoot.ownerId_ + " container=" + allyShoot.containerType_);
+            return;
+         }
          var arcGap:Number = (Boolean(weaponXML.hasOwnProperty("ArcGap"))?Number(weaponXML.ArcGap):11.25) * Trig.toRadians;
          var numShots:int = Boolean(weaponXML.hasOwnProperty("NumProjectiles"))?int(int(weaponXML.NumProjectiles)):int(1);
          var totalArc:Number = arcGap * (numShots - 1);
@@ -881,7 +952,18 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          var proj:Projectile = null;
          var angle:Number = NaN;
          var owner:GameObject = this.gs_.map.goDict_[enemyShoot.ownerId_];
-
+         this.shootAck(this.gs_.lastUpdate_);
+         if(owner == null)
+         {
+            trace("onEnemyShoot: unknown owner " + enemyShoot.ownerId_);
+            return;
+         }
+         if(ObjectLibrary.propsLibrary_[owner.objectType_] == null)
+         {
+            trace("onEnemyShoot: no props for owner type " + owner.objectType_ + " id=" + enemyShoot.ownerId_);
+            owner.setAttack(owner.objectType_,enemyShoot.angle_ + enemyShoot.angleInc_ * ((enemyShoot.numShots_ - 1) / 2));
+            return;
+         }
          for(var i:int = 0; i < enemyShoot.numShots_; i++)
          {
             proj = FreeList.newObject(Projectile) as Projectile;
@@ -890,8 +972,6 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
             proj.setDamage(enemyShoot.damage_);
             this.gs_.map.addObj(proj,enemyShoot.startingPos_.x_,enemyShoot.startingPos_.y_);
          }
-
-         this.shootAck(this.gs_.lastUpdate_);
          owner.setAttack(owner.objectType_,enemyShoot.angle_ + enemyShoot.angleInc_ * ((enemyShoot.numShots_ - 1) / 2));
       }
 
@@ -910,8 +990,9 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          var go:GameObject = ObjectLibrary.getObjectFromType(obj.objectType_);
          if(go == null)
          {
-            trace("unhandled object type: " + obj.objectType_);
-            return;
+            trace("unhandled object type: " + obj.objectType_ + ", using placeholder");
+            go = new GameObject(null);
+            go.objectType_ = obj.objectType_;
          }
          var status:ObjectStatusData = obj.status_;
          go.setObjectId(status.objectId_);
@@ -920,7 +1001,14 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          {
             this.handleNewPlayer(go as Player,map);
          }
-         this.processObjectStatus(status);
+         try
+         {
+            this.processObjectStatus(status);
+         }
+         catch(error:Error)
+         {
+            trace("addObject: processObjectStatus failed type=" + obj.objectType_ + " " + error.getStackTrace());
+         }
          if(go.props_.static_ && go.props_.occupySquare_ && !go.props_.noMiniMap_)
          {
             this.updateGameObjectTileSignal.dispatch(new UpdateGameObjectTileVO(go.x_,go.y_,go));
@@ -1010,15 +1098,32 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          {
             this.jitterWatcher_.record();
          }
+         if(this.gs_ != null && this.gs_.map != null)
+         {
+            this.gs_.map.movesRequested_++;
+         }
          for each(objectStatus in newTick.statuses_)
          {
-            this.processObjectStatus(objectStatus);
+            try
+            {
+               this.processObjectStatus(objectStatus);
+            }
+            catch(error:Error)
+            {
+               trace("onNewTick: processObjectStatus failed objectId=" + objectStatus.objectId_ + " " + error.getStackTrace());
+            }
          }
-         if (newTick.playerStats_.length > 0)
+         if (newTick.playerStats_.length > 0 && this.gs_.map.player_ != null)
          {
-            this.updateGameObject(gs_.map.player_, newTick.playerStats_, true);
+            try
+            {
+               this.updateGameObject(this.gs_.map.player_, newTick.playerStats_, true);
+            }
+            catch(error:Error)
+            {
+               trace("onNewTick: playerStats failed " + error.getStackTrace());
+            }
          }
-         this.player.map_.movesRequested_++;
       }
       
       private function onShowEffect(showEffect:ShowEffect) : void
@@ -1161,13 +1266,30 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
          }
       }
 
+      private function skipWrongTypeStat(go:GameObject, typed:Object, statType:int, expected:String) : Boolean
+      {
+         if(typed == null)
+         {
+            trace("updateGameObject: skipping stat " + statType + " (" + expected + " required) objectId=" + go.objectId_ + " type=" + go.objectType_);
+            return true;
+         }
+         return false;
+      }
+
       private function updateGameObject(go:GameObject, stats:Vector.<StatData>, isMyObject:Boolean) : void
       {
          var stat:StatData = null;
          var value:int = 0;
          var index:int = 0;
+         if(go == null)
+         {
+            trace("updateGameObject: null object");
+            return;
+         }
          var player:Player = go as Player;
          var merchant:Merchant = go as Merchant;
+         var sellable:SellableObject = go as SellableObject;
+         var portal:Portal = go as Portal;
          for each(stat in stats)
          {
             value = stat.statValue_;
@@ -1183,36 +1305,72 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
                   go.size_ = value;
                   continue;
                case StatData.MAX_MP_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.maxMP_ = value;
                   continue;
                case StatData.MP_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.mp_ = value;
                   continue;
                case StatData.NEXT_LEVEL_EXP_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.nextLevelExp_ = value;
                   continue;
                case StatData.EXP_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.exp_ = value;
                   continue;
                case StatData.LEVEL_STAT:
                   go.level_ = value;
                   continue;
                case StatData.ATTACK_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.attack_ = value;
                   continue;
                case StatData.DEFENSE_STAT:
                   go.defense_ = value;
                   continue;
                case StatData.SPEED_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.speed_ = value;
                   continue;
                case StatData.DEXTERITY_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.dexterity_ = value;
                   continue;
                case StatData.VITALITY_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.vitality_ = value;
                   continue;
                case StatData.WISDOM_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.wisdom_ = value;
                   continue;
                case StatData.CONDITION_STAT:
@@ -1230,9 +1388,18 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
                case StatData.INVENTORY_9_STAT:
                case StatData.INVENTORY_10_STAT:
                case StatData.INVENTORY_11_STAT:
+                  if(go.equipment_ == null)
+                  {
+                     trace("updateGameObject: skipping inventory stat " + stat.statType_ + " on object without equipment objectId=" + go.objectId_);
+                     continue;
+                  }
                   go.equipment_[stat.statType_ - StatData.INVENTORY_0_STAT] = value;
                   continue;
                case StatData.NUM_STARS_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.numStars_ = value;
                   continue;
                case StatData.NAME_STAT:
@@ -1249,78 +1416,170 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
                   go.setTex2(value);
                   continue;
                case StatData.MERCHANDISE_TYPE_STAT:
+                  if(this.skipWrongTypeStat(go,merchant,stat.statType_,"Merchant"))
+                  {
+                     continue;
+                  }
                   merchant.setMerchandiseType(value);
                   continue;
                case StatData.CREDITS_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.setCredits(value);
                   continue;
                case StatData.MERCHANDISE_PRICE_STAT:
-                  (go as SellableObject).setPrice(value);
+                  if(this.skipWrongTypeStat(go,sellable,stat.statType_,"SellableObject"))
+                  {
+                     continue;
+                  }
+                  sellable.setPrice(value);
                   continue;
                case StatData.ACTIVE_STAT:
-                  (go as Portal).active_ = value != 0;
+                  if(this.skipWrongTypeStat(go,portal,stat.statType_,"Portal"))
+                  {
+                     continue;
+                  }
+                  portal.active_ = value != 0;
                   continue;
                case StatData.ACCOUNT_ID_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.accountId_ = value;
                   continue;
                case StatData.FAME_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.fame_ = value;
                   continue;
                case StatData.MERCHANDISE_CURRENCY_STAT:
-                  (go as SellableObject).setCurrency(value);
+                  if(this.skipWrongTypeStat(go,sellable,stat.statType_,"SellableObject"))
+                  {
+                     continue;
+                  }
+                  sellable.setCurrency(value);
                   continue;
                case StatData.CONNECT_STAT:
                   go.connectType_ = value;
                   continue;
                case StatData.MERCHANDISE_COUNT_STAT:
+                  if(this.skipWrongTypeStat(go,merchant,stat.statType_,"Merchant"))
+                  {
+                     continue;
+                  }
                   merchant.count_ = value;
                   merchant.untilNextMessage_ = 0;
                   continue;
                case StatData.MERCHANDISE_MINS_LEFT_STAT:
+                  if(this.skipWrongTypeStat(go,merchant,stat.statType_,"Merchant"))
+                  {
+                     continue;
+                  }
                   merchant.minsLeft_ = value;
                   merchant.untilNextMessage_ = 0;
                   continue;
                case StatData.MERCHANDISE_DISCOUNT_STAT:
+                  if(this.skipWrongTypeStat(go,merchant,stat.statType_,"Merchant"))
+                  {
+                     continue;
+                  }
                   merchant.discount_ = value;
                   merchant.untilNextMessage_ = 0;
                   continue;
                case StatData.MERCHANDISE_RANK_REQ_STAT:
-                  (go as SellableObject).setRankReq(value);
+                  if(this.skipWrongTypeStat(go,sellable,stat.statType_,"SellableObject"))
+                  {
+                     continue;
+                  }
+                  sellable.setRankReq(value);
                   continue;
                case StatData.MAX_HP_BOOST_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.maxHPBoost_ = value;
                   continue;
                case StatData.MAX_MP_BOOST_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.maxMPBoost_ = value;
                   continue;
                case StatData.ATTACK_BOOST_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.attackBoost_ = value;
                   continue;
                case StatData.DEFENSE_BOOST_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.defenseBoost_ = value;
                   continue;
                case StatData.SPEED_BOOST_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.speedBoost_ = value;
                   continue;
                case StatData.VITALITY_BOOST_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.vitalityBoost_ = value;
                   continue;
                case StatData.WISDOM_BOOST_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.wisdomBoost_ = value;
                   continue;
                case StatData.DEXTERITY_BOOST_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.dexterityBoost_ = value;
                   continue;
                case StatData.CHAR_FAME_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.charFame_ = value;
                   continue;
                case StatData.NEXT_CLASS_QUEST_FAME_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.nextClassQuestFame_ = value;
                   continue;
                case StatData.LEGENDARY_RANK_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.legendaryRank_ = value;
                   continue;
                case StatData.SINK_LEVEL_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   if(!isMyObject)
                   {
                      player.sinkLevel_ = value;
@@ -1330,26 +1589,54 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
                   go.setAltTexture(value);
                   continue;
                case StatData.GUILD_NAME_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.setGuildName(stat.strStatValue_);
                   continue;
                case StatData.GUILD_RANK_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.guildRank_ = value;
                   continue;
                case StatData.BREATH_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.breath_ = value;
                   continue;
 
                case StatData.HEALTH_POTION_STACK_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.healthPotionCount_ = value;
                   continue;
                case StatData.MAGIC_POTION_STACK_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.magicPotionCount_ = value;
                   continue;
                case StatData.TEXTURE_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.skinId != value && this.setPlayerSkinTemplate(player,value);
                   continue;
                case StatData.HASBACKPACK_STAT:
-                  (go as Player).hasBackpack_ = Boolean(value);
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
+                  player.hasBackpack_ = Boolean(value);
                   if(isMyObject)
                   {
                      this.updateBackpackTab.dispatch(Boolean(value));
@@ -1363,8 +1650,17 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
                case StatData.BACKPACK_5_STAT:
                case StatData.BACKPACK_6_STAT:
                case StatData.BACKPACK_7_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   index = stat.statType_ - StatData.BACKPACK_0_STAT + GeneralConstants.NUM_EQUIPMENT_SLOTS + GeneralConstants.NUM_INVENTORY_SLOTS;
-                  (go as Player).equipment_[index] = value;
+                  if(player.equipment_ == null || index < 0 || index >= player.equipment_.length)
+                  {
+                     trace("updateGameObject: skipping backpack stat " + stat.statType_ + " objectId=" + go.objectId_);
+                     continue;
+                  }
+                  player.equipment_[index] = value;
                   continue;
                case StatData.ITEMDATA_0_STAT:
                case StatData.ITEMDATA_1_STAT:
@@ -1386,9 +1682,18 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
                case StatData.ITEMDATA_17_STAT:
                case StatData.ITEMDATA_18_STAT:
                case StatData.ITEMDATA_19_STAT:
-                    go.itemDatas_[stat.statType_ - StatData.ITEMDATA_0_STAT] = value;
-                    continue;
+                  if(go.itemDatas_ == null)
+                  {
+                     trace("updateGameObject: skipping itemdata stat " + stat.statType_ + " on object without itemDatas objectId=" + go.objectId_);
+                     continue;
+                  }
+                  go.itemDatas_[stat.statType_ - StatData.ITEMDATA_0_STAT] = value;
+                  continue;
                case StatData.NAME_CHOSEN_STAT:
+                  if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))
+                  {
+                     continue;
+                  }
                   player.nameChosen_ = value != 0;
                   go.nameBitmapData_ = null;
                   continue;
@@ -1496,16 +1801,94 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
       
       private function onInvResult(invResult:InvResult) : void
       {
+         var op:Object = this.pendingInvOps_.length > 0 ? this.pendingInvOps_.shift() : null;
          if(invResult.result_ != 0)
          {
+            if(op != null)
+            {
+               this.restoreInvOp(op);
+            }
             this.handleInvFailure();
          }
+      }
+      
+      private function enqueueInvOp(objectId1:int, slot1:int, item1:int, data1:int, objectId2:int = -1, slot2:int = -1, item2:int = -1, data2:int = -1) : void
+      {
+         this.pendingInvOps_.push({
+            "objectId1":objectId1,
+            "slot1":slot1,
+            "item1":item1,
+            "data1":data1,
+            "objectId2":objectId2,
+            "slot2":slot2,
+            "item2":item2,
+            "data2":data2,
+            "healthPots":this.player != null ? this.player.healthPotionCount_ : 0,
+            "magicPots":this.player != null ? this.player.magicPotionCount_ : 0
+         });
+      }
+      
+      private function restoreInvOp(op:Object) : void
+      {
+         this.restoreSlot(op.objectId1,op.slot1,op.item1,op.data1);
+         if(op.objectId2 >= 0 && op.slot2 >= 0)
+         {
+            this.restoreSlot(op.objectId2,op.slot2,op.item2,op.data2);
+         }
+         if(this.player != null && (op.slot1 == PotionInventoryModel.HEALTH_POTION_SLOT || op.slot1 == PotionInventoryModel.MAGIC_POTION_SLOT))
+         {
+            this.player.healthPotionCount_ = op.healthPots;
+            this.player.magicPotionCount_ = op.magicPots;
+         }
+      }
+      
+      private function restoreSlot(objectId:int, slotId:int, item:int, data:int) : void
+      {
+         if(objectId < 0 || slotId < 0 || this.gs_ == null || this.gs_.map == null)
+         {
+            return;
+         }
+         var go:GameObject = this.gs_.map.goDict_[objectId];
+         if(go == null || go.equipment_ == null || slotId >= go.equipment_.length)
+         {
+            return;
+         }
+         go.equipment_[slotId] = item;
+         if(go.itemDatas_ != null && slotId < go.itemDatas_.length)
+         {
+            go.itemDatas_[slotId] = data;
+         }
+      }
+      
+      private function readSlotItem(go:GameObject, slotId:int) : int
+      {
+         if(go == null || go.equipment_ == null || slotId < 0 || slotId >= go.equipment_.length)
+         {
+            return -1;
+         }
+         return go.equipment_[slotId];
+      }
+      
+      private function readSlotData(go:GameObject, slotId:int) : int
+      {
+         if(go == null || go.itemDatas_ == null || slotId < 0 || slotId >= go.itemDatas_.length)
+         {
+            return -1;
+         }
+         return go.itemDatas_[slotId];
       }
       
       private function handleInvFailure() : void
       {
          SoundEffectLibrary.play("error");
-         this.gs_.hudView.interactPanel.redraw();
+         if(this.gs_ != null && this.gs_.hudView != null)
+         {
+            this.gs_.hudView.draw();
+         }
+         if(this.updateHUD != null && this.player != null)
+         {
+            this.updateHUD.dispatch(this.player);
+         }
       }
       
       private function onReconnect(reconnect:Reconnect) : void
@@ -1708,7 +2091,14 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
       private function handleForceCloseGameFailure(event:Failure) : void
       {
          this.addTextLine.dispatch(new AddTextLineVO(Parameters.ERROR_CHAT_NAME,event.errorDescription_));
-         this.gs_.closed.dispatch();
+         if(this.playerId_ == -1)
+         {
+            this.leaveHandshake(event.errorDescription_);
+         }
+         else
+         {
+            this.gs_.closed.dispatch();
+         }
       }
       
       private function handleIncorrectVersionFailure(event:Failure) : void
@@ -1721,6 +2111,16 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
       private function handleDefaultFailure(event:Failure) : void
       {
          this.addTextLine.dispatch(new AddTextLineVO(Parameters.ERROR_CHAT_NAME,event.errorDescription_));
+         if(this.playerId_ == -1)
+         {
+            this.leaveHandshake(event.errorDescription_);
+         }
+      }
+
+      private function leaveHandshake(errorText:String) : void
+      {
+         this.gs_.closed.dispatch();
+         StaticInjectorContext.getInjector().getInstance(OpenDialogSignal).dispatch(new ErrorDialog(errorText));
       }
       
       private function onDoClientUpdate(event:Event) : void

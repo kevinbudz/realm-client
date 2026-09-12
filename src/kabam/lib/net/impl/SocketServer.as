@@ -24,6 +24,8 @@ import flash.utils.ByteArray;
       public const error:Signal = new Signal(String);
       private const unsentPlaceholder:Message = new Message(0);
       private const data:ByteArray = new ByteArray();
+      private static const MIN_MESSAGE_LENGTH:int = 5;
+      private static const MAX_MESSAGE_LENGTH:int = 1048576;
       
       private var head:Message;
       private var tail:Message;
@@ -138,6 +140,7 @@ import flash.utils.ByteArray;
          var messageId:uint;
          var message:Message;
          var errorMessage:String;
+         var bodyLen:int;
          while (true) {
             if (this.socket == null || !this.socket.connected) break;
             if (this.messageLen == -1) {
@@ -146,34 +149,41 @@ import flash.utils.ByteArray;
                   this.messageLen = this.socket.readInt();
                }
                catch (e:Error) {
-                  errorMessage = parseString("Socket-Server Data Error: {0}: {1}", [e.name, e.message]);
-                  error.dispatch(errorMessage);
-                  messageLen = -1;
+                  errorMessage = this.parseString("Socket-Server Data Error: {0}: {1}", [e.name, e.message]);
+                  this.error.dispatch(errorMessage);
+                  this.messageLen = -1;
+                  return;
+               }
+               if (this.messageLen < MIN_MESSAGE_LENGTH || this.messageLen > MAX_MESSAGE_LENGTH) {
+                  this.logErrorAndClose("Socket-Server Protocol Error: Invalid message length {0}", [this.messageLen]);
+                  this.messageLen = -1;
                   return;
                }
             }
             if (this.socket.bytesAvailable < this.messageLen - 4) break;
-            messageId = this.socket.readUnsignedByte();
-            message = this.messages.require(messageId);
-            data.position = 0;
-            data.length = 0;
-            if (this.messageLen - 5 > 0) {
-               this.socket.readBytes(data, 0, this.messageLen - 5);
-            }
-            data.position = 0;
-            this.messageLen = -1;
-            if (message == null) {
-               this.logErrorAndClose("Socket-Server Protocol Error: Unknown message");
-               return;
-            }
             try {
-               message.parseFromInput(data);
+               messageId = this.socket.readUnsignedByte();
+               this.data.position = 0;
+               this.data.length = 0;
+               bodyLen = this.messageLen - 5;
+               if (bodyLen > 0) {
+                  this.socket.readBytes(this.data, 0, bodyLen);
+               }
+               this.data.position = 0;
+               this.messageLen = -1;
+               message = this.messages.require(messageId);
+               if (message == null) {
+                  this.logErrorAndClose("Socket-Server Protocol Error: Unknown message", []);
+                  return;
+               }
+               message.parseFromInput(this.data);
+               message.consume();
             }
             catch (error:Error) {
-               logErrorAndClose("Socket-Server Protocol Error: {0}", [error.toString()]);
+               this.messageLen = -1;
+               this.logErrorAndClose("Socket-Server Protocol Error: {0}", [error.toString()]);
                return;
             }
-            message.consume();
          }
       }
       
@@ -185,6 +195,10 @@ import flash.utils.ByteArray;
       
       private function parseString(error:String, arguments:Array) : String
       {
+         if (arguments == null)
+         {
+            return error;
+         }
          var count:int = arguments.length;
          for(var i:int = 0; i < count; i++)
          {

@@ -302,18 +302,23 @@ import kabam.rotmg.ui.UIUtils;
       {
          FrameProfiler.frameStart();
          var time:int = getTimer();
+         var dt:int = time - this.lastUpdate_;
+         if(dt < 0)
+         {
+            dt = 0;
+         }
+         else if(dt > 100)
+         {
+            dt = 100;
+         }
+         //Stamp the frame clock before map/input/socket handlers run so
+         //every outgoing packet in this frame shares one time (Move used
+         //to use `time` while Shoot/acks used lastUpdate_ from the
+         //previous frame, which ValidTime treated as a rewind).
+         this.lastUpdate_ = time;
          var player:Player = this.map.player_;
          if(player != null)
          {
-            var dt:int = time - this.lastUpdate_;
-            if(dt < 0)
-            {
-               dt = 0;
-            }
-            else if(dt > 100)
-            {
-               dt = 100;
-            }
             if(this.idleWatcher_.update(dt))
             {
                this.closed.dispatch();
@@ -341,7 +346,6 @@ import kabam.rotmg.ui.UIUtils;
             }
             FrameProfiler.end(FrameProfiler.HUD);
          }
-         this.lastUpdate_ = time;
          FrameProfiler.frameEnd();
       }
    }

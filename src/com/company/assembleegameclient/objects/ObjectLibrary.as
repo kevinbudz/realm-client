@@ -140,8 +140,24 @@ import com.company.util.AssetLibrary;
       public static function getObjectFromType(objectType:int) : GameObject
       {
          var objectXML:XML = xmlLibrary_[objectType];
+         if(objectXML == null)
+         {
+            return null;
+         }
          var typeReference:String = objectXML.Class;
-         var typeClass:Class = TYPE_MAP[typeReference] || makeClass(typeReference);
+         var typeClass:Class = TYPE_MAP[typeReference];
+         if(typeClass == null)
+         {
+            try
+            {
+               typeClass = makeClass(typeReference);
+            }
+            catch(error:Error)
+            {
+               trace("unknown object class: " + typeReference + " type=" + objectType);
+               return null;
+            }
+         }
          return new typeClass(objectXML);
       }
       

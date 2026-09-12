@@ -126,6 +126,11 @@ public class GameObject extends BasicObject
          super();
          if(objectXML == null)
          {
+            this.texture_ = AssetLibrary.getImageFromSet("lofiObj3",255);
+            if(this.texture_ != null)
+            {
+               this.sizeMult_ = this.texture_.height / 8;
+            }
             return;
          }
          this.objectType_ = int(objectXML.@type);
@@ -232,6 +237,10 @@ public class GameObject extends BasicObject
       {
          var altTextureData:TextureData = null;
          var textureData:TextureData = ObjectLibrary.typeToTextureData_[this.objectType_];
+         if(textureData == null)
+         {
+            return;
+         }
          if(altTextureId == 0)
          {
             altTextureData = textureData;
@@ -955,6 +964,10 @@ public class GameObject extends BasicObject
       override public function draw(graphicsData:Vector.<IGraphicsData>, camera:Camera, time:int) : void
       {
          var texture:BitmapData = this.getTexture(camera,time);
+         if(texture == null)
+         {
+            return;
+         }
          if(this.props_.drawOnGround_)
          {
             if(square_.faces_.length == 0)
