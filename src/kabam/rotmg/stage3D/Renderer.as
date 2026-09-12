@@ -18,10 +18,8 @@ package kabam.rotmg.stage3D
    import flash.display3D.VertexBuffer3D;
    import flash.display3D.textures.Texture;
    import flash.geom.Matrix3D;
-   import flash.geom.Vector3D;
    import flash.utils.ByteArray;
    import kabam.rotmg.stage3D.Object3D.Object3DStage3D;
-   import kabam.rotmg.stage3D.Object3D.Util;
    import kabam.rotmg.stage3D.graphic3D.Graphic3D;
    import kabam.rotmg.stage3D.graphic3D.TextureFactory;
    import kabam.rotmg.stage3D.proxies.Context3DProxy;
@@ -72,24 +70,6 @@ package kabam.rotmg.stage3D
       
       private var graphic3D_:Graphic3D;
       
-      protected var _projection:Matrix3D;
-      
-      protected var cameraMatrix_:Matrix3D;
-      
-      private var p_:Vector3D;
-      
-      private var f_:Vector3D;
-      
-      private var u_:Vector3D;
-      
-      private var r_:Vector3D;
-      
-      private var rd_:Vector.<Number>;
-      
-      protected var widthOffset_:Number;
-      
-      protected var heightOffset_:Number;
-      
       private var stageWidth:Number = 600;
       
       private var stageHeight:Number = 600;
@@ -110,12 +90,6 @@ package kabam.rotmg.stage3D
       
       public function Renderer(render3D:Render3D)
       {
-         this.cameraMatrix_ = new Matrix3D();
-         this.p_ = new Vector3D();
-         this.f_ = new Vector3D();
-         this.u_ = new Vector3D();
-         this.r_ = new Vector3D();
-         this.rd_ = new Vector.<Number>(16,true);
          this._vertexShader = ["m44 op, va0, vc0","m44 v0, va0, vc8","m44 v1, va1, vc8","mov v2, va2"].join("\n");
          this._fragmentShader = ["tex oc, v2, fs0 <2d,clamp>"].join("\n");
          this.blurFragmentConstants_ = Vector.<Number>([0.4,0.6,0.4,1.5]);
@@ -127,7 +101,6 @@ package kabam.rotmg.stage3D
       
       public function init(context3D:Context3D) : void
       {
-         this._projection = Util.perspectiveProjection(56,1,0.1,2048);
          var vsAssembler:AGALMiniAssembler = new AGALMiniAssembler();
          vsAssembler.assemble(Context3DProgramType.VERTEX,this._vertexShader);
          var fsAssembler:AGALMiniAssembler = new AGALMiniAssembler();
@@ -165,43 +138,6 @@ package kabam.rotmg.stage3D
          this.postFilterIndexBuffer_ = context3D.createIndexBuffer(6);
          this.postFilterIndexBuffer_.uploadFromVector(POST_FILTER_TRIS,0,6);
          this.graphic3D_ = this.injector.getInstance(Graphic3D);
-      }
-      
-      private function UpdateCameraMatrix(camera:Camera) : void
-      {
-         var angleRad:Number = -camera.angleRad_;
-         this.f_.x = 0;
-         this.f_.y = 0;
-         this.f_.z = -1;
-         this.p_.x = -(camera.x_ + this.widthOffset_);
-         this.p_.y = camera.y_ - this.heightOffset_;
-         this.p_.z = -camera.z_;
-         this.r_.x = Math.cos(angleRad);
-         this.r_.y = Math.sin(angleRad);
-         this.r_.z = 0;
-         this.u_.x = Math.cos(angleRad + Math.PI / 2);
-         this.u_.y = Math.sin(angleRad + Math.PI / 2);
-         this.u_.z = 0;
-         this.rd_[0] = this.r_.x;
-         this.rd_[1] = this.u_.x;
-         this.rd_[2] = this.f_.x;
-         this.rd_[3] = 0;
-         this.rd_[4] = this.r_.y;
-         this.rd_[5] = this.u_.y;
-         this.rd_[6] = this.f_.y;
-         this.rd_[7] = 0;
-         this.rd_[8] = this.r_.z;
-         this.rd_[9] = 1;
-         this.rd_[10] = -this.f_.z;
-         this.rd_[11] = 0;
-         this.rd_[12] = this.p_.dotProduct(this.r_);
-         this.rd_[13] = this.p_.dotProduct(this.u_);
-         this.rd_[14] = -this.p_.dotProduct(this.f_);
-         this.rd_[15] = 1;
-         var temp:Matrix3D = new Matrix3D();
-         temp.rawData = this.rd_;
-         this.cameraMatrix_.identity();
-         this.cameraMatrix_.append(temp);
       }
       
       private function onRender(graphicsDatas:Vector.<IGraphicsData>, grahpicsData3d:Vector.<Object3DStage3D>, mapWidth:Number, mapHeight:Number, camera:Camera, filterIndex:uint) : void
@@ -302,9 +238,6 @@ package kabam.rotmg.stage3D
          this.context3D.clear();
          var finalTransform:Matrix3D = new Matrix3D();
          var index3d:uint = 0;
-         this.widthOffset_ = -mapWidth / 2;
-         this.heightOffset_ = mapHeight / 2;
-         this.UpdateCameraMatrix(camera);
          for each(graphicsData in graphicsDatas)
          {
             this.context3D.GetContext3D().setCulling(Context3DTriangleFace.NONE);
@@ -343,13 +276,13 @@ package kabam.rotmg.stage3D
                try
                {
                   this.context3D.GetContext3D().setProgram(this.program2);
-                  this.context3D.GetContext3D().setCulling(Context3DTriangleFace.BACK);
-                  grahpicsData3d[index3d].UpdateModelMatrix(this.widthOffset_,this.heightOffset_);
+                  this.context3D.GetContext3D().setCulling(Context3DTriangleFace.FRONT);
+                  grahpicsData3d[index3d].UpdateModelMatrix();
                   finalTransform.identity();
                   finalTransform.append(grahpicsData3d[index3d].GetModelMatrix());
-                  finalTransform.append(this.cameraMatrix_);
-                  finalTransform.append(this._projection);
-                  finalTransform.appendTranslation(this.tX / Stage3DConfig.WIDTH,this.tY / Stage3DConfig.HEIGHT * 11.5,0);
+                  finalTransform.append(camera.wToS_);
+                  finalTransform.appendScale(1 / Stage3DConfig.HALF_WIDTH,-1 / Stage3DConfig.HALF_HEIGHT,0.001);
+                  finalTransform.appendTranslation(this.tX / Stage3DConfig.WIDTH,this.tY / Stage3DConfig.HEIGHT,0);
                   this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,finalTransform,true);
                   this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,8,grahpicsData3d[index3d].GetModelMatrix(),true);
                   grahpicsData3d[index3d].draw(this.context3D.GetContext3D());

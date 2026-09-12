@@ -47,7 +47,7 @@ package kabam.rotmg.stage3D.Object3D
       
       public function setPosition(x:Number, y:Number, z:Number, angleDegrees:Number) : void
       {
-         this.position = new Vector3D(x,-y,z);
+         this.position = new Vector3D(x,y,z);
          this.zRotation_ = angleDegrees;
       }
       
@@ -65,12 +65,11 @@ package kabam.rotmg.stage3D.Object3D
          this.position = null;
       }
       
-      public function UpdateModelMatrix(widthOffset:Number, heightOffset:Number) : void
+      public function UpdateModelMatrix() : void
       {
          this.modelMatrix_.identity();
-         this.modelMatrix_.appendRotation(-this.zRotation_,Vector3D.Z_AXIS);
-         this.modelMatrix_.appendTranslation(this.position.x,this.position.y,0);
-         this.modelMatrix_.appendTranslation(widthOffset,heightOffset,0);
+         this.modelMatrix_.appendRotation(this.zRotation_,Vector3D.Z_AXIS);
+         this.modelMatrix_.appendTranslation(this.position.x,this.position.y,this.position.z);
       }
       
       public function GetModelMatrix() : Matrix3D
