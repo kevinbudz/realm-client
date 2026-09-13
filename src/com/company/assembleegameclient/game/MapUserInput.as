@@ -416,6 +416,13 @@ public class MapUserInput
          case Parameters.data_.togglePerformanceStats:
             this.togglePerformanceStats();
             break;
+         case KeyCodes.F9:
+            // Display-list raster diagnostic: cycles which layers stay visible so the
+            // profiler's `idle` row (display-list raster + composite outside the frame
+            // handler) can be attributed per layer. Not saved; resets each session.
+            this.layerDiag_ = (this.layerDiag_ + 1) % 4;
+            this.applyLayerDiag();
+            break;
          case Parameters.data_.escapeToNexus:
          case Parameters.data_.escapeToNexus2:
             this.gs_.gsc_.escape();
@@ -552,6 +559,49 @@ public class MapUserInput
          this.gs_.addChild(profiler_);
          layoutProfiler(this.gs_);
       }
+   }
+
+   private var layerDiag_:int = 0;
+
+   private function applyLayerDiag() : void
+   {
+      var hideOverlays:Boolean = this.layerDiag_ >= 1;
+      var hideHud:Boolean = this.layerDiag_ >= 2;
+      var hideScene:Boolean = this.layerDiag_ >= 3;
+      var map:com.company.assembleegameclient.map.Map = this.gs_.map;
+      if(map.mapOverlay_ != null)
+      {
+         map.mapOverlay_.visible = !hideOverlays;
+      }
+      if(map.partyOverlay_ != null)
+      {
+         map.partyOverlay_.visible = !hideOverlays;
+      }
+      if(this.gs_.hudView != null)
+      {
+         this.gs_.hudView.visible = !hideHud;
+      }
+      if(this.gs_.creditDisplay_ != null)
+      {
+         this.gs_.creditDisplay_.visible = !hideHud;
+      }
+      if(this.gs_.rankText_ != null)
+      {
+         this.gs_.rankText_.visible = !hideHud;
+      }
+      if(this.gs_.guildText_ != null)
+      {
+         this.gs_.guildText_.visible = !hideHud;
+      }
+      if(this.gs_.textBox_ != null)
+      {
+         this.gs_.textBox_.visible = !hideHud;
+      }
+      if(map.map_ != null)
+      {
+         map.map_.visible = !hideScene;
+      }
+      trace("[layerDiag] state " + this.layerDiag_ + ": 0=all, 1=no overlays, 2=+no HUD, 3=+no scene");
    }
 }
 }

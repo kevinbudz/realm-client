@@ -1,6 +1,7 @@
 package com.company.assembleegameclient.map
 {
    import com.company.assembleegameclient.background.Background;
+   import com.company.assembleegameclient.engine3d.Face3D;
    import com.company.assembleegameclient.game.GameSprite;
 import com.company.assembleegameclient.game.events.ReconnectEvent;
 import com.company.assembleegameclient.map.mapoverlay.MapOverlay;
@@ -31,9 +32,7 @@ import kabam.rotmg.stage3D.Object3D.Object3DStage3D;
 import kabam.rotmg.stage3D.Render3D;
 import kabam.rotmg.stage3D.Renderer;
 import kabam.rotmg.stage3D.graphic3D.Graphic3D;
-import kabam.rotmg.stage3D.graphic3D.Program3DFactory;
 import kabam.rotmg.stage3D.graphic3D.TextureFactory;
-
 import org.osflash.signals.Signal;
 
 public class Map extends Sprite
@@ -73,6 +72,16 @@ public class Map extends Sprite
       private var graphicsData_:Vector.<IGraphicsData>;
       private var graphicsData3d_:Vector.<Object3DStage3D>;
       private var lastSoftwareClear:Boolean = false;
+      // Still-camera detection for Face3D.skipMatrixCompute: tile screen projection
+      // is a pure function of (wToS_, clipRect_), so an identical camera reuses all
+      // tile matrices. Compared once per frame; the snapshot updates every frame.
+      private var lastWToS_:Vector.<Number> = new Vector.<Number>(16,true);
+      private var lastClipX:Number = NaN;
+      private var lastClipY:Number = NaN;
+      private var lastClipW:Number = NaN;
+      private var lastClipH:Number = NaN;
+      private var camSnapInit_:Boolean = false;
+      private var wToSScratch_:Vector.<Number> = new Vector.<Number>(16,true);
       public var visible_:Vector.<BasicObject>;
       public var visibleUnder_:Vector.<BasicObject>;
       private var visibleGo_:Vector.<BasicObject>;
@@ -194,9 +203,11 @@ public class Map extends Sprite
          this.idsToRemove_ = null;
          this.hittable_.length = 0;
          this.hittable_ = null;
-         TextureFactory.disposeTextures();
+         // GPU caches (atlas pages, programs) are context-global and shared across maps; disposing
+         // them here replayed a full-page atlas upload storm on every map change. Compact only the
+         // individual-texture LRU. Per-instance fill state is strong-keyed and must still go.
+         TextureFactory.onMapChange();
          GraphicsFillExtra.dispose();
-         Program3DFactory.getInstance().dispose();
       }
 
       public function update(time:int, dt:int) : void
@@ -469,6 +480,49 @@ public class Map extends Sprite
          return this.squares_[x + y * this.width_];
       }
       
+      // True when the camera projection is bit-identical to last frame, meaning all
+      // static tile matrices can be reused (Face3D.skipMatrixCompute). Compares the
+      // world-to-screen matrix plus clip rect once per frame; the snapshot refreshes
+      // every call, so mid-draw repeats return the same answer. Camera is a Camera
+      // (wToS_:Matrix3D, clipRect_:Rectangle).
+      private function cameraStill(camera:Camera) : Boolean
+      {
+         var i:int = 0;
+         var still:Boolean = this.camSnapInit_;
+         var clip:Rectangle = camera.clipRect_;
+         if(still)
+         {
+            still = this.lastClipX == clip.x && this.lastClipY == clip.y
+               && this.lastClipW == clip.width && this.lastClipH == clip.height;
+         }
+         if(still)
+         {
+            camera.wToS_.copyRawDataTo(this.wToSScratch_);
+            for(i = 0; i < 16; i++)
+            {
+               if(this.wToSScratch_[i] != this.lastWToS_[i])
+               {
+                  still = false;
+                  break;
+               }
+            }
+         }
+         else
+         {
+            camera.wToS_.copyRawDataTo(this.wToSScratch_);
+         }
+         for(i = 0; i < 16; i++)
+         {
+            this.lastWToS_[i] = this.wToSScratch_[i];
+         }
+         this.lastClipX = clip.x;
+         this.lastClipY = clip.y;
+         this.lastClipW = clip.width;
+         this.lastClipH = clip.height;
+         this.camSnapInit_ = true;
+         return still;
+      }
+
       public function draw(camera:Camera, time:int) : void
       {
          var isGpuRender:Boolean = Parameters.isGpuRender(); // cache result for faster access
@@ -534,8 +588,10 @@ public class Map extends Sprite
          this.graphicsData_.length = 0;
          this.graphicsData3d_.length = 0;
 
-         // visible tiles
+         // Visible tiles. With a still camera every tile matrix is identical to last
+         // frame (see cameraStill below); Face3D then re-pushes its cached triple.
          FrameProfiler.begin(FrameProfiler.TILES);
+         Face3D.skipMatrixCompute = this.cameraStill(camera);
          var squares:Vector.<Square> = this.squares_;
          var graphicsData:Vector.<IGraphicsData> = this.graphicsData_;
          var maxDistSq:Number = camera.maxDistSq_;
@@ -564,6 +620,7 @@ public class Map extends Sprite
                }
             }
          }
+         Face3D.skipMatrixCompute = false;
          FrameProfiler.end(FrameProfiler.TILES);
 
          // visibility + screen-space depth for every object
@@ -687,14 +744,16 @@ public class Map extends Sprite
          }
          FrameProfiler.end(FrameProfiler.DRAW_OBJECTS);
 
-         // draw top squares
+         // draw top squares (static geometry like tiles: same still-camera shortcut)
          FrameProfiler.begin(FrameProfiler.TOP_TILES);
+         Face3D.skipMatrixCompute = this.cameraStill(camera);
          var topSquares:Vector.<Square> = this.topSquares_;
          n = topSquares.length;
          for(i = 0; i < n; i++)
          {
             topSquares[i].drawTop(graphicsData,camera,time);
          }
+         Face3D.skipMatrixCompute = false;
          FrameProfiler.end(FrameProfiler.TOP_TILES);
 
          if(FrameProfiler.enabled)
@@ -738,7 +797,9 @@ public class Map extends Sprite
          {
             filter = this.getFilterIndex();
             render3D = StaticInjectorContext.getInjector().getInstance(Render3D);
+            FrameProfiler.begin(FrameProfiler.GPU_DISPATCH);
             render3D.dispatch(this.graphicsData_,this.graphicsData3d_,width_,height_,camera,filter);
+            FrameProfiler.end(FrameProfiler.GPU_DISPATCH);
             FrameProfiler.begin(FrameProfiler.GPU_SOFTWARE);
             // Software triples were already classified during the renderer's phase-1 walk
             // (Graphic3D.pushSoftware); blit them without re-scanning the graphics data.

@@ -24,19 +24,23 @@ package kabam.rotmg.stage3D.graphic3D
    
    public class Graphic3D
    {
-      // Unit quad for gradient (shadow) fills: xyz position, uv. Scaled to the gradient box in shadowTransform.
-      private static const gradientVertex:Vector.<Number> = Vector.<Number>(
-              [-0.5, 0.5, 0, 0, 1,
-                0.5, 0.5, 0, 1, 1,
-               -0.5, -0.5, 0, 0, 0,
-                0.5, -0.5, 0, 1, 0]);
-      private static const indices:Vector.<uint> = Vector.<uint>([0,1,2,2,1,3]);
-      
       // Matrix.createGradientBox maps a 1638.4-unit gradient square onto the box (a = width / 1638.4).
       private static const GRADIENT_BOX_SIZE:Number = 1638.4;
 
+      // Batched shadow (radial gradient) quads. Per-vertex float layout: position + alphaEdge
+      // (4), uv (2), rgb + alphaCenter (4). Positions are pre-transformed to NDC on the CPU
+      // (same maths as the old shadowTransform + NDC translation), so vc0 stays identity and the
+      // shader restores w = 1 from it. Only slots 0-2 and float4/float2 formats are used, exactly
+      // like the sprite and model paths; exotic attribute formats broke some drivers.
+      private static const SHADOW_FLOATS:int = 10;
+      private static const SHADOW_CAP:int = 256;   // shadows per flush; overflow flushes mid-cluster
+      private static const SHADOW_RING:int = 2;
+
       // Positions of the shared sprite quad (VertexBufferFactory), in the same vertex order.
       private static const UNIT_QUAD_XYZ:Vector.<Number> = new <Number>[-0.5,0.5,0, 0.5,0.5,0, -0.5,-0.5,0, 0.5,-0.5,0];
+      // Shared zero uv offset for fills with no extras bit. Read-only in batchQuad;
+      // never written, so one instance serves all plain quads with no allocation.
+      private static const ZERO_OFFSET:Vector.<Number> = new <Number>[0,0,0,0];
       private static const IDENTITY:Matrix3D = new Matrix3D();
 
       // Deferred draw commands recorded by the batch pass (see batchBegin).
@@ -63,20 +67,20 @@ package kabam.rotmg.stage3D.graphic3D
 
       private var bitmapData:BitmapData;
       private var matrix2D:Matrix;
-      private var shadowMatrix2D:Matrix;
       private var sinkLevel:Number = 0;
       private var offsetMatrix:Vector.<Number>;
       private var vertexBufferCustom:VertexBuffer3D;
-      private var gradientVB:VertexBuffer3D;
-      private var gradientIB:IndexBuffer3D;
+      private var shadowVBs:Vector.<VertexBuffer3D>;
+      private var shadowVB:VertexBuffer3D;
+      private var shadowIB:IndexBuffer3D;
+      private var shadowData:Vector.<Number>;
+      private var shadowQuads:int = 0;
       private var repeat:Boolean;
 
       private var sinkOffset:Vector.<Number>;
       private var ctMult:Vector.<Number>;
       private var ctOffset:Vector.<Number>;
       private var rawMatrix3D:Vector.<Number>;
-      private var gradientColor:Vector.<Number>;
-      private var gradientAlpha:Vector.<Number>;
 
       // --- Fast path state (see drawQuad / drawRun) ---
       // Scratch for the per-quad final transform (previously allocated per frame in Renderer).
@@ -138,8 +142,6 @@ package kabam.rotmg.stage3D.graphic3D
       public function Graphic3D()
       {
          this.matrix3D = new Matrix3D();
-         this.gradientColor = new Vector.<Number>(4, true);
-         this.gradientAlpha = new Vector.<Number>(4, true);
          this.sinkOffset = new Vector.<Number>(4, true);
          this.ctMult = new Vector.<Number>(4, true);
          this.ctOffset = new Vector.<Number>(4, true);
@@ -221,6 +223,7 @@ package kabam.rotmg.stage3D.graphic3D
          this.batchVB = this.batchVBs[this.frame % VB_RING];
          this.batchOverflow = false;
          this.batchQuads = 0;
+         this.shadowBatchBegin(c3d);
          this.cmdCount = 0;
          this.runCount = 0;
          this.runOpen = false;
@@ -290,6 +293,22 @@ package kabam.rotmg.stage3D.graphic3D
          }
          this.batchVB = null;
          this.batchCapacity = 0;
+         if(this.shadowVBs != null)
+         {
+            for(var s:int = 0; s < this.shadowVBs.length; s++)
+            {
+               this.shadowVBs[s].dispose();
+            }
+            this.shadowVBs = null;
+         }
+         if(this.shadowIB != null)
+         {
+            this.shadowIB.dispose();
+            this.shadowIB = null;
+         }
+         this.shadowVB = null;
+         this.shadowData = null;
+         this.shadowQuads = 0;
       }
 
       /**
@@ -298,7 +317,11 @@ package kabam.rotmg.stage3D.graphic3D
        */
       public function batchQuad(fill:GraphicsBitmapFill) : Boolean
       {
-         if(GraphicsFillExtra.getVertexBuffer(fill) != null)
+         // One extras lookup replaces three (vertex buffer, uv offset, sink level)
+         // for plain fills, which never appear in those tables: particles, static
+         // tiles and most objects. Marked fills take the existing slow reads.
+         var hasExtra:Boolean = GraphicsFillExtra.hasExtras(fill);
+         if(hasExtra && GraphicsFillExtra.getVertexBuffer(fill) != null)
          {
             return false;
          }
@@ -321,8 +344,8 @@ package kabam.rotmg.stage3D.graphic3D
          // an atlas page. Water sink is separate: clip pixels counted down from the
          // sprite's bottom rows (see GameObject.draw), applied to the v1 edge below
          // so the tile beneath shows through like the display-list clip path.
-         var offset:Vector.<Number> = GraphicsFillExtra.getOffsetUV(fill);
-         var sink:Number = GraphicsFillExtra.getSinkLevel(fill);
+         var offset:Vector.<Number> = hasExtra ? GraphicsFillExtra.getOffsetUV(fill) : ZERO_OFFSET;
+         var sink:Number = hasExtra ? GraphicsFillExtra.getSinkLevel(fill) : 0;
          var plain:Boolean = !fill.repeat && offset[0] == 0 && offset[1] == 0 && offset[2] == 0 && offset[3] == 0;
          var entry:AtlasEntry = null;
          if(plain)
@@ -402,16 +425,36 @@ package kabam.rotmg.stage3D.graphic3D
             v1 -= (sinkPadH - bmd.height + sink) / sinkTexH;
          }
 
-         // --- vertex transform: same Matrix3D chain as drawQuad ---
-         this.matrix2D = fill.matrix;
-         this.transformWith(w, sink != 0 ? bmd.height - sink : h);
-         var f:Matrix3D = this.finalTransform;
-         f.identity();
-         f.append(this.matrix3D);
-         f.appendScale(1 / this.bHalfW,1 / this.bHalfH,1);
-         f.appendTranslation(this.bNdcX,this.bNdcY,0);
+         // --- vertex transform: scalar fold of the drawQuad Matrix3D chain ---
+         // Flash applies prepended ops first, so per corner (x,y) the chain runs:
+         // unit nudge (+0.5/-0.5), texture-size scale, 2D fill matrix to screen
+         // pixels, NDC divide, NDC shift (same shape as the shadow-batch maths):
+         //   X = (a*texW*(x+0.5) - c*texH*(y-0.5) + tx)/halfW + ndcX
+         //   Y = (-b*texW*(x+0.5) + d*texH*(y-0.5) - ty)/halfH + ndcY
+         // Rewritten as X = Ax*x + Bx*y + Cx, Y = Ay*x + By*y + Cy and evaluated
+         // at the four unit corners directly: identical results to transformVectors
+         // with none of the per-quad Matrix3D call overhead. (z stays 0, as before.)
+         var fm:Matrix = fill.matrix;
+         var texH:Number = sink != 0 ? bmd.height - sink : h;
+         // NOTE: X-side terms all divide by halfW, Y-side all by halfH. The cross
+         // (rotation) terms are the easy ones to get wrong: Bx pairs c with halfW,
+         // Ay pairs b with halfH. At zero rotation both are 0, which is why this
+         // only shows under camera rotation or rotated sprites (e.g. projectiles).
+         var Ax:Number = fm.a * w / this.bHalfW;
+         var Bx:Number = -fm.c * texH / this.bHalfW;
+         var Cx:Number = (0.5 * fm.a * w + 0.5 * fm.c * texH + fm.tx) / this.bHalfW + this.bNdcX;
+         var Ay:Number = -fm.b * w / this.bHalfH;
+         var By:Number = fm.d * texH / this.bHalfH;
+         var Cy:Number = (-0.5 * fm.b * w - 0.5 * fm.d * texH - fm.ty) / this.bHalfH + this.bNdcY;
+         var hAx:Number = 0.5 * Ax;
+         var hBx:Number = 0.5 * Bx;
+         var hAy:Number = 0.5 * Ay;
+         var hBy:Number = 0.5 * By;
          var out:Vector.<Number> = this.xformed;
-         f.transformVectors(UNIT_QUAD_XYZ,out);
+         out[0] = Cx - hAx + hBx;  out[1] = Cy - hAy + hBy;  out[2] = 0;
+         out[3] = Cx + hAx + hBx;  out[4] = Cy + hAy + hBy;  out[5] = 0;
+         out[6] = Cx - hAx - hBx;  out[7] = Cy - hAy - hBy;  out[8] = 0;
+         out[9] = Cx + hAx - hBx;  out[10] = Cy + hAy - hBy; out[11] = 0;
 
          // --- run state ---
          var ct:ColorTransform = null;
@@ -729,59 +772,119 @@ package kabam.rotmg.stage3D.graphic3D
       }
       
       /**
-       * Prepares a radial GraphicsGradientFill (object / projectile shadows) for the GPU shadow program.
-       * Mirrors the software fill: colors[0] at alphas[0] in the centre fading linearly to alphas[last]
-       * at the ellipse inscribed in the gradient box (spread = pad, so alpha stays at alphas[last] outside).
-       * Uploads fc5 = (r, g, b, 0) and fc6 = (alphaCenter, alphaEdge, 0, 0).
-       * width / height are the half back-buffer extents in world-scaled pixels (NDC divisor).
+       * Batched radial shadows (object / projectile GraphicsGradientFills). Consecutive shadows in
+       * a frame form one cluster drawn with a single drawTriangles; per-shadow colour/alpha travel
+       * in the vertices instead of per-shadow constant uploads. Mirrors the software fill:
+       * colors[0] at alphas[0] in the centre fading linearly to alphas[last] at the ellipse
+       * inscribed in the gradient box (spread = pad). width / height are the half back-buffer
+       * extents in world-scaled pixels (NDC divisor); ndcX / ndcY the NDC translation.
+       * Returns false when the cluster buffer is full; the caller flushes and retries.
        */
-      public function setGradientFill(gradientFill:GraphicsGradientFill, context3D:Context3DProxy, width:Number, height:Number) : void
+      public function shadowBatchBegin(c3d:Context3D) : void
       {
-         this.shadowMatrix2D = gradientFill.matrix;
-         var c3d:Context3D = context3D.GetContext3D();
-         if(this.gradientVB == null || this.gradientIB == null)
+         if(this.shadowData == null)
          {
-            this.gradientVB = c3d.createVertexBuffer(4,5);
-            this.gradientVB.uploadFromVector(gradientVertex,0,4);
-            this.gradientIB = c3d.createIndexBuffer(6);
-            this.gradientIB.uploadFromVector(indices,0,6);
+            this.shadowData = new Vector.<Number>(SHADOW_CAP * 4 * SHADOW_FLOATS, true);
+            this.shadowVBs = new Vector.<VertexBuffer3D>(SHADOW_RING, true);
+            for(var i:int = 0; i < SHADOW_RING; i++)
+            {
+               this.shadowVBs[i] = c3d.createVertexBuffer(SHADOW_CAP * 4, SHADOW_FLOATS, Context3DBufferUsage.DYNAMIC_DRAW);
+               // Stage3D rejects draws from a buffer that has never been filled end to end
+               // ("Stream 0 is invalid", silent with error checking off). One full upload at
+               // creation (zeros) makes the per-frame partial uploads in shadowBatchDraw valid.
+               this.shadowVBs[i].uploadFromVector(this.shadowData, 0, SHADOW_CAP * 4);
+            }
+            this.shadowIB = c3d.createIndexBuffer(SHADOW_CAP * 6);
+            var idx:Vector.<uint> = new Vector.<uint>(SHADOW_CAP * 6, true);
+            var p:int = 0;
+            var v:uint = 0;
+            for(var q:int = 0; q < SHADOW_CAP; q++)
+            {
+               v = q * 4;
+               idx[p++] = v;
+               idx[p++] = v + 1;
+               idx[p++] = v + 2;
+               idx[p++] = v + 2;
+               idx[p++] = v + 1;
+               idx[p++] = v + 3;
+            }
+            this.shadowIB.uploadFromVector(idx, 0, SHADOW_CAP * 6);
          }
+         this.shadowVB = this.shadowVBs[this.frame % SHADOW_RING];
+         this.shadowQuads = 0;
+      }
+
+      public function get shadowBatchCount() : int
+      {
+         return this.shadowQuads;
+      }
+
+      public function shadowBatchQuad(fill:GraphicsGradientFill, halfW:Number, halfH:Number, ndcX:Number, ndcY:Number) : Boolean
+      {
+         if(this.shadowQuads >= SHADOW_CAP)
+         {
+            return false;
+         }
+         var m:Matrix = fill.matrix;
          var color:uint = 0;
          var alphaCenter:Number = 1;
          var alphaEdge:Number = 0;
-         if(gradientFill.colors != null && gradientFill.colors.length > 0)
+         if(fill.colors != null && fill.colors.length > 0)
          {
-            color = uint(gradientFill.colors[0]);
+            color = uint(fill.colors[0]);
          }
-         if(gradientFill.alphas != null && gradientFill.alphas.length > 0)
+         if(fill.alphas != null && fill.alphas.length > 0)
          {
-            alphaCenter = Number(gradientFill.alphas[0]);
-            alphaEdge = Number(gradientFill.alphas[gradientFill.alphas.length - 1]);
+            alphaCenter = Number(fill.alphas[0]);
+            alphaEdge = Number(fill.alphas[fill.alphas.length - 1]);
          }
-         this.gradientColor[0] = ((color >> 16) & 255) / 255;
-         this.gradientColor[1] = ((color >> 8) & 255) / 255;
-         this.gradientColor[2] = (color & 255) / 255;
-         this.gradientColor[3] = 0;
-         this.gradientAlpha[0] = alphaCenter;
-         this.gradientAlpha[1] = alphaEdge;
-         c3d.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,5,this.gradientColor);
-         c3d.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,6,this.gradientAlpha);
-         this.shadowTransform(width,height);
+         var r:Number = ((color >> 16) & 255) / 255;
+         var g:Number = ((color >> 8) & 255) / 255;
+         var b:Number = (color & 255) / 255;
+         // Same maths as the old shadowTransform + NDC translation, evaluated per corner.
+         var k:Number = GRADIENT_BOX_SIZE;
+         var r0:Number = m.a * k / halfW;
+         var r1:Number = -m.b * k / halfH;
+         var r4:Number = -m.c * k / halfW;
+         var r5:Number = m.d * k / halfH;
+         var r12:Number = m.tx / halfW + ndcX;
+         var r13:Number = -m.ty / halfH + ndcY;
+         var d:Vector.<Number> = this.shadowData;
+         var p:int = this.shadowQuads * 4 * SHADOW_FLOATS;
+         // Corner order matches the index buffer: (-.5,.5), (.5,.5), (-.5,-.5), (.5,-.5).
+         // va0 = (x, y, 0, alphaEdge), va1 = (u, v), va2 = (r, g, b, alphaCenter).
+         d[p] = -0.5 * r0 + 0.5 * r4 + r12;  d[p + 1] = -0.5 * r1 + 0.5 * r5 + r13;  d[p + 2] = 0;  d[p + 3] = alphaEdge;  d[p + 4] = 0;  d[p + 5] = 1;
+         d[p + 6] = r;  d[p + 7] = g;  d[p + 8] = b;  d[p + 9] = alphaCenter;
+         d[p + 10] = 0.5 * r0 + 0.5 * r4 + r12;  d[p + 11] = 0.5 * r1 + 0.5 * r5 + r13;  d[p + 12] = 0;  d[p + 13] = alphaEdge;  d[p + 14] = 1;  d[p + 15] = 1;
+         d[p + 16] = r;  d[p + 17] = g;  d[p + 18] = b;  d[p + 19] = alphaCenter;
+         d[p + 20] = -0.5 * r0 - 0.5 * r4 + r12;  d[p + 21] = -0.5 * r1 - 0.5 * r5 + r13;  d[p + 22] = 0;  d[p + 23] = alphaEdge;  d[p + 24] = 0;  d[p + 25] = 0;
+         d[p + 26] = r;  d[p + 27] = g;  d[p + 28] = b;  d[p + 29] = alphaCenter;
+         d[p + 30] = 0.5 * r0 - 0.5 * r4 + r12;  d[p + 31] = 0.5 * r1 - 0.5 * r5 + r13;  d[p + 32] = 0;  d[p + 33] = alphaEdge;  d[p + 34] = 1;  d[p + 35] = 0;
+         d[p + 36] = r;  d[p + 37] = g;  d[p + 38] = b;  d[p + 39] = alphaCenter;
+         this.shadowQuads++;
+         return true;
       }
-      
-      // Unit quad -> gradient box in NDC. The quad must cover the full box (2w x 2h screen px) so the
-      // shader's normalised radius hits 1 exactly on the inscribed ellipse, as the software gradient does.
-      private function shadowTransform(width:Number, height:Number) : void
+
+      /**
+       * Uploads the accumulated cluster and draws it with one drawTriangles. The caller binds the
+       * batch program and fc4 helpers once per cluster; positions are already NDC so vc0 is set to
+       * identity here. Resets the count so the buffer can be reused after an overflow flush.
+       */
+      public function shadowBatchDraw(c3d:Context3D) : void
       {
-         this.matrix3D.identity();
-         var raw:Vector.<Number> = this.matrix3D.rawData;
-         raw[4] = -this.shadowMatrix2D.c * GRADIENT_BOX_SIZE / width;
-         raw[1] = -this.shadowMatrix2D.b * GRADIENT_BOX_SIZE / height;
-         raw[0] = this.shadowMatrix2D.a * GRADIENT_BOX_SIZE / width;
-         raw[5] = this.shadowMatrix2D.d * GRADIENT_BOX_SIZE / height;
-         raw[12] = this.shadowMatrix2D.tx / width;
-         raw[13] = -this.shadowMatrix2D.ty / height;
-         this.matrix3D.rawData = raw;
+         if(this.shadowQuads <= 0)
+         {
+            return;
+         }
+         this.shadowVB.uploadFromVector(this.shadowData, 0, this.shadowQuads * 4);
+         c3d.setVertexBufferAt(0, this.shadowVB, 0, Context3DVertexBufferFormat.FLOAT_4);
+         c3d.setVertexBufferAt(1, this.shadowVB, 4, Context3DVertexBufferFormat.FLOAT_2);
+         c3d.setVertexBufferAt(2, this.shadowVB, 6, Context3DVertexBufferFormat.FLOAT_4);
+         c3d.setTextureAt(0, null);
+         c3d.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX, 0, IDENTITY, true);
+         FrameProfiler.frameDrawCalls++;
+         c3d.drawTriangles(this.shadowIB, 0, this.shadowQuads * 2);
+         this.shadowQuads = 0;
       }
       
       private function transform() : void
@@ -826,17 +929,6 @@ package kabam.rotmg.stage3D.graphic3D
             c3d.setVertexBufferAt(2,null,6,Context3DVertexBufferFormat.FLOAT_2);
             c3dProxy.drawTriangles(this.indexBuffer);
          }
-      }
-      
-      public function renderShadow(c3dProxy:Context3DProxy) : void
-      {
-         var c3d:Context3D = c3dProxy.GetContext3D();
-         c3d.setVertexBufferAt(0,this.gradientVB,0,Context3DVertexBufferFormat.FLOAT_3);
-         c3d.setVertexBufferAt(1,this.gradientVB,3,Context3DVertexBufferFormat.FLOAT_2);
-         c3d.setVertexBufferAt(2,null);
-         c3d.setTextureAt(0,null);
-         FrameProfiler.frameDrawCalls++;
-         c3d.drawTriangles(this.gradientIB);
       }
       
       public function getMatrix3D() : Matrix3D

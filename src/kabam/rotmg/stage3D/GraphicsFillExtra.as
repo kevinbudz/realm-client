@@ -25,8 +25,17 @@ package kabam.rotmg.stage3D
       private static var softwareDrawSize:uint = 0;
       private static var softwareDrawSolid:Dictionary = new Dictionary();
       private static var softwareDrawSolidSize:uint = 0;
+      // Fill -> true for fills carrying any per-fill extra (nonzero uv offset, water
+      // sink, custom vertex buffer, software-draw flag). Marked monotonically inside
+      // the setters, so a missing entry always means "all defaults". Weak keys: dead
+      // fills drop out on their own. Table clears elsewhere can only strand a STALE
+      // bit, which merely takes the slow path and re-reads current values/defaults.
+      private static var hasExtrasTable:Dictionary = new Dictionary(true);
       private static var lastChecked:uint = 0;
       private static const DEFAULT_OFFSET:Vector.<Number> = Vector.<Number>([0,0,0,0]);
+      // Bumped every time the textureOffsets table is discarded (see manageSize), so
+      // per-fill write caches can tell a stale "already set" claim from a live one.
+      public static var offsetEpoch:int = 0;
       
       public function GraphicsFillExtra()
       {
@@ -58,11 +67,24 @@ package kabam.rotmg.stage3D
          return colorTransform;
       }
       
+      // True once the fill ever carries a per-fill extra (see hasExtrasTable). The
+      // per-quad hot path uses this single lookup to skip the four extras tables
+      // for plain fills (particles, static tiles); everything marked takes the
+      // existing slow path and re-reads current values.
+      public static function hasExtras(bitmapFill:GraphicsBitmapFill) : Boolean
+      {
+         return hasExtrasTable[bitmapFill] != null;
+      }
+
       public static function setOffsetUV(bitmapFill:GraphicsBitmapFill, u:Number, v:Number) : void
       {
          if(!Parameters.GPURenderFrame)
          {
             return;
+         }
+         if(u != 0 || v != 0)
+         {
+            hasExtrasTable[bitmapFill] = true;
          }
          testOffsetUV(bitmapFill);
          textureOffsets[bitmapFill][0] = u;
@@ -94,6 +116,10 @@ package kabam.rotmg.stage3D
          {
             return;
          }
+         if(value != 0)
+         {
+            hasExtrasTable[bitmapFill] = true;
+         }
          if(waterSinks[bitmapFill] == null)
          {
             waterSinksSize++;
@@ -123,6 +149,7 @@ package kabam.rotmg.stage3D
             vertexBuffersSize++;
          }
          vertexBuffers[bitmapFill] = vertexBufferCustom;
+         hasExtrasTable[bitmapFill] = true;
       }
       
       public static function getVertexBuffer(bitmapFill:GraphicsBitmapFill) : VertexBuffer3D
@@ -148,6 +175,10 @@ package kabam.rotmg.stage3D
          if(!Parameters.GPURenderFrame)
          {
             return;
+         }
+         if(value)
+         {
+            hasExtrasTable[bitmapFill] = true;
          }
          if(softwareDraw[bitmapFill] == null)
          {
@@ -187,6 +218,7 @@ package kabam.rotmg.stage3D
          disposeVertexBuffers();
          softwareDraw = new Dictionary();
          softwareDrawSolid = new Dictionary();
+         hasExtrasTable = new Dictionary(true);
          textureOffsetsSize = 0;
          waterSinksSize = 0;
          colorTransformsSize = 0;
@@ -207,6 +239,9 @@ package kabam.rotmg.stage3D
       
       public static function manageSize() : void
       {
+         // NOTE: this discards ALL entries, including any one-time tint
+         // registrations. Per-texture tints must either re-register every frame
+         // (like hit-flash) or bake the color into the texels. See drawHpBarGPU.
          if(colorTransformsSize > 2000)
          {
             colorTransforms = new Dictionary();
@@ -216,6 +251,7 @@ package kabam.rotmg.stage3D
          {
             textureOffsets = new Dictionary();
             textureOffsetsSize = 0;
+            offsetEpoch++;
          }
          if(waterSinksSize > 2000)
          {

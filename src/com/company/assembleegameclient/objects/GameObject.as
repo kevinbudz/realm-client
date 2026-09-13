@@ -36,6 +36,7 @@ import flash.display.GraphicsSolidFill;
 import flash.display.IGraphicsData;
    import flash.filters.ColorMatrixFilter;
    import flash.filters.GlowFilter;
+   import flash.geom.ColorTransform;
    import flash.geom.Matrix;
    import flash.geom.Point;
    import flash.geom.Vector3D;
@@ -111,6 +112,13 @@ public class GameObject extends BasicObject
       private var hpbarBackPath_:GraphicsPath = null;
       private var hpbarFill_:GraphicsSolidFill = null;
       private var hpbarPath_:GraphicsPath = null;
+      // GPU twins of the software bars: tinted 1x1 atlas quads (see drawHpBarGPU).
+      private var hpbarBackBitmap_:GraphicsBitmapFill = null;
+      private var hpbarBitmap_:GraphicsBitmapFill = null;
+      private static var hpTexBack_:BitmapData = null;
+      private static var hpTexRed_:BitmapData = null;
+      private static var hpTexOrange_:BitmapData = null;
+      private static var hpTexGreen_:BitmapData = null;
       
       public function GameObject(objectXML:XML)
       {
@@ -921,6 +929,74 @@ public class GameObject extends BasicObject
          this.attackStart_ = getTimer();
       }
 
+      // Shared 1x1 solids, one per HP color, as ordinary atlas quads. The color is
+      // baked into the texels (not a registered tint): manageSize discards the whole
+      // color-transform table past 2000 entries, which evaporated one-time tint
+      // registrations and turned the bars white. Identity tint here, always valid.
+      private static function hpBarTexture(color:uint) : BitmapData
+      {
+         if(hpTexBack_ == null)
+         {
+            hpTexBack_ = new BitmapData(1,1,true,0xFF000000 | 0x111111);
+            hpTexRed_ = new BitmapData(1,1,true,0xFF000000 | 14684176);
+            hpTexOrange_ = new BitmapData(1,1,true,0xFF000000 | 16744464);
+            hpTexGreen_ = new BitmapData(1,1,true,0xFF000000 | 0x10FF00);
+         }
+         if(color == 0x111111)
+         {
+            return hpTexBack_;
+         }
+         if(color == 14684176)
+         {
+            return hpTexRed_;
+         }
+         if(color == 16744464)
+         {
+            return hpTexOrange_;
+         }
+         return hpTexGreen_;
+      }
+
+      // GPU twin of the software bars below: identical rects and colors, as tinted
+      // quads. Paths ride along untouched (layout uniformity) but are unread.
+      private function drawHpBarGPU(graphicsData:Vector.<IGraphicsData>, yOffset:int) : void
+      {
+         var w:int = 20;
+         var h:int = 5;
+         var pad:Number = 1.2;
+         var x0:Number = posS_[0];
+         var y0:Number = posS_[1] + yOffset;
+         var back:GraphicsBitmapFill = this.hpbarBackBitmap_;
+         back.bitmapData = hpBarTexture(0x111111);
+         var m:Matrix = back.matrix;
+         m.a = 2 * (w + pad);
+         m.b = 0;
+         m.c = 0;
+         m.d = h + 2 * pad;
+         m.tx = x0 - w - pad;
+         m.ty = y0 - pad;
+         graphicsData.push(back);
+         graphicsData.push(this.hpbarBackPath_);
+         graphicsData.push(GraphicsUtil.END_FILL);
+         if(this.hp_ > 0)
+         {
+            var fPerc:Number = this.hp_ / this.maxHP_;
+            var col:uint = fPerc < 0.5 ? (fPerc < 0.2 ? 14684176 : 16744464) : 0x10FF00;
+            var fill:GraphicsBitmapFill = this.hpbarBitmap_;
+            fill.bitmapData = hpBarTexture(col);
+            m = fill.matrix;
+            m.a = fPerc * 2 * w;
+            m.b = 0;
+            m.c = 0;
+            m.d = h;
+            m.tx = x0 - w;
+            m.ty = y0;
+            graphicsData.push(fill);
+            graphicsData.push(this.hpbarPath_);
+            graphicsData.push(GraphicsUtil.END_FILL);
+         }
+      }
+
       protected function drawHpBar(graphicsData:Vector.<IGraphicsData>, yOffset:int = 6) : void
       {
          var fPerc:Number = NaN;
@@ -931,10 +1007,17 @@ public class GameObject extends BasicObject
             this.hpbarBackPath_ = new GraphicsPath(GraphicsUtil.QUAD_COMMANDS,new Vector.<Number>());
             this.hpbarFill_ = new GraphicsSolidFill();
             this.hpbarPath_ = new GraphicsPath(GraphicsUtil.QUAD_COMMANDS,new Vector.<Number>());
+            this.hpbarBackBitmap_ = new GraphicsBitmapFill(null,new Matrix(),false,false);
+            this.hpbarBitmap_ = new GraphicsBitmapFill(null,new Matrix(),false,false);
          }
          if(!(this is Player) && this.hp_ > this.maxHP_)
          {
             this.maxHP_ = this.hp_;
+         }
+         if(Parameters.GPURenderFrame)
+         {
+            this.drawHpBarGPU(graphicsData,yOffset);
+            return;
          }
          this.hpbarBackFill_.color = 0x111111;
          var w:int = 20;
@@ -1024,7 +1107,8 @@ public class GameObject extends BasicObject
             {
                GraphicsFillExtra.setSinkLevel(this.bitmapFill_,h2);
             }
-            else if(GraphicsFillExtra.getSinkLevel(this.bitmapFill_) != 0)
+            // Never-sunk fills carry no extras bit: skip the table lookup entirely.
+            else if(GraphicsFillExtra.hasExtras(this.bitmapFill_) && GraphicsFillExtra.getSinkLevel(this.bitmapFill_) != 0)
             {
                GraphicsFillExtra.clearSink(this.bitmapFill_);
             }

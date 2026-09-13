@@ -22,6 +22,18 @@ public class SquareFace
 
    public var animateDy_:Number = 0;
 
+   // Static-tile fast path (see draw): a face with NO_ANIMATE produces byte-identical
+   // uvt_ and shader offsets every frame, so after the first full draw both can be
+   // skipped. uvtGpu_ tracks which render mode uvt_ was baked for: GPU mode zeroes the
+   // baked offsets (scroll moves to the shader constant), software mode bakes them in,
+   // so a live GPU/software flip must rebuild once. offsetGen_ guards the same skip
+   // against the offset table being discarded by GraphicsFillExtra.manageSize.
+   private var uvtInit_:Boolean = false;
+   private var uvtGpu_:Boolean = false;
+   private var offsetU_:Number = 0;
+   private var offsetV_:Number = 0;
+   private var offsetGen_:int = -1;
+
    public function SquareFace(texture:BitmapData, vin:Vector.<Number>, xOffset:Number, yOffset:Number, animate:int, animateDx:Number, animateDy:Number)
    {
       super();
@@ -51,7 +63,9 @@ public class SquareFace
    {
       var xOffset:Number = NaN;
       var yOffset:Number = NaN;
-      if(this.animate_ != AnimateProperties.NO_ANIMATE)
+      var animated:Boolean = this.animate_ != AnimateProperties.NO_ANIMATE;
+      var gpu:Boolean = Parameters.GPURenderFrame;
+      if(animated)
       {
          switch(this.animate_)
          {
@@ -69,14 +83,34 @@ public class SquareFace
          xOffset = this.xOffset_;
          yOffset = this.yOffset_;
       }
-      if(Parameters.GPURenderFrame)
+      if(gpu)
       {
-         GraphicsFillExtra.setOffsetUV(this.face_.bitmapFill_,xOffset,yOffset);
+         // Static offsets are written once; a table discard (offsetGen_) forces a resend.
+         if(animated || this.offsetGen_ != GraphicsFillExtra.offsetEpoch
+            || xOffset != this.offsetU_ || yOffset != this.offsetV_)
+         {
+            GraphicsFillExtra.setOffsetUV(this.face_.bitmapFill_,xOffset,yOffset);
+            this.offsetU_ = xOffset;
+            this.offsetV_ = yOffset;
+            this.offsetGen_ = GraphicsFillExtra.offsetEpoch;
+         }
          xOffset = yOffset = 0;
       }
-      this.face_.uvt_.length = 0;
-      this.face_.uvt_.push(xOffset,yOffset,0,1 + xOffset,yOffset,0,1 + xOffset,1 + yOffset,0,xOffset,1 + yOffset,0);
-      this.face_.setUVT(this.face_.uvt_);
+      else
+      {
+         this.offsetGen_ = -1;
+      }
+      // Static faces rebuild identical uvt_ every frame; worse, setUVT re-arms the
+      // texture-matrix regen, so skipping it also skips a redundant matrix solve.
+      // Rebuild on first draw and after any GPU/software flip (baked offsets differ).
+      if(animated || !this.uvtInit_ || this.uvtGpu_ != gpu)
+      {
+         this.face_.uvt_.length = 0;
+         this.face_.uvt_.push(xOffset,yOffset,0,1 + xOffset,yOffset,0,1 + xOffset,1 + yOffset,0,xOffset,1 + yOffset,0);
+         this.face_.setUVT(this.face_.uvt_);
+         this.uvtInit_ = true;
+         this.uvtGpu_ = gpu;
+      }
       return this.face_.draw(graphicsData,camera);
    }
 }

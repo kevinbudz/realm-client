@@ -104,6 +104,18 @@ package kabam.rotmg.stage3D.graphic3D
          count = 0;
       }
       
+      /**
+       * Map-change compaction. Individual textures are keyed by BitmapData, so anything the next
+       * map needs re-uploads cheaply on demand; the atlas (weak keys, full-page uploads) and the
+       * flipped-bitmap cache are shared across maps and must survive, otherwise every map change
+       * replays a full-page atlas upload storm. Called from Map.dispose instead of disposeTextures;
+       * full disposal is only correct on context loss.
+       */
+      public static function onMapChange() : void
+      {
+         evictUnused();
+      }
+
       /** Drops individual textures that were not used this frame. Called when over the limit. */
       private static function evictUnused() : void
       {

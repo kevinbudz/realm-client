@@ -73,7 +73,7 @@ package kabam.rotmg.stage3D
       
       private var blurPostProcessing_:Program3D;
       
-      private var shadowProgram_:Program3D;
+      private var shadowBatchProgram_:Program3D;
       
       private var graphic3D_:Graphic3D;
       
@@ -184,16 +184,16 @@ package kabam.rotmg.stage3D
          var blurFSAGAL:ByteArray = assembler.agalcode;
          this.blurPostProcessing_ = context3D.createProgram();
          this.blurPostProcessing_.upload(blurVSAGAL,blurFSAGAL);
-         // Shadow (radial GraphicsGradientFill) program.
-         // va0 = unit-quad position, va1 = uv (0..1). v0 = uv.
-         // fc4 = (0.5, 2, 1, 0) helpers, fc5 = shadow colour rgb, fc6 = (alphaCenter, alphaEdge, 0, 0)
+         // Batched shadow (radial GraphicsGradientFill) program. Per-vertex: va0 = NDC
+         // position with alphaEdge in w, va1 = uv (0..1), va2 = (r, g, b, alphaCenter).
+         // vc0 = identity (set at every flush), so w is restored to 1 from it.
+         // fc4 = (0.5, 2, 1, 0) helpers.
          // alpha = lerp(alphaCenter, alphaEdge, min(1, r)) with r = 1 on the inscribed ellipse,
          // which is exactly the software radial gradient (ratios 0..255, spread pad).
-         var shadowVS:String = "m44 op, va0, vc0\n" + "mov v0, va1\n";
-         assembler.assemble(Context3DProgramType.VERTEX,shadowVS);
-         var shadowVSAGAL:ByteArray = assembler.agalcode;
-         var shadowFS:String = [
-            "mov ft0, fc5",                 // rgb = shadow colour, w overwritten below
+         var shadowBatchVS:String = "mov vt1, va0.wwww\n" + "mov vt0, va0\n" + "mov vt0.w, vc0.x\n" + "m44 op, vt0, vc0\n" + "mov v0, va1\n" + "mov v1, va2\n" + "mov v2, vt1\n";
+         assembler.assemble(Context3DProgramType.VERTEX,shadowBatchVS);
+         var shadowBatchVSAGAL:ByteArray = assembler.agalcode;
+         var shadowBatchFS:String = [
             "sub ft1, v0, fc4.xxxx",        // uv - 0.5
             "mul ft1, ft1, ft1",
             "add ft1.x, ft1.x, ft1.y",      // d^2 (0.25 on the ellipse)
@@ -201,15 +201,16 @@ package kabam.rotmg.stage3D
             "mul ft1.x, ft1.x, fc4.y",      // r = 2d
             "min ft1.x, ft1.x, fc4.z",      // pad: clamp r to 1
             "sub ft1.y, fc4.z, ft1.x",      // 1 - r
-            "mul ft1.y, ft1.y, fc6.x",      // alphaCenter * (1 - r)
-            "mul ft1.x, ft1.x, fc6.y",      // alphaEdge * r
+            "mul ft1.y, ft1.y, v1.w",       // alphaCenter * (1 - r)
+            "mul ft1.x, ft1.x, v2.x",       // alphaEdge * r
             "add ft0.w, ft1.x, ft1.y",      // alpha
+            "mov ft0.xyz, v1.xyz",          // rgb = shadow colour
             "mov oc, ft0"
          ].join("\n");
-         assembler.assemble(Context3DProgramType.FRAGMENT,shadowFS);
-         var shadowFSAGAL:ByteArray = assembler.agalcode;
-         this.shadowProgram_ = context3D.createProgram();
-         this.shadowProgram_.upload(shadowVSAGAL,shadowFSAGAL);
+         assembler.assemble(Context3DProgramType.FRAGMENT,shadowBatchFS);
+         var shadowBatchFSAGAL:ByteArray = assembler.agalcode;
+         this.shadowBatchProgram_ = context3D.createProgram();
+         this.shadowBatchProgram_.upload(shadowBatchVSAGAL,shadowBatchFSAGAL);
          this.sceneTexture_ = context3D.createTexture(1024,1024,Context3DTextureFormat.BGRA,true);
          this.postFilterVertexBuffer_ = context3D.createVertexBuffer(4,4);
          this.postFilterVertexBuffer_.uploadFromVector(POST_FILTER_POSITIONS,0,4);
@@ -360,7 +361,9 @@ package kabam.rotmg.stage3D
             bitmapFill = graphicsData as GraphicsBitmapFill;
             if(bitmapFill != null)
             {
-               if(GraphicsFillExtra.isSoftwareDraw(bitmapFill))
+               // Plain fills (no extras bit) can never be software-classified: one
+               // lookup instead of two for the common particle/tile case.
+               if(GraphicsFillExtra.hasExtras(bitmapFill) && GraphicsFillExtra.isSoftwareDraw(bitmapFill))
                {
                   // Already classified; record the triple for the display-list blit so the
                   // caller does not have to scan the frame's graphics data a second time.
@@ -420,7 +423,9 @@ package kabam.rotmg.stage3D
             c3d.setRenderToBackBuffer();
          }
          FrameProfiler.end(FrameProfiler.GPU_ATLAS);
+         FrameProfiler.begin(FrameProfiler.GPU_CLEAR);
          this.context3D.clear();
+         FrameProfiler.end(FrameProfiler.GPU_CLEAR);
 
          // ---- phase 2: replay in order ----
          FrameProfiler.begin(FrameProfiler.GPU_DRAW);
@@ -431,16 +436,17 @@ package kabam.rotmg.stage3D
          var cmdArg:Vector.<int> = g.cmdArg;
          var cmdCount:int = g.cmdCount;
          // Shadows are emitted contiguously (all SHADOWS-phase fills precede the
-         // DRAW_OBJECTS quads), so consecutive shadows share program and the static
-         // fc4 helpers; only the per-shadow gradient constants and transform change.
-         // The batch-state invalidate is deferred to the cluster exit so the next
-         // run/quad/model still sees a correct cold cache.
+         // DRAW_OBJECTS quads), so each cluster binds the batch program and fc4 helpers once
+         // and draws all its shadows with a single drawTriangles. The batch-state invalidate
+         // is deferred to the cluster exit so the next run/quad/model still sees a correct
+         // cold cache.
          var inShadowCluster:Boolean = false;
          for(var ci:int = 0; ci < cmdCount; ci++)
          {
             var cmd:int = cmdType[ci];
             if(cmd != Graphic3D.CMD_SHADOW && inShadowCluster)
             {
+               this.flushShadows();
                this.graphic3D_.invalidateState();
                inShadowCluster = false;
             }
@@ -456,19 +462,17 @@ package kabam.rotmg.stage3D
             }
             if(cmd == Graphic3D.CMD_SHADOW)
             {
-               graphicsData = graphicsDatas[cmdArg[ci]];
                if(!inShadowCluster)
                {
-                  c3d.setProgram(this.shadowProgram_);
+                  c3d.setProgram(this.shadowBatchProgram_);
                   this.context3D.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,4,SHADOW_FRAGMENT_CONSTANTS);
                   inShadowCluster = true;
                }
-               this.graphic3D_.setGradientFill(GraphicsGradientFill(graphicsData),this.context3D,halfW,halfH);
-               finalTransform.identity();
-               finalTransform.append(this.graphic3D_.getMatrix3D());
-               finalTransform.appendTranslation(ndcX,ndcY,0);
-               this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,finalTransform,true);
-               this.graphic3D_.renderShadow(this.context3D);
+               if(!g.shadowBatchQuad(GraphicsGradientFill(graphicsDatas[cmdArg[ci]]),halfW,halfH,ndcX,ndcY))
+               {
+                  this.flushShadows();
+                  g.shadowBatchQuad(GraphicsGradientFill(graphicsDatas[cmdArg[ci]]),halfW,halfH,ndcX,ndcY);
+               }
                continue;
             }
             if(cmd == Graphic3D.CMD_MODEL)
@@ -503,6 +507,7 @@ package kabam.rotmg.stage3D
          }
          if(inShadowCluster)
          {
+            this.flushShadows();
             this.graphic3D_.invalidateState();
          }
          if(FrameProfiler.enabled)
@@ -512,6 +517,15 @@ package kabam.rotmg.stage3D
          FrameProfiler.end(FrameProfiler.GPU_DRAW);
       }
       
+      /** Draws the accumulated shadow cluster, if any. Program + fc4 are already bound. */
+      private function flushShadows() : void
+      {
+         if(this.graphic3D_.shadowBatchCount > 0)
+         {
+            this.graphic3D_.shadowBatchDraw(this.context3D.GetContext3D());
+         }
+      }
+
       private function setTranslationToGame() : void
       {
          this.tX = 0;

@@ -31,12 +31,15 @@ package com.company.assembleegameclient.util
       public static const GPU_BUILD:int = 14;     // phase 1: per-quad transform + run building (CPU)
       public static const GPU_ATLAS:int = 15;     // atlas uploads / render-to-texture blits
       public static const GPU_DRAW:int = 16;      // phase 2: vertex upload + draw calls
-      public static const SECTION_COUNT:int = 17;
+      public static const GPU_CLEAR:int = 17;     // backbuffer/depth clear (catches pipeline stalls)
+      public static const GPU_DISPATCH:int = 18;    // render3D.dispatch (contains gpuScene + gpuSwap)
+      public static const SECTION_COUNT:int = 19;
 
       public static const SECTION_NAMES:Vector.<String> = new <String>[
          "update", "tiles", "collect", "sort", "drawUnder", "shadows",
          "drawObjs", "topTiles", "present", "overlays", "hud",
-         " gpuScene", " gpuSwap", " gpuSoft", "  gpuBuild", "  gpuAtlas", "  gpuDraw"];
+         " gpuScene", " gpuSwap", " gpuSoft", "  gpuBuild", "  gpuAtlas", "  gpuDraw",
+         "  gpuClear", " dispatch"];
 
       private static const REPORT_INTERVAL_MS:int = 1000;
 

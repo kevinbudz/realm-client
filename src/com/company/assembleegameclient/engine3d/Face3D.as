@@ -28,6 +28,15 @@ import flash.geom.Utils3D;
       public var visible_:Boolean = true;
       private var needGen_:Boolean = true;
       private var textureMatrix_:TextureMatrix = null;
+      // Still-camera fast path. Map sets skipMatrixCompute around the tile loops when
+      // the camera (wToS_ + clip rect) is identical to last frame: projection, clip
+      // outcome and texture matrix are then provably unchanged, so the cached triple
+      // is re-pushed. matrixFresh_ is cleared by every mutator (setTexture, setUVT);
+      // needGen_ implies !matrixFresh_ (both set together), so a pending regen is
+      // never skipped. Per-frame state (offsets, atlas, NDC) is re-read downstream.
+      public static var skipMatrixCompute:Boolean = false;
+      private var matrixFresh_:Boolean = false;
+      private var lastDrawResult_:Boolean = false;
       public var bitmapFill_:GraphicsBitmapFill= new GraphicsBitmapFill(null,null,false,false);
       private var path_:GraphicsPath = new GraphicsPath(new Vector.<int>(),null);
       
@@ -75,12 +84,14 @@ import flash.geom.Utils3D;
          }
          this.origTexture_ = texture;
          this.needGen_ = true;
+         this.matrixFresh_ = false;
       }
       
       public function setUVT(uvt:Vector.<Number>) : void
       {
          this.uvt_ = uvt;
          this.needGen_ = true;
+         this.matrixFresh_ = false;
       }
       
       public function maxY() : Number
@@ -105,6 +116,17 @@ import flash.geom.Utils3D;
          var vx:Number = NaN;
          var vy:Number = NaN;
          var iplus1:int = 0;
+         if(skipMatrixCompute && this.matrixFresh_)
+         {
+            if(!this.lastDrawResult_)
+            {
+               return false;
+            }
+            graphicsData.push(this.bitmapFill_);
+            graphicsData.push(this.path_);
+            graphicsData.push(GraphicsUtil.END_FILL);
+            return true;
+         }
          Utils3D.projectVectors(camera.wToS_,this.vin_,this.vout_,this.uvt_);
          if(this.backfaceCull_)
          {
@@ -115,6 +137,8 @@ import flash.geom.Utils3D;
             vy = vS[5] - vS[1];
             if(ux * vy - uy * vx > 0)
             {
+               this.matrixFresh_ = true;
+               this.lastDrawResult_ = false;
                return false;
             }
          }
@@ -135,6 +159,8 @@ import flash.geom.Utils3D;
          }
          if(clip || !this.visible_)
          {
+            this.matrixFresh_ = true;
+            this.lastDrawResult_ = false;
             return false;
          }
          /*if(this.blackOut_)
@@ -154,6 +180,8 @@ import flash.geom.Utils3D;
          graphicsData.push(this.bitmapFill_);
          graphicsData.push(this.path_);
          graphicsData.push(GraphicsUtil.END_FILL);
+         this.matrixFresh_ = true;
+         this.lastDrawResult_ = true;
          return true;
       }
       

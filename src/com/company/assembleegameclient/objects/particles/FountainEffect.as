@@ -31,7 +31,16 @@ package com.company.assembleegameclient.objects.particles
          }
          x_ = this.go_.x_;
          y_ = this.go_.y_;
-         for(var i:int = this.lastUpdate_ / 50; i < time / 50; i++)
+         var start:int = this.lastUpdate_ / 50;
+         var end:int = time / 50;
+         // After a hitch the backlog loop dumps every missed spawn in a single frame,
+         // spiking exactly the frames that are already late. Cover ~150ms and drop
+         // the rest; steady state (a spawn every ~7th frame at 144fps) never hits this.
+         if(end - start > 3)
+         {
+            start = end - 3;
+         }
+         for(var i:int = start; i < end; i++)
          {
             t = i * 50;
             part = FreeList.newObject(FountainParticle) as FountainParticle;

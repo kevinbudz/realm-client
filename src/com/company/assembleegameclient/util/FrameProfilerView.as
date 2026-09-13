@@ -44,9 +44,10 @@ package com.company.assembleegameclient.util
          FrameProfiler.DRAW_UNDER,FrameProfiler.SHADOWS,FrameProfiler.DRAW_OBJECTS,FrameProfiler.TOP_TILES,
          FrameProfiler.PRESENT,FrameProfiler.OVERLAYS];
       // Subsets already counted in a parent, shown in parentheses and never added:
-      // GPU_SCENE/GPU_SWAP/GPU_SOFTWARE run inside PRESENT, GPU_BUILD/GPU_ATLAS/GPU_DRAW inside GPU_SCENE.
+      // GPU_SCENE/GPU_SWAP/GPU_SOFTWARE run inside PRESENT, GPU_BUILD/GPU_ATLAS/GPU_DRAW/GPU_CLEAR inside GPU_SCENE.
       private static const RENDER_SUB_SECTIONS:Vector.<int> = new <int>[FrameProfiler.GPU_SCENE,FrameProfiler.GPU_SWAP,
-         FrameProfiler.GPU_SOFTWARE,FrameProfiler.GPU_BUILD,FrameProfiler.GPU_ATLAS,FrameProfiler.GPU_DRAW];
+         FrameProfiler.GPU_SOFTWARE,FrameProfiler.GPU_BUILD,FrameProfiler.GPU_ATLAS,FrameProfiler.GPU_DRAW,
+         FrameProfiler.GPU_CLEAR,FrameProfiler.GPU_DISPATCH];
 
       private var heads_:Vector.<Sprite> = new Vector.<Sprite>(GROUP_COUNT,true);
       private var headLabels_:Vector.<SimpleText> = new Vector.<SimpleText>(GROUP_COUNT,true);
