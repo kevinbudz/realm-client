@@ -512,7 +512,7 @@ package kabam.rotmg.stage3D
          }
          if(FrameProfiler.enabled)
          {
-            FrameProfiler.atlasInfo += " runs " + g.runCount + " quads " + g.batchQuads + " cmds " + g.cmdCount;
+            FrameProfiler.atlasInfo += " runs " + g.runCount + " quads " + g.batchQuads + " cmds " + g.cmdCount + " soft " + (g.softwareData.length / 3);
          }
          FrameProfiler.end(FrameProfiler.GPU_DRAW);
       }
