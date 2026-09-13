@@ -43,11 +43,27 @@ package kabam.rotmg.stage3D.graphic3D
       private static const ZERO_OFFSET:Vector.<Number> = new <Number>[0,0,0,0];
       private static const IDENTITY:Matrix3D = new Matrix3D();
 
+      /** Fractional part in [0,1): maps unbounded scroll offsets into a tilable slot. */
+      private static function fract(v:Number) : Number
+      {
+         return v - Math.floor(v);
+      }
+
       // Deferred draw commands recorded by the batch pass (see batchBegin).
       public static const CMD_RUN:int = 0;      // arg = run index
       public static const CMD_QUAD:int = 1;     // arg = graphicsData index; per-quad drawQuad path
       public static const CMD_SHADOW:int = 2;   // arg = graphicsData index
       public static const CMD_MODEL:int = 3;    // next 3D model
+
+      // Static tile cache handoff, written by Map.draw every frame before dispatch:
+      // tileStaticEnd_ is the graphicsData_ length after the static tile pass (0 on
+      // cache-hit frames, whose graphicsData_ holds only dynamic triples), and
+      // tileCacheHit_ is checkTileCache's verdict for this frame.
+      public var tileStaticEnd_:int = 0;
+      public var tileCacheHit_:Boolean = false;
+      // Set by the renderer around the static tile walk; batchQuad records touched
+      // pages/proxies while set so hit frames can stamp atlas/individual LRU.
+      public var recordingTiles_:Boolean = false;
 
       private static const INITIAL_CAPACITY:int = 4096;
       private static const MAX_CAPACITY:int = 16383;  // 16-bit indices: 65532 vertices
@@ -138,6 +154,62 @@ package kabam.rotmg.stage3D.graphic3D
       private var lastCt:ColorTransform = null;
       private var lastAtlasBmd:BitmapData = null;
       private var lastAtlasEntry:AtlasEntry = null;
+      private var lastTiledBmd:BitmapData = null;
+      private var lastTiledEntry:AtlasEntry = null;
+
+      // --- Static tile snapshot (see snapshotTileCache) ---
+      // Static tile quads/verts/runs are a pure function of (map, tileVersion,
+      // camera, atlas layout), so a still-camera frame replays them instead of
+      // re-running the tile loop and batchQuad. Verts live in tileData_ (same
+      // fixed length as batchData; prime swaps the references, release swaps back,
+      // so replay copies nothing). Runs/cmds are re-emitted from the copies.
+      private var tileValid_:Boolean = false;
+      private var tileMap_:Object = null;
+      private var tileVersion_:int = -1;
+      private var tileAtlas_:SpriteAtlas = null;
+      private var tileEvictions_:int = -1;
+      private var tilePendingMap_:Object = null;
+      private var tilePendingVersion_:int = -1;
+      private var tilePendingStill_:Boolean = false;
+      private var tilePendingViewKey_:String = null;
+      private var tileViewKey_:String = null;
+      private var tileData_:Vector.<Number> = null;
+      private var tileQuads_:int = 0;
+      private var tileRunFirst_:Vector.<int> = new Vector.<int>();
+      private var tileRunCount_:Vector.<int> = new Vector.<int>();
+      private var tileRunTex_:Vector.<TextureBase> = new Vector.<TextureBase>();
+      private var tileRunRep_:Vector.<int> = new Vector.<int>();
+      private var tileRunConst_:Vector.<Number> = new Vector.<Number>();
+      private var tileRuns_:int = 0;
+      private var tileRunOpen_:Boolean = false;
+      private var tileSwapped_:Boolean = false;
+      private var tilePages_:Vector.<AtlasPage> = new Vector.<AtlasPage>();
+      private var tileProxies_:Vector.<TextureProxy> = new Vector.<TextureProxy>();
+      private var tileTouchPages_:Vector.<AtlasPage> = new Vector.<AtlasPage>();
+      private var tileTouchProxies_:Vector.<TextureProxy> = new Vector.<TextureProxy>();
+      // Translation-scroll reuse (see checkTileCache): snapshot camera wToS (16) lets
+      // small pure translations shift the replayed verts by (dx,dy) instead of
+      // discarding. Sub-pixel shift (float NDC offset): shared tile edges move
+      // together, so no new seams vs a full rebuild (identical maths, 1-ulp float
+      // drift at most). Pixel-snapped integer scroll was rejected: it would judder
+      // vs smooth camera motion and still need the same shift logic plus rounding.
+      private var tileWToS_:Vector.<Number> = new Vector.<Number>(16, true);
+      private var tileHasWToS_:Boolean = false;
+      private var tilePendingWToS_:Vector.<Number> = new Vector.<Number>(16, true);
+      public var tileScrollHit_:Boolean = false;
+      public var tileScrollDX_:Number = 0;
+      public var tileScrollDY_:Number = 0;
+      public var tileScrollPX_:Number = 0;
+      public var tileScrollPY_:Number = 0;
+      public var tileScrollDist_:Number = 0;
+      public var tileStillHits_:int = 0;
+      public var tileScrollHits_:int = 0;
+      public var tileScrollMisses_:int = 0;
+      public var tileMisses_:int = 0;
+      // Max pure-translation reuse distance in screen pixels (wToS units, 50 per
+      // tile at zoom 1). Static snapshot overdraws the clip rect by a larger
+      // margin (see Face3D.clipMargin_), so scrolls within this stay covered.
+      private static const TILE_SCROLL_MAX_PX:Number = 64;
       
       public function Graphic3D()
       {
@@ -227,9 +299,24 @@ package kabam.rotmg.stage3D.graphic3D
          this.cmdCount = 0;
          this.runCount = 0;
          this.runOpen = false;
+         // Tile snapshot walk state. A swapped snapshot vector (missed releaseTileCache
+         // after an exception mid-frame) is restored first so batchData is always the
+         // ring vector here. tileCacheHit_/tileStaticEnd_ are Map-owned per frame.
+         if(this.tileSwapped_)
+         {
+            var swapTmp:Vector.<Number> = this.batchData;
+            this.batchData = this.tileData_;
+            this.tileData_ = swapTmp;
+            this.tileSwapped_ = false;
+         }
+         this.recordingTiles_ = false;
+         this.tileTouchPages_.length = 0;
+         this.tileTouchProxies_.length = 0;
          this.lastCtBmd = null;
          this.lastAtlasBmd = null;
          this.lastAtlasEntry = null;
+         this.lastTiledBmd = null;
+         this.lastTiledEntry = null;
          this.softwareData.length = 0;
       }
 
@@ -311,6 +398,380 @@ package kabam.rotmg.stage3D.graphic3D
          this.shadowQuads = 0;
       }
 
+      /** Drops the tile snapshot (map change, see Map.dispose). */
+      public function invalidateTileCache() : void
+      {
+         this.tileValid_ = false;
+         this.tileCacheHit_ = false;
+         this.tileScrollHit_ = false;
+         this.tileScrollDX_ = 0;
+         this.tileScrollDY_ = 0;
+         this.tileScrollPX_ = 0;
+         this.tileScrollPY_ = 0;
+         this.tileScrollDist_ = 0;
+         this.tileHasWToS_ = false;
+         this.tileMap_ = null;
+         this.tileAtlas_ = null;
+         this.tilePendingMap_ = null;
+         this.tileViewKey_ = null;
+         this.tilePendingViewKey_ = null;
+         this.tileQuads_ = 0;
+         this.tileRuns_ = 0;
+         this.tileRunFirst_.length = 0;
+         this.tileRunCount_.length = 0;
+         this.tileRunTex_.length = 0;
+         this.tileRunRep_.length = 0;
+         this.tileRunConst_.length = 0;
+         this.tilePages_.length = 0;
+         this.tileProxies_.length = 0;
+         if(this.tileSwapped_)
+         {
+            var tmp:Vector.<Number> = this.batchData;
+            this.batchData = this.tileData_;
+            this.tileData_ = tmp;
+            this.tileSwapped_ = false;
+         }
+      }
+
+      /**
+       * Tile-cache verdict for this frame, called by Map.draw before the tile loop.
+       * Still hit: same map/version/atlas, still camera, same viewKey. Scroll hit:
+       * same base but a small pure camera translation (wToS basis identical, only
+       * the translation row moved within TILE_SCROLL_MAX_PX): the snapshot verts
+       * shift by (dx,dy) in primeTileCache instead of rebuilding. Any rotation
+       * (basis differs), zoom/resize (viewKey differs), eviction, map/version
+       * change or large jump is a miss. Pure decision; priming happens in
+       * primeTileCache after batchBegin (so LRU stamps use the current serial).
+       * wToS is the camera world-to-screen matrix (16 numbers); null forces a miss.
+       */
+      public function checkTileCache(map:Object, version:int, still:Boolean, gpu:Boolean, viewKey:String, wToS:Vector.<Number>) : Boolean
+      {
+         // !gpu forces a miss (and clears a stale hit): software frames emit the full
+         // spatial triple stream, so priming a snapshot would double-draw statics.
+         // viewKey covers every batch-space input cameraStill cannot see (backbuffer
+         // size, zoom, centerOnPlayer, inGame): batch verts bake the NDC transform,
+         // so any of those changing must rebuild even with an identical camera.
+         var base:Boolean = gpu && this.tileValid_ && this.tileMap_ == map
+            && this.tileVersion_ == version && viewKey == this.tileViewKey_;
+         var atlas:SpriteAtlas = null;
+         if(base)
+         {
+            atlas = this.textureFactory.getAtlas();
+            base = atlas == this.tileAtlas_ && atlas.evictions == this.tileEvictions_;
+         }
+         var hit:Boolean = false;
+         var scroll:Boolean = false;
+         this.tileScrollPX_ = 0;
+         this.tileScrollPY_ = 0;
+         this.tileScrollDist_ = 0;
+         this.tileScrollDX_ = 0;
+         this.tileScrollDY_ = 0;
+         if(base)
+         {
+            if(still)
+            {
+               // still means identical to the PREVIOUS frame, not to the snapshot
+               // base (scroll hits never move the base). Moving 1-2 tiles then
+               // stopping replays the stale base unshifted without this, visibly
+               // jumping tiles back. Require a bit-identical wToS to the base;
+               // anything else misses once and rebuilds at the stopped position.
+               if(wToS != null && this.tileHasWToS_)
+               {
+                  var same:Boolean = true;
+                  for(var si:int = 0; si < 16; si++)
+                  {
+                     if(wToS[si] != this.tileWToS_[si])
+                     {
+                        same = false;
+                        break;
+                     }
+                  }
+                  if(same)
+                  {
+                     hit = true;
+                     scroll = false;
+                  }
+               }
+            }
+            else if(wToS != null && this.tileHasWToS_)
+            {
+               // Pure-translation test: basis rows (0..11) plus depth/w (14,15)
+               // identical; only the screen translation (12,13) moved. Rotation,
+               // however small, changes the linear part of every tile matrix, so
+               // a uniform shift cannot cover it.
+               var pure:Boolean = true;
+               for(var bi:int = 0; bi < 12; bi++)
+               {
+                  if(wToS[bi] != this.tileWToS_[bi])
+                  {
+                     pure = false;
+                     break;
+                  }
+               }
+               if(pure && (wToS[14] != this.tileWToS_[14] || wToS[15] != this.tileWToS_[15]))
+               {
+                  pure = false;
+               }
+               if(pure)
+               {
+                  var px:Number = wToS[12] - this.tileWToS_[12];
+                  var py:Number = wToS[13] - this.tileWToS_[13];
+                  var dist:Number = Math.sqrt(px * px + py * py);
+                  if(dist <= TILE_SCROLL_MAX_PX && dist > 0)
+                  {
+                     hit = true;
+                     scroll = true;
+                     this.tileScrollPX_ = px;
+                     this.tileScrollPY_ = py;
+                     this.tileScrollDist_ = dist;
+                  }
+                  else if(dist == 0)
+                  {
+                     // Camera matrix identical but still flag false (clip rounding
+                     // edge): treat as a still hit, no shift needed.
+                     hit = true;
+                     scroll = false;
+                  }
+               }
+            }
+         }
+         if(hit)
+         {
+            if(scroll)
+            {
+               this.tileScrollHits_++;
+            }
+            else
+            {
+               this.tileStillHits_++;
+            }
+         }
+         else
+         {
+            this.tileMisses_++;
+            // Scroll miss: same map/version/viewKey/atlas but rotation or too far
+            // (user verifies these during frequent camera rotation).
+            if(base && !still)
+            {
+               this.tileScrollMisses_++;
+            }
+            this.tilePendingMap_ = map;
+            this.tilePendingVersion_ = version;
+            this.tilePendingStill_ = still;
+            this.tilePendingViewKey_ = viewKey;
+            if(wToS != null)
+            {
+               for(var pi:int = 0; pi < 16; pi++)
+               {
+                  this.tilePendingWToS_[pi] = wToS[pi];
+               }
+            }
+            this.tileScrollPX_ = 0;
+            this.tileScrollPY_ = 0;
+            this.tileScrollDist_ = 0;
+         }
+         this.tileCacheHit_ = hit;
+         this.tileScrollHit_ = scroll;
+         return hit;
+      }
+
+      /**
+       * Replays the snapshot into the fresh accumulators (after batchBegin).
+       * Still hits swap the vertex vectors so the tile verts upload with no copy.
+       * Scroll hits copy with a uniform NDC shift (dx,dy): batch verts bake
+       * screen tx/halfW + ndcX and -ty/halfH + ndcY, and a pure camera translation
+       * moves every tile's tx,ty by the same (px,py), so shifting all verts by
+       * (px/halfW, -py/halfH) reproduces the rebuild bit-for-bit (1-ulp drift).
+       * Copying keeps the snapshot base pristine (in-place shifts would drift it);
+       * runs/cmds/consts replay unchanged (uv offsets and tints are translation
+       * invariant). Stamps touched pages/proxies so LRU cannot reclaim them.
+       * Returns false when the snapshot no longer fits (batch capacity changed);
+       * the caller then walks the whole frame as dynamic, which stays correct.
+       */
+      public function primeTileCache() : Boolean
+      {
+         if(this.tileData_ == null || this.tileData_.length != this.batchData.length)
+         {
+            this.tileValid_ = false;
+            return false;
+         }
+         if(this.tileScrollHit_)
+         {
+            // Scroll path must classify identically to the still path: static runs
+            // never contain software triples (snapshot requires a clean runs-only
+            // prefix), so replaying runs plus the dynamic suffix preserves the
+            // pushSoftware contract.
+            if(this.bHalfW == 0 || this.bHalfH == 0)
+            {
+               this.tileValid_ = false;
+               return false;
+            }
+            var dx:Number = this.tileScrollPX_ / this.bHalfW;
+            var dy:Number = -this.tileScrollPY_ / this.bHalfH;
+            this.tileScrollDX_ = dx;
+            this.tileScrollDY_ = dy;
+            var src:Vector.<Number> = this.tileData_;
+            var dst:Vector.<Number> = this.batchData;
+            var count:int = this.tileQuads_ * 20;
+            for(var vi:int = 0; vi < count; vi += 5)
+            {
+               dst[vi] = src[vi] + dx;
+               dst[vi + 1] = src[vi + 1] + dy;
+               dst[vi + 2] = src[vi + 2];
+               dst[vi + 3] = src[vi + 3];
+               dst[vi + 4] = src[vi + 4];
+            }
+            this.batchQuads = this.tileQuads_;
+         }
+         else
+         {
+            var swapTmp:Vector.<Number> = this.batchData;
+            this.batchData = this.tileData_;
+            this.tileData_ = swapTmp;
+            this.tileSwapped_ = true;
+            this.batchQuads = this.tileQuads_;
+         }
+         var runs:int = this.tileRuns_;
+         for(var i:int = 0; i < runs; i++)
+         {
+            this.runFirstQuad[i] = this.tileRunFirst_[i];
+            this.runQuadCount[i] = this.tileRunCount_[i];
+            this.runTexture[i] = this.tileRunTex_[i];
+            this.runRepeat[i] = this.tileRunRep_[i];
+            this.cmdType[i] = CMD_RUN;
+            this.cmdArg[i] = i;
+         }
+         this.runCount = runs;
+         this.cmdCount = runs;
+         this.runOpen = this.tileRunOpen_;
+         var pages:Vector.<AtlasPage> = this.tilePages_;
+         for(i = 0; i < pages.length; i++)
+         {
+            pages[i].lastUsed = this.frame;
+         }
+         var proxies:Vector.<TextureProxy> = this.tileProxies_;
+         for(i = 0; i < proxies.length; i++)
+         {
+            proxies[i].lastUsed = this.frame;
+         }
+         return true;
+      }
+
+      /** Restores the ring vertex vector after a primed frame drew. Idempotent. */
+      public function releaseTileCache() : void
+      {
+         if(this.tileSwapped_)
+         {
+            var tmp:Vector.<Number> = this.batchData;
+            this.batchData = this.tileData_;
+            this.tileData_ = tmp;
+            this.tileSwapped_ = false;
+         }
+      }
+
+      /**
+       * Snapshots the just-walked static tile prefix ([0, batchQuads/cmdCount) at the
+       * call). Attempted on every clean rebuild (still or pure-translation miss):
+       * refreshing the base on translation misses keeps future scroll deltas small,
+       * while rotation/zoom/resize frames simply establish the next base. Requires
+       * a clean tile region (runs only, no software triples, no overflow); anything
+       * else leaves the frame correct but uncached (and preserves the old base when
+       * one exists). Returns the verdict for the atlas readout.
+       */
+      public function snapshotTileCache() : Boolean
+      {
+         this.recordingTiles_ = false;
+         var cc:int = this.cmdCount;
+         for(var i:int = 0; i < cc; i++)
+         {
+            if(this.cmdType[i] != CMD_RUN)
+            {
+               this.tileValid_ = false;
+               return false;
+            }
+         }
+         if(this.softwareData.length != 0 || this.batchOverflow)
+         {
+            this.tileValid_ = false;
+            return false;
+         }
+         var quads:int = this.batchQuads;
+         if(this.tileData_ == null || this.tileData_.length != this.batchData.length)
+         {
+            this.tileData_ = new Vector.<Number>(this.batchData.length,true);
+         }
+         var src:Vector.<Number> = this.batchData;
+         var dst:Vector.<Number> = this.tileData_;
+         var count:int = quads * 20;
+         for(i = 0; i < count; i++)
+         {
+            dst[i] = src[i];
+         }
+         this.tileQuads_ = quads;
+         var runs:int = this.runCount;
+         this.tileRunFirst_.length = runs;
+         this.tileRunCount_.length = runs;
+         this.tileRunTex_.length = runs;
+         this.tileRunRep_.length = runs;
+         this.tileRunConst_.length = runs * 12;
+         for(i = 0; i < runs; i++)
+         {
+            this.tileRunFirst_[i] = this.runFirstQuad[i];
+            this.tileRunCount_[i] = this.runQuadCount[i];
+            this.tileRunTex_[i] = this.runTexture[i];
+            this.tileRunRep_[i] = this.runRepeat[i];
+         }
+         var rc:Vector.<Number> = this.runConst;
+         var tc:Vector.<Number> = this.tileRunConst_;
+         var cn:int = runs * 12;
+         for(i = 0; i < cn; i++)
+         {
+            tc[i] = rc[i];
+         }
+         this.tileRuns_ = runs;
+         this.tileRunOpen_ = this.runOpen;
+         this.tilePages_.length = 0;
+         var tp:Vector.<AtlasPage> = this.tileTouchPages_;
+         for(i = 0; i < tp.length; i++)
+         {
+            if(this.tilePages_.indexOf(tp[i]) == -1)
+            {
+               this.tilePages_.push(tp[i]);
+            }
+         }
+         tp.length = 0;
+         this.tileProxies_.length = 0;
+         var tx:Vector.<TextureProxy> = this.tileTouchProxies_;
+         for(i = 0; i < tx.length; i++)
+         {
+            if(this.tileProxies_.indexOf(tx[i]) == -1)
+            {
+               this.tileProxies_.push(tx[i]);
+            }
+         }
+         tx.length = 0;
+         this.tileMap_ = this.tilePendingMap_;
+         this.tileVersion_ = this.tilePendingVersion_;
+         this.tileViewKey_ = this.tilePendingViewKey_;
+         for(var wi:int = 0; wi < 16; wi++)
+         {
+            this.tileWToS_[wi] = this.tilePendingWToS_[wi];
+         }
+         this.tileHasWToS_ = true;
+         // A fresh base has zero scroll offset; prime fills the per-frame dx/dy.
+         this.tileScrollPX_ = 0;
+         this.tileScrollPY_ = 0;
+         this.tileScrollDist_ = 0;
+         this.tileScrollDX_ = 0;
+         this.tileScrollDY_ = 0;
+         this.tileScrollHit_ = false;
+         var atlas:SpriteAtlas = this.textureFactory.getAtlas();
+         this.tileAtlas_ = atlas;
+         this.tileEvictions_ = atlas.evictions;
+         this.tileValid_ = true;
+         return true;
+      }
+
       /**
        * Record a sprite quad. Returns false if the quad cannot be batched (custom vertex buffer,
        * or the batch is full) and must be drawn via drawQuad at this point in the order.
@@ -338,17 +799,21 @@ package kabam.rotmg.stage3D.graphic3D
          var v0:Number = 0;
          var u1:Number = 1;
          var v1:Number = 1;
-         // uv offset (vc4): animated tiles scroll via the shader offset, which relies
-         // on the sampler clamping to the sprite's own edge, so anything offset (or
-         // repeating) must keep its individual texture; only plain quads can share
-         // an atlas page. Water sink is separate: clip pixels counted down from the
-         // sprite's bottom rows (see GameObject.draw), applied to the v1 edge below
-         // so the tile beneath shows through like the display-list clip path.
+         // uv offset (vc4): animated tiles scroll via the shader offset. Offset or
+         // repeating fills use tilable atlas slots holding a 2x2 replication, so any
+         // fractional offset still samples continuous content with the clamp sampler
+         // and batches exactly like plain quads. Only sprites with no atlas entry
+         // (too large, page pressure, custom vertex buffers) keep individual textures.
+         // Water sink is separate: clip pixels counted down from the sprite's bottom
+         // rows (see GameObject.draw), applied to the v1 edge below so the tile
+         // beneath shows through like the display-list clip path.
          var offset:Vector.<Number> = hasExtra ? GraphicsFillExtra.getOffsetUV(fill) : ZERO_OFFSET;
          var sink:Number = hasExtra ? GraphicsFillExtra.getSinkLevel(fill) : 0;
-         var plain:Boolean = !fill.repeat && offset[0] == 0 && offset[1] == 0 && offset[2] == 0 && offset[3] == 0;
+         var o0:Number = offset[0];
+         var o1:Number = offset[1];
+         var tilable:Boolean = fill.repeat || o0 != 0 || o1 != 0 || offset[2] != 0 || offset[3] != 0;
          var entry:AtlasEntry = null;
-         if(plain)
+         if(!tilable)
          {
             if(bmd == this.lastAtlasBmd && this.lastAtlasEntry != null
                && this.lastAtlasEntry.generation == this.lastAtlasEntry.page.generation)
@@ -366,23 +831,61 @@ package kabam.rotmg.stage3D.graphic3D
                }
             }
          }
+         else
+         {
+            if(bmd == this.lastTiledBmd && this.lastTiledEntry != null
+               && this.lastTiledEntry.generation == this.lastTiledEntry.page.generation)
+            {
+               this.lastTiledEntry.page.lastUsed = this.frame;
+               entry = this.lastTiledEntry;
+            }
+            else
+            {
+               entry = this.textureFactory.getAtlas().get(bmd,this.frame,true);
+               if(entry != null)
+               {
+                  this.lastTiledBmd = bmd;
+                  this.lastTiledEntry = entry;
+               }
+            }
+         }
          // Run key offset (vc4). Atlas quads keep the shader offset so the run key
          // must include it; individual-texture quads bake it into the vertex uvs
          // below so same-texture quads with different offsets still merge.
-         var keyO0:Number = offset[0];
-         var keyO1:Number = offset[1];
-         var keyO2:Number = offset[2];
-         var keyO3:Number = offset[3];
+         var keyO0:Number = 0;
+         var keyO1:Number = 0;
+         var keyO2:Number = 0;
+         var keyO3:Number = 0;
          var tex:TextureProxy = null;
          if(entry != null)
          {
             texBase = entry.page.texture;
+            if(this.recordingTiles_)
+            {
+               this.tileTouchPages_.push(entry.page);
+            }
             w = entry.w;
             h = entry.h;
-            u0 = entry.u0;
-            v0 = entry.v0;
-            u1 = entry.u1;
-            v1 = entry.v1;
+            if(entry.tilable)
+            {
+               // First copy's rect; the fractional scroll offset lands inside the 2x2
+               // block for any value, so same-page/same-offset quads share one run.
+               // Batch quads always span one sprite, so the clamp program samples them
+               // identically to the old per-texture repeat program.
+               u0 = entry.u0;
+               v0 = entry.v0;
+               u1 = entry.u0 + entry.uSpan;
+               v1 = entry.v0 + entry.vSpan;
+               keyO0 = fract(o0) * entry.uSpan;
+               keyO1 = fract(o1) * entry.vSpan;
+            }
+            else
+            {
+               u0 = entry.u0;
+               v0 = entry.v0;
+               u1 = entry.u1;
+               v1 = entry.v1;
+            }
          }
          else
          {
@@ -392,8 +895,20 @@ package kabam.rotmg.stage3D.graphic3D
                return true;   // drawQuad draws nothing for this either
             }
             texBase = tex.getTexture();
+            if(this.recordingTiles_)
+            {
+               this.tileTouchProxies_.push(tex);
+            }
             w = tex.getWidth();
             h = tex.getHeight();
+            if(tilable)
+            {
+               // No atlas slot (too large / page pressure): scroll the old way.
+               keyO0 = o0;
+               keyO1 = o1;
+               keyO2 = offset[2];
+               keyO3 = offset[3];
+            }
             // Bake the offset into the vertex uvs (identical sampling: the shader
             // added the same offset to the same uvs, repeat wraps either way) so
             // quads sharing texture, program and tint merge into one run instead
@@ -468,7 +983,10 @@ package kabam.rotmg.stage3D.graphic3D
             this.lastCtBmd = bmd;
             this.lastCt = ct;
          }
-         var repeatIdx:int = fill.repeat ? 1 : 0;
+         // Atlas quads (plain or tilable) always use the clamp program: batch quads
+         // span one sprite, so repeat would sample identically. This also lets
+         // scrolling quads with a zero fractional offset merge into plain runs.
+         var repeatIdx:int = entry != null ? 0 : (fill.repeat ? 1 : 0);
          var rc:Vector.<Number> = this.runConst;
          var r:int = this.runCount - 1;
          var k:int = r * 12;

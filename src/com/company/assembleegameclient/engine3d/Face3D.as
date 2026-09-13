@@ -35,6 +35,12 @@ import flash.geom.Utils3D;
       // needGen_ implies !matrixFresh_ (both set together), so a pending regen is
       // never skipped. Per-frame state (offsets, atlas, NDC) is re-read downstream.
       public static var skipMatrixCompute:Boolean = false;
+      // Screen-space overdraw margin (pixels) for the static tile snapshot pass.
+      // Map widens it while walking the cacheable prefix so small scrolls stay
+      // covered; every other pass (animated tiles, objects, top tiles, hits) uses
+      // the tight default. See Graphic3D TILE_SCROLL_MAX_PX.
+      public static var clipMargin_:Number = 10;
+      public static const TILE_SNAPSHOT_MARGIN:Number = 80;
       private var matrixFresh_:Boolean = false;
       private var lastDrawResult_:Boolean = false;
       public var bitmapFill_:GraphicsBitmapFill= new GraphicsBitmapFill(null,null,false,false);
@@ -142,10 +148,11 @@ import flash.geom.Utils3D;
                return false;
             }
          }
-         var minX:Number = camera.clipRect_.x - 10;
-         var minY:Number = camera.clipRect_.y - 10;
-         var maxX:Number = camera.clipRect_.right + 10;
-         var maxY:Number = camera.clipRect_.bottom + 10;
+         var m:Number = clipMargin_;
+         var minX:Number = camera.clipRect_.x - m;
+         var minY:Number = camera.clipRect_.y - m;
+         var maxX:Number = camera.clipRect_.right + m;
+         var maxY:Number = camera.clipRect_.bottom + m;
          var clip:Boolean = true;
          var len:int = this.vout_.length;
          for(var i:int = 0; i < len; i = i + 2)

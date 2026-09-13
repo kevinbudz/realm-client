@@ -89,6 +89,12 @@ public class Map extends Sprite
       private var screenCenterW_:Point;
       public var visibleSquares_:Vector.<Square>;
       public var topSquares_:Vector.<Square>;
+      // Bumped on every tile mutation (setGroundTile). Lets Graphic3D cache all
+      // fully static tile quads across frames (see draw).
+      public var tileVersion_:int = 0;
+      // Visible squares with scrolling faces, recorded on tile-cache rebuild frames
+      // and redrawn every frame (scroll offsets advance; their matrices stay cached).
+      public var tileAnimSquares_:Vector.<Square>;
       public var signalRenderSwitch:Signal;
       public var wasLastFrameGpu:Boolean = false;
       public var movesRequested_:int;
@@ -120,6 +126,7 @@ public class Map extends Sprite
          this.screenCenterW_ = new Point();
          this.visibleSquares_ = new Vector.<Square>();
          this.topSquares_ = new Vector.<Square>();
+         this.tileAnimSquares_ = new Vector.<Square>();
          super();
          this.gs_ = gs;
          this.hurtOverlay_ = new HurtOverlay();
@@ -207,6 +214,7 @@ public class Map extends Sprite
          // them here replayed a full-page atlas upload storm on every map change. Compact only the
          // individual-texture LRU. Per-instance fill state is strong-keyed and must still go.
          TextureFactory.onMapChange();
+         StaticInjectorContext.getInjector().getInstance(Graphic3D).invalidateTileCache();
          GraphicsFillExtra.dispose();
       }
 
@@ -305,6 +313,7 @@ public class Map extends Sprite
          var n:Square = null;
          var square:Square = this.getSquare(x,y);
          square.setTileType(tileType);
+         this.tileVersion_++;
          var xend:int = x < this.width_ - 1? x + 1 : x;
          var yend:int = y < this.height_ - 1? y + 1 : y;
          for(var xi:int = x > 0 ? x - 1: x; xi <= xend; xi++)
@@ -523,6 +532,53 @@ public class Map extends Sprite
          return still;
       }
 
+      // One tile emission pass over the visible rect. Books every visible square
+      // (lastVisible_, visibleSquares_, topSquares_) but draws only squares whose
+      // animated status matches animatedPass, so pass 1 (false) emits the purely
+      // static prefix consumed by the tile cache and pass 2 (true) the scrollers
+      // (also recorded into tileAnimSquares_ for cache-hit frames).
+      private function drawTilePass(squares:Vector.<Square>, graphicsData:Vector.<IGraphicsData>,
+         camera:Camera, time:int, centerX:Number, centerY:Number, maxDistSq:Number,
+         xStart:int, xEnd:int, yStart:int, yEnd:int, animatedPass:Boolean) : void
+      {
+         var square:Square = null;
+         var dX:Number = NaN;
+         var dY:Number = NaN;
+         var distSq:Number = NaN;
+         for(var xi:int = xStart; xi <= xEnd; xi++)
+         {
+            for(var yi:int = yStart; yi <= yEnd; yi++)
+            {
+               square = squares[xi + yi * this.width_];
+               if(square == null)
+               {
+                  continue;
+               }
+               dX = centerX - square.center_.x;
+               dY = centerY - square.center_.y;
+               distSq = dX * dX + dY * dY;
+               if(distSq > maxDistSq)
+               {
+                  continue;
+               }
+               square.lastVisible_ = time;
+               if(square.isAnimated() == animatedPass)
+               {
+                  square.draw(graphicsData,camera,time);
+                  if(animatedPass)
+                  {
+                     this.tileAnimSquares_.push(square);
+                  }
+               }
+               this.visibleSquares_.push(square);
+               if(square.topFace_ != null)
+               {
+                  this.topSquares_.push(square);
+               }
+            }
+         }
+      }
+
       public function draw(camera:Camera, time:int) : void
       {
          var isGpuRender:Boolean = Parameters.isGpuRender(); // cache result for faster access
@@ -547,10 +603,6 @@ public class Map extends Sprite
          var square:Square = null;
          var go:GameObject = null;
          var bo:BasicObject = null;
-         var yi:int = 0;
-         var dX:Number = NaN;
-         var dY:Number = NaN;
-         var distSq:Number = NaN;
          var b:Number = NaN;
          var t:Number = NaN;
          var d:Number = NaN;
@@ -576,8 +628,10 @@ public class Map extends Sprite
 
          this.visible_.length = 0;
          this.visibleUnder_.length = 0;
-         this.visibleSquares_.length = 0;
-         this.topSquares_.length = 0;
+         // NB: visibleSquares_/topSquares_ persist across tile-cache hits (cleared in
+         // the miss branch below). Clearing them here starved the hit path: nothing
+         // repopulated them, so lastVisible_ restamping touched zero squares and the
+         // collect phase culled every entity, model and top tile.
 
          var delta:int = camera.maxDist_;
          var xStart:int = Math.max(0,screenCenterW.x - delta);
@@ -590,37 +644,86 @@ public class Map extends Sprite
 
          // Visible tiles. With a still camera every tile matrix is identical to last
          // frame (see cameraStill below); Face3D then re-pushes its cached triple.
+         // Pass 1 draws fully static squares (the Graphic3D tile-cache prefix) and
+         // pass 2 the scrolling squares, which are redrawn every frame. Static and
+         // scrolling tiles are coplanar and non-overlapping, so grouping them only
+         // changes which tile wins sub-pixel seam ties.
          FrameProfiler.begin(FrameProfiler.TILES);
-         Face3D.skipMatrixCompute = this.cameraStill(camera);
+         var still:Boolean = this.cameraStill(camera);
+         // skipMatrixCompute is assigned per-branch below, not here. Miss frames
+         // must recompute (false): scroll-hit frames skip the static Face3D walk,
+         // leaving static caches at snapshot-base positions, so a still-miss right
+         // after moving (stop) must NOT reuse them as if they were last frame's.
          var squares:Vector.<Square> = this.squares_;
          var graphicsData:Vector.<IGraphicsData> = this.graphicsData_;
          var maxDistSq:Number = camera.maxDistSq_;
          var centerX:Number = screenCenterW.x;
          var centerY:Number = screenCenterW.y;
-         for(var xi:int = xStart; xi <= xEnd; xi++)
+         var tileGraphic:Graphic3D = StaticInjectorContext.getInjector().getInstance(Graphic3D);
+         var gpuTilePath:Boolean = isGpuRender && Renderer.inGame;
+         // Batch verts bake the NDC transform, so the cache key includes every input
+         // cameraStill cannot see: backbuffer size, zoom, centering and game state.
+         var viewKey:String = screenRect.x + "|" + screenRect.y + "|" + screenRect.width + "|" + screenRect.height + "|"
+            + WebMain.STAGE.stageWidth + "|" + WebMain.STAGE.stageHeight + "|" + WebMain.hudWidth() + "|"
+            + Parameters.data_.mscale + "|" + Parameters.data_.stageScale + "|"
+            + Parameters.data_.centerOnPlayer + "|" + Renderer.inGame;
+         // wToSScratch_ holds the current camera raw (see cameraStill above); passed
+         // by reference and copied inside checkTileCache, so no per-frame alloc.
+         var tileCacheHit:Boolean = tileGraphic.checkTileCache(this,this.tileVersion_,still,gpuTilePath,viewKey,this.wToSScratch_);
+         if(tileCacheHit)
          {
-            for(yi = yStart; yi <= yEnd; yi++)
+            // Still hit: identical camera, same static quads. Scroll hit: small pure
+            // translation; the snapshot covers the same integer tile range plus the
+            // snapshot overdraw margin, so shifting its verts (see primeTileCache)
+            // reproduces the rebuild. Either way restamp visibility (entity culling
+            // reads lastVisible_) and redraw only the scrollers; their matrices are
+            // recomputed when moving (skipMatrixCompute false) and cached when still.
+            // Scroll-hit frames leave static Face3D caches untouched (stale base).
+            Face3D.skipMatrixCompute = still;
+            Face3D.clipMargin_ = 10;
+            var hitSquares:Vector.<Square> = this.visibleSquares_;
+            var hitCount:int = hitSquares.length;
+            for(var hi:int = 0; hi < hitCount; hi++)
             {
-               square = squares[xi + yi * this.width_];
-               if(square != null)
-               {
-                  dX = centerX - square.center_.x;
-                  dY = centerY - square.center_.y;
-                  distSq = dX * dX + dY * dY;
-                  if(distSq <= maxDistSq)
-                  {
-                     square.lastVisible_ = time;
-                     square.draw(graphicsData,camera,time);
-                     this.visibleSquares_.push(square);
-                     if(square.topFace_ != null)
-                     {
-                        this.topSquares_.push(square);
-                     }
-                  }
-               }
+               hitSquares[hi].lastVisible_ = time;
             }
+            var animSquares:Vector.<Square> = this.tileAnimSquares_;
+            var animCount:int = animSquares.length;
+            for(var ai:int = 0; ai < animCount; ai++)
+            {
+               animSquares[ai].draw(graphicsData,camera,time);
+            }
+            tileGraphic.tileStaticEnd_ = 0;
+         }
+         else
+         {
+            this.tileAnimSquares_.length = 0;
+            this.visibleSquares_.length = 0;
+            this.topSquares_.length = 0;
+            // Static prefix overdraws for scroll coverage: widen the clip margin
+            // (Face3D) and the tile range + radial cull by 2 tiles so scrolls up to
+            // TILE_SCROLL_MAX_PX stay inside the snapshot. Animated tiles keep the
+            // tight margin (redrawn every frame anyway).
+            var staticDelta:Number = delta + 2;
+            var sxStart:int = Math.max(0,centerX - staticDelta);
+            var sxEnd:int = Math.min(this.width_ - 1,centerX + staticDelta);
+            var syStart:int = Math.max(0,centerY - staticDelta);
+            var syEnd:int = Math.min(this.height_ - 1,centerY + staticDelta);
+            var staticMaxDist:Number = camera.maxDist_ + 2;
+            var staticMaxDistSq:Number = staticMaxDist * staticMaxDist;
+            // Miss: always recompute (see note above); the static caches may be
+            // stale from skipped scroll-hit frames, never last frame's.
+            Face3D.skipMatrixCompute = false;
+            Face3D.clipMargin_ = Face3D.TILE_SNAPSHOT_MARGIN;
+            this.drawTilePass(squares,graphicsData,camera,time,centerX,centerY,staticMaxDistSq,
+               sxStart,sxEnd,syStart,syEnd,false);
+            Face3D.clipMargin_ = 10;
+            tileGraphic.tileStaticEnd_ = graphicsData.length;
+            this.drawTilePass(squares,graphicsData,camera,time,centerX,centerY,maxDistSq,
+               xStart,xEnd,yStart,yEnd,true);
          }
          Face3D.skipMatrixCompute = false;
+         Face3D.clipMargin_ = 10;
          FrameProfiler.end(FrameProfiler.TILES);
 
          // visibility + screen-space depth for every object
@@ -744,9 +847,12 @@ public class Map extends Sprite
          }
          FrameProfiler.end(FrameProfiler.DRAW_OBJECTS);
 
-         // draw top squares (static geometry like tiles: same still-camera shortcut)
+         // draw top squares (static geometry like tiles: same still-camera shortcut;
+         // reuse the frame's still verdict: calling cameraStill again here would
+         // always hit (it just snapshotted), freezing tops while moving).
          FrameProfiler.begin(FrameProfiler.TOP_TILES);
-         Face3D.skipMatrixCompute = this.cameraStill(camera);
+         Face3D.skipMatrixCompute = still;
+         Face3D.clipMargin_ = 10;
          var topSquares:Vector.<Square> = this.topSquares_;
          n = topSquares.length;
          for(i = 0; i < n; i++)
