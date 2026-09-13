@@ -39,6 +39,7 @@ import flash.display.IGraphicsData;
    import flash.geom.ColorTransform;
    import flash.geom.Matrix;
    import flash.geom.Point;
+   import flash.geom.Utils3D;
    import flash.geom.Vector3D;
    import flash.utils.Dictionary;
    import flash.utils.getQualifiedClassName;
@@ -1063,13 +1064,22 @@ public class GameObject extends BasicObject
          }
          if(this.props_.drawOnGround_)
          {
-            if(square_.faces_.length == 0)
+            // Project the ground quad fresh every frame into object-own storage.
+            // Reading the tile face's vout_ here went stale on tile-cache hit
+            // frames (the static walk is skipped, so vout_ sits at snapshot-base
+            // positions) and faces built-but-never-drawn (animated squares in the
+            // snapshot overdraw ring) left vout_ empty -> RangeError #1125 in
+            // calculateTextureMatrix. Same per-frame cost as before (one project
+            // plus one texture-matrix solve, previously split across the tile walk
+            // and this call); vS_ reuse is safe, this branch returns early.
+            if(square_.faces_.length == 0 || square_.baseTexMatrix_ == null)
             {
                return;
             }
-            this.path_.data = square_.faces_[0].face_.vout_;
+            Utils3D.projectVectors(camera.wToS_,square_.vin_,this.vS_,square_.faces_[0].face_.uvt_);
+            this.path_.data = this.vS_;
             this.bitmapFill_.bitmapData = texture;
-            square_.baseTexMatrix_.calculateTextureMatrix(this.path_.data);
+            square_.baseTexMatrix_.calculateTextureMatrix(this.vS_);
             this.bitmapFill_.matrix = square_.baseTexMatrix_.tToS_;
             graphicsData.push(this.bitmapFill_);
             graphicsData.push(this.path_);

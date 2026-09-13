@@ -26,6 +26,7 @@ import com.company.ui.SimpleText;
    import com.company.util.PointUtil;
    import com.company.util.Trig;
    import flash.display.BitmapData;
+   import flash.display.GraphicsBitmapFill;
    import flash.display.GraphicsPath;
    import flash.display.GraphicsSolidFill;
    import flash.display.IGraphicsData;
@@ -133,6 +134,15 @@ import org.swiftsuspenders.Injector;
       private var breathBackPath_:GraphicsPath = null;
       private var breathFill_:GraphicsSolidFill = null;
       private var breathPath_:GraphicsPath = null;
+      // GPU twins of the software breath bars (see drawBreathBarGPU).
+      private var breathBackBitmap_:GraphicsBitmapFill = null;
+      private var breathBitmap_:GraphicsBitmapFill = null;
+      // Shared 1x1s for the twins. The fill is a constant color baked into texels;
+      // the back pulses every frame, so it stays white and is re-tinted each frame
+      // (re-registration is immune to manageSize discards, like hit-flash).
+      // Dedicated texels, never shared with another tint user.
+      private static var breathTexWhite_:BitmapData = null;
+      private static var breathTexFill_:BitmapData = null;
       private var hallucinatingMaskedImage_:MaskedImage = null;
       
       public function Player(objectXML:XML)
@@ -621,6 +631,52 @@ import org.swiftsuspenders.Injector;
          return nameBitmapData;
       }
       
+      // GPU twin of the software breath bar below: identical rects and colors, as atlas
+      // quads. Paths ride along untouched (layout uniformity) but are unread.
+      private function drawBreathBarGPU(graphicsData:Vector.<IGraphicsData>) : void
+      {
+         var w:int = DEFAULT_HP_BAR_WIDTH;
+         var yOffset:int = DEFAULT_HP_BAR_Y_OFFSET + DEFAULT_HP_BAR_HEIGHT;
+         var h:int = DEFAULT_HP_BAR_HEIGHT;
+         var x0:Number = posS_[0];
+         var y0:Number = posS_[1] + yOffset;
+         if(breathTexWhite_ == null)
+         {
+            breathTexWhite_ = new BitmapData(1,1,true,0xFFFFFFFF);
+            breathTexFill_ = new BitmapData(1,1,true,0xFF000000 | 2542335);
+         }
+         var back:GraphicsBitmapFill = this.breathBackBitmap_;
+         back.bitmapData = breathTexWhite_;
+         var bc:uint = this.breathBackFill_.color;
+         GraphicsFillExtra.setColorTransform(breathTexWhite_,new ColorTransform(0,0,0,1,bc >> 16 & 255,bc >> 8 & 255,bc & 255,0));
+         var m:Matrix = back.matrix;
+         m.a = 2 * w;
+         m.b = 0;
+         m.c = 0;
+         m.d = h;
+         m.tx = x0 - w;
+         m.ty = y0;
+         graphicsData.push(back);
+         graphicsData.push(this.breathBackPath_);
+         graphicsData.push(GraphicsUtil.END_FILL);
+         if(this.breath_ > 0)
+         {
+            var bw:Number = this.breath_ / 100 * 2 * w;
+            var fill:GraphicsBitmapFill = this.breathBitmap_;
+            fill.bitmapData = breathTexFill_;
+            m = fill.matrix;
+            m.a = bw;
+            m.b = 0;
+            m.c = 0;
+            m.d = h;
+            m.tx = x0 - w;
+            m.ty = y0;
+            graphicsData.push(fill);
+            graphicsData.push(this.breathPath_);
+            graphicsData.push(GraphicsUtil.END_FILL);
+         }
+      }
+
       protected function drawBreathBar(graphicsData:Vector.<IGraphicsData>, time:int) : void
       {
          var b:Number = NaN;
@@ -631,6 +687,8 @@ import org.swiftsuspenders.Injector;
             this.breathBackPath_ = new GraphicsPath(GraphicsUtil.QUAD_COMMANDS,new Vector.<Number>());
             this.breathFill_ = new GraphicsSolidFill(2542335);
             this.breathPath_ = new GraphicsPath(GraphicsUtil.QUAD_COMMANDS,new Vector.<Number>());
+            this.breathBackBitmap_ = new GraphicsBitmapFill(null,new Matrix(),false,false);
+            this.breathBitmap_ = new GraphicsBitmapFill(null,new Matrix(),false,false);
          }
          if(this.breath_ <= Parameters.BREATH_THRESH)
          {
@@ -640,6 +698,11 @@ import org.swiftsuspenders.Injector;
          else
          {
             this.breathBackFill_.color = 5526612;
+         }
+         if(Parameters.GPURenderFrame)
+         {
+            this.drawBreathBarGPU(graphicsData);
+            return;
          }
          var w:int = DEFAULT_HP_BAR_WIDTH;
          var yOffset:int = DEFAULT_HP_BAR_Y_OFFSET + DEFAULT_HP_BAR_HEIGHT;

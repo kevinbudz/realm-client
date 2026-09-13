@@ -13,7 +13,6 @@ import flash.display.IGraphicsData;
 import flash.geom.ColorTransform;
 import flash.geom.Matrix;
 import flash.geom.Vector3D;
-import kabam.rotmg.stage3D.GraphicsFillExtra;
 
 public class ObjectFace3D
 {
@@ -125,10 +124,6 @@ public class ObjectFace3D
       }
       graphicsData.push(this.path_);
       graphicsData.push(GraphicsUtil.END_FILL);
-      /*if(this.softwareException_ && Parameters._isGpuRender() && this.bitmapFill_ != null)
-      {
-         GraphicsFillExtra.setSoftwareDraw(this.bitmapFill_,true);
-      }*/
    }
 
    private function tToS(texture:BitmapData) : Matrix
