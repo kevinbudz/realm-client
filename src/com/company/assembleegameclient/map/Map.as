@@ -30,6 +30,7 @@ import kabam.rotmg.stage3D.GraphicsFillExtra;
 import kabam.rotmg.stage3D.Object3D.Object3DStage3D;
 import kabam.rotmg.stage3D.Render3D;
 import kabam.rotmg.stage3D.Renderer;
+import kabam.rotmg.stage3D.graphic3D.Graphic3D;
 import kabam.rotmg.stage3D.graphic3D.Program3DFactory;
 import kabam.rotmg.stage3D.graphic3D.TextureFactory;
 
@@ -58,8 +59,8 @@ public class Map extends Sprite
       public var goDict_:Dictionary;
       public var boDict_:Dictionary;
       // Flat lists mirroring goDict_/boDict_ for fast per-frame iteration (Dictionary for-each is slow
-      // in AVM2). Kept sorted by (sortVal_, objectId_) between frames so the per-frame insertion sort
-      // is close to O(n); draw order is identical to the old Array.sortOn.
+      // in AVM2). Storage order is insertion order; draw order comes from natively sorting the small
+      // per-frame visible lists, identical to the old Array.sortOn.
       public var goList_:Vector.<GameObject>;
       public var boList_:Vector.<BasicObject>;
       public var merchLookup_:Object;
@@ -70,7 +71,6 @@ public class Map extends Sprite
       private var objsToAdd_:Vector.<BasicObject>;
       private var idsToRemove_:Vector.<int>;
       private var graphicsData_:Vector.<IGraphicsData>;
-      private var graphicsDataStageSoftware_:Vector.<IGraphicsData>;
       private var graphicsData3d_:Vector.<Object3DStage3D>;
       private var lastSoftwareClear:Boolean = false;
       public var visible_:Vector.<BasicObject>;
@@ -103,7 +103,6 @@ public class Map extends Sprite
          this.objsToAdd_ = new Vector.<BasicObject>();
          this.idsToRemove_ = new Vector.<int>();
          this.graphicsData_ = new Vector.<IGraphicsData>();
-         this.graphicsDataStageSoftware_ = new Vector.<IGraphicsData>();
          this.graphicsData3d_ = new Vector.<Object3DStage3D>();
          this.visible_ = new Vector.<BasicObject>();
          this.visibleUnder_ = new Vector.<BasicObject>();
@@ -393,64 +392,20 @@ public class Map extends Sprite
          delete dict[objectId];
       }
 
-      // Insertion sort by (sortVal_, objectId_) ascending. The lists persist across frames and
-      // screen-space depth changes little between frames, so this is ~O(n) in practice.
-      private static function sortGameObjects(v:Vector.<GameObject>) : void
+      // Draw-order comparator for (sortVal_, objectId_) ascending, identical to the old
+      // Array.sortOn(VISIBLE_SORT_FIELDS). Used with the native Vector.sort on the small
+      // per-frame visible lists only; the goList_/boList_ storage vectors are never sorted.
+      private static function compareDrawOrder(a:BasicObject, b:BasicObject) : int
       {
-         var n:int = v.length;
-         var cur:GameObject = null;
-         var prev:GameObject = null;
-         var curSort:int = 0;
-         var curId:int = 0;
-         var j:int = 0;
-         for(var i:int = 1; i < n; i++)
+         if(a.sortVal_ != b.sortVal_)
          {
-            cur = v[i];
-            curSort = cur.sortVal_;
-            curId = cur.objectId_;
-            j = i - 1;
-            prev = v[j];
-            while(prev.sortVal_ > curSort || prev.sortVal_ == curSort && prev.objectId_ > curId)
-            {
-               v[j + 1] = prev;
-               j--;
-               if(j < 0)
-               {
-                  break;
-               }
-               prev = v[j];
-            }
-            v[j + 1] = cur;
+            return a.sortVal_ < b.sortVal_ ? -1 : 1;
          }
-      }
-
-      private static function sortBasicObjects(v:Vector.<BasicObject>) : void
-      {
-         var n:int = v.length;
-         var cur:BasicObject = null;
-         var prev:BasicObject = null;
-         var curSort:int = 0;
-         var curId:int = 0;
-         var j:int = 0;
-         for(var i:int = 1; i < n; i++)
+         if(a.objectId_ != b.objectId_)
          {
-            cur = v[i];
-            curSort = cur.sortVal_;
-            curId = cur.objectId_;
-            j = i - 1;
-            prev = v[j];
-            while(prev.sortVal_ > curSort || prev.sortVal_ == curSort && prev.objectId_ > curId)
-            {
-               v[j + 1] = prev;
-               j--;
-               if(j < 0)
-               {
-                  break;
-               }
-               prev = v[j];
-            }
-            v[j + 1] = cur;
+            return a.objectId_ < b.objectId_ ? -1 : 1;
          }
+         return 0;
       }
 
       // Merge two sorted vectors into `out` preserving (sortVal_, objectId_) order.
@@ -577,7 +532,6 @@ public class Map extends Sprite
          var yEnd:int = Math.min(this.height_ - 1,screenCenterW.y + delta);
 
          this.graphicsData_.length = 0;
-         this.graphicsDataStageSoftware_.length = 0;
          this.graphicsData3d_.length = 0;
 
          // visible tiles
@@ -648,10 +602,11 @@ public class Map extends Sprite
          }
          FrameProfiler.end(FrameProfiler.COLLECT);
 
-         // sort (nearly-sorted persistent lists), then split/merge into draw lists
+         // Collect the visible objects in storage order, then natively sort just the
+         // small visible lists. Sorting goList_/boList_ wholesale here used to dominate
+         // the frame under projectile-heavy load (interpreter insertion sort is O(n^2)
+         // once fast movers and constant spawn/despawn defeat the nearly-sorted case).
          FrameProfiler.begin(FrameProfiler.SORT);
-         sortGameObjects(goList);
-         sortBasicObjects(boList);
          this.visibleGo_.length = 0;
          this.visibleBo_.length = 0;
          n = goList.length;
@@ -687,10 +642,13 @@ public class Map extends Sprite
                this.visibleBo_.push(bo);
             }
          }
+         this.visibleGo_.sort(compareDrawOrder);
+         this.visibleBo_.sort(compareDrawOrder);
+         this.visibleUnder_.sort(compareDrawOrder);
          mergeSorted(this.visibleGo_,this.visibleBo_,this.visible_);
          FrameProfiler.end(FrameProfiler.SORT);
 
-         // draw visible under (already sorted: built in order from the sorted goList_)
+         // draw visible under (sorted above; storage order is no longer sorted)
          FrameProfiler.begin(FrameProfiler.DRAW_UNDER);
          var visibleUnder:Vector.<BasicObject> = this.visibleUnder_;
          n = visibleUnder.length;
@@ -782,33 +740,13 @@ public class Map extends Sprite
             render3D = StaticInjectorContext.getInjector().getInstance(Render3D);
             render3D.dispatch(this.graphicsData_,this.graphicsData3d_,width_,height_,camera,filter);
             FrameProfiler.begin(FrameProfiler.GPU_SOFTWARE);
-            var gfxCount:int = graphicsData.length;
-            var gfxItem:IGraphicsData = null;
-            var bmpFill:GraphicsBitmapFill = null;
-            var solidFill:GraphicsSolidFill = null;
-            var softwareData:Vector.<IGraphicsData> = this.graphicsDataStageSoftware_;
-            for(i = 0; i < gfxCount; i++)
-            {
-               gfxItem = graphicsData[i];
-               bmpFill = gfxItem as GraphicsBitmapFill;
-               if(bmpFill != null)
-               {
-                  if(GraphicsFillExtra.isSoftwareDraw(bmpFill))
-                  {
-                     softwareData.push(gfxItem,graphicsData[i + 1],graphicsData[i + 2]);
-                  }
-                  continue;
-               }
-               solidFill = gfxItem as GraphicsSolidFill;
-               if(solidFill != null && GraphicsFillExtra.isSoftwareDrawSolid(solidFill))
-               {
-                  softwareData.push(gfxItem,graphicsData[i + 1],graphicsData[i + 2]);
-               }
-            }
-            if(this.graphicsDataStageSoftware_.length > 0)
+            // Software triples were already classified during the renderer's phase-1 walk
+            // (Graphic3D.pushSoftware); blit them without re-scanning the graphics data.
+            var softwareData:Vector.<IGraphicsData> = StaticInjectorContext.getInjector().getInstance(Graphic3D).softwareData;
+            if(softwareData.length > 0)
             {
                map_.graphics.clear();
-               map_.graphics.drawGraphicsData(this.graphicsDataStageSoftware_);
+               map_.graphics.drawGraphicsData(softwareData);
                if(this.lastSoftwareClear)
                {
                   this.lastSoftwareClear = false;

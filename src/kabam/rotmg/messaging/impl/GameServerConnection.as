@@ -1302,7 +1302,7 @@ import kabam.rotmg.ui.view.NotEnoughGoldDialog;
                   go.hp_ = value;
                   continue;
                case StatData.SIZE_STAT:
-                  go.size_ = value;
+                  go.setSize(value);
                   continue;
                case StatData.MAX_MP_STAT:
                   if(this.skipWrongTypeStat(go,player,stat.statType_,"Player"))

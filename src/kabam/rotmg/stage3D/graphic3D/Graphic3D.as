@@ -4,6 +4,7 @@ package kabam.rotmg.stage3D.graphic3D
    import flash.display.BitmapData;
    import flash.display.GraphicsBitmapFill;
    import flash.display.GraphicsGradientFill;
+   import flash.display.IGraphicsData;
    import flash.display3D.Context3D;
    import flash.display3D.Context3DBufferUsage;
    import flash.display3D.Context3DProgramType;
@@ -116,6 +117,9 @@ package kabam.rotmg.stage3D.graphic3D
       public var cmdType:Vector.<int>;
       public var cmdArg:Vector.<int>;
       public var cmdCount:int = 0;
+      // Software-rasterized triples (fill, path, end) collected during the phase-1 walk so the
+      // caller can blit them on the display list without re-scanning the frame's graphics data.
+      public var softwareData:Vector.<IGraphicsData>;
       private var runFirstQuad:Vector.<int>;
       private var runQuadCount:Vector.<int>;
       private var runTexture:Vector.<TextureBase>;
@@ -139,6 +143,7 @@ package kabam.rotmg.stage3D.graphic3D
          this.offsetScratch = new Vector.<Number>(4, true);
          this.cmdType = new Vector.<int>();
          this.cmdArg = new Vector.<int>();
+         this.softwareData = new Vector.<IGraphicsData>();
          this.runFirstQuad = new Vector.<int>();
          this.runQuadCount = new Vector.<int>();
          this.runTexture = new Vector.<TextureBase>();
@@ -212,6 +217,16 @@ package kabam.rotmg.stage3D.graphic3D
          this.cmdCount = 0;
          this.runCount = 0;
          this.runOpen = false;
+         this.softwareData.length = 0;
+      }
+
+      /**
+       * Record one software-rasterized triple (fill at `index`, plus its path and end items).
+       * Called by the phase-1 walk, which already evaluates the software predicate per item.
+       */
+      public function pushSoftware(graphicsDatas:Vector.<IGraphicsData>, index:int) : void
+      {
+         this.softwareData.push(graphicsDatas[index],graphicsDatas[index + 1],graphicsDatas[index + 2]);
       }
 
       private function createBatchBuffers(c3d:Context3D, capacity:int) : void

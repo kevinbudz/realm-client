@@ -292,6 +292,16 @@ public class GameObject extends BasicObject
          this.texturingCache_ = new Dictionary();
          this.portrait_ = null;
       }
+
+      public function setSize(size:int) : void
+      {
+         if(size == this.size_)
+         {
+            return;
+         }
+         this.size_ = size;
+         this.texturingCache_ = new Dictionary();
+      }
       
       override public function dispose() : void
       {

@@ -8,6 +8,7 @@ package kabam.rotmg.stage3D
    import flash.display3D.Context3DCompareMode;
    import flash.events.ErrorEvent;
    import flash.events.Event;
+   import kabam.rotmg.stage3D.graphic3D.Graphic3D;
    import kabam.rotmg.stage3D.graphic3D.Graphic3DHelper;
    import kabam.rotmg.stage3D.graphic3D.IndexBufferFactory;
    import kabam.rotmg.stage3D.graphic3D.TextureFactory;
@@ -55,6 +56,7 @@ package kabam.rotmg.stage3D
       private function mapSingletons() : void
       {
          this.injector.map(Render3D).asSingleton();
+         this.injector.map(Graphic3D).asSingleton();
          this.injector.map(TextureFactory).asSingleton();
          this.injector.map(IndexBufferFactory).asSingleton();
          this.injector.map(VertexBufferFactory).asSingleton();

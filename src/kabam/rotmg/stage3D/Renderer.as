@@ -7,6 +7,7 @@ package kabam.rotmg.stage3D
    import com.company.assembleegameclient.util.FrameProfiler;
    import flash.display.GraphicsBitmapFill;
    import flash.display.GraphicsGradientFill;
+   import flash.display.GraphicsSolidFill;
    import flash.display.IGraphicsData;
    import flash.display.Stage3D;
    import flash.display.StageScaleMode;
@@ -315,7 +316,8 @@ package kabam.rotmg.stage3D
       
       /**
        * Two-phase scene render. Phase 1 walks graphicsDatas in order, batching ordinary sprite
-       * quads (Graphic3D.batchQuad) and recording everything else as a command at its position.
+       * quads (Graphic3D.batchQuad), recording everything else as a command at its position, and
+       * collecting software-rasterized triples (Graphic3D.pushSoftware) for the display-list blit.
        * New atlas sprites are then uploaded, the render target (back buffer or `target`) is bound
        * and cleared, and phase 2 replays the commands: one drawTriangles per run of batched quads,
        * and the unchanged per-item paths for shadows, 3D models and custom-vertex-buffer quads.
@@ -346,6 +348,7 @@ package kabam.rotmg.stage3D
          var c3d:Context3D = this.context3D.GetContext3D();
          var g:Graphic3D = this.graphic3D_;
          var bitmapFill:GraphicsBitmapFill = null;
+         var solidFill:GraphicsSolidFill = null;
          var n:int = graphicsDatas.length;
 
          // ---- phase 1: batch sprite quads, record everything else in order ----
@@ -359,6 +362,9 @@ package kabam.rotmg.stage3D
             {
                if(GraphicsFillExtra.isSoftwareDraw(bitmapFill))
                {
+                  // Already classified; record the triple for the display-list blit so the
+                  // caller does not have to scan the frame's graphics data a second time.
+                  g.pushSoftware(graphicsDatas,gi);
                   continue;
                }
                try
@@ -379,6 +385,16 @@ package kabam.rotmg.stage3D
             if(graphicsData is GraphicsGradientFill)
             {
                g.batchMark(Graphic3D.CMD_SHADOW,gi);
+               continue;
+            }
+            solidFill = graphicsData as GraphicsSolidFill;
+            if(solidFill != null)
+            {
+               // Solid fills have no GPU path; record the software ones for the blit.
+               if(GraphicsFillExtra.isSoftwareDrawSolid(solidFill))
+               {
+                  g.pushSoftware(graphicsDatas,gi);
+               }
                continue;
             }
             if(graphicsData == null && grahpicsData3d.length != 0)
