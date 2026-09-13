@@ -669,8 +669,7 @@ public class Map extends Sprite
             + Parameters.data_.centerOnPlayer + "|" + Renderer.inGame;
          // wToSScratch_ holds the current camera raw (see cameraStill above); passed
          // by reference and copied inside checkTileCache, so no per-frame alloc.
-         // screenRect likewise (copied to the pending clip for the cull window).
-         var tileCacheHit:Boolean = tileGraphic.checkTileCache(this,this.tileVersion_,still,gpuTilePath,viewKey,this.wToSScratch_,screenRect);
+         var tileCacheHit:Boolean = tileGraphic.checkTileCache(this,this.tileVersion_,still,gpuTilePath,viewKey,this.wToSScratch_);
          if(tileCacheHit)
          {
             // Still hit: identical camera, same static quads. Scroll hit: small pure
@@ -702,17 +701,15 @@ public class Map extends Sprite
             this.visibleSquares_.length = 0;
             this.topSquares_.length = 0;
             // Static prefix overdraws for scroll coverage: widen the clip margin
-            // (Face3D) and the tile range + radial cull by 1 tile so scrolls up to
-            // TILE_SCROLL_MAX_PX stay inside the snapshot. Both passes walk the
-            // same enlarged box (animated keeps the tight clip margin): mismatched
-            // ranges left animated squares in the ring built-but-never-drawn with
-            // empty vout_, and froze their scrolling on hit frames.
-            var staticDelta:Number = delta + 1;
+            // (Face3D) and the tile range + radial cull by 2 tiles so scrolls up to
+            // TILE_SCROLL_MAX_PX stay inside the snapshot. Animated tiles keep the
+            // tight margin (redrawn every frame anyway).
+            var staticDelta:Number = delta + 2;
             var sxStart:int = Math.max(0,centerX - staticDelta);
             var sxEnd:int = Math.min(this.width_ - 1,centerX + staticDelta);
             var syStart:int = Math.max(0,centerY - staticDelta);
             var syEnd:int = Math.min(this.height_ - 1,centerY + staticDelta);
-            var staticMaxDist:Number = camera.maxDist_ + 1;
+            var staticMaxDist:Number = camera.maxDist_ + 2;
             var staticMaxDistSq:Number = staticMaxDist * staticMaxDist;
             // Miss: always recompute (see note above); the static caches may be
             // stale from skipped scroll-hit frames, never last frame's.
@@ -722,8 +719,8 @@ public class Map extends Sprite
                sxStart,sxEnd,syStart,syEnd,false);
             Face3D.clipMargin_ = 10;
             tileGraphic.tileStaticEnd_ = graphicsData.length;
-            this.drawTilePass(squares,graphicsData,camera,time,centerX,centerY,staticMaxDistSq,
-               sxStart,sxEnd,syStart,syEnd,true);
+            this.drawTilePass(squares,graphicsData,camera,time,centerX,centerY,maxDistSq,
+               xStart,xEnd,yStart,yEnd,true);
          }
          Face3D.skipMatrixCompute = false;
          Face3D.clipMargin_ = 10;

@@ -4,7 +4,6 @@ package kabam.rotmg.stage3D.graphic3D
    import flash.display.BitmapData;
    import flash.display.GraphicsBitmapFill;
    import flash.display.GraphicsGradientFill;
-   import flash.display.GraphicsPath;
    import flash.display.IGraphicsData;
    import flash.display3D.Context3D;
    import flash.display3D.Context3DBufferUsage;
@@ -17,7 +16,6 @@ package kabam.rotmg.stage3D.graphic3D
    import flash.geom.ColorTransform;
    import flash.geom.Matrix;
    import flash.geom.Matrix3D;
-   import flash.geom.Rectangle;
    import kabam.rotmg.stage3D.GraphicsFillExtra;
    import kabam.rotmg.stage3D.proxies.Context3DProxy;
    import kabam.rotmg.stage3D.proxies.IndexBuffer3DProxy;
@@ -208,36 +206,10 @@ package kabam.rotmg.stage3D.graphic3D
       public var tileScrollHits_:int = 0;
       public var tileScrollMisses_:int = 0;
       public var tileMisses_:int = 0;
-      // Per-run NDC bboxes (minX,minY,maxX,maxY) for off-screen run culling in
-      // primeTileCache, plus the visible NDC window they are tested against.
-      // Bboxes are snapshot-space; scroll hits shift them by (dx,dy), still hits
-      // use them as-is. Rotation/zoom/resize always miss, so the stored window
-      // (same viewKey inputs as the verts) stays valid for the snapshot's life.
-      private var tileRunBox_:Vector.<Number> = new Vector.<Number>();
-      private var tilePendingClip_:Vector.<Number> = new Vector.<Number>(4, true);
-      private var tileWinX0_:Number = 0;
-      private var tileWinX1_:Number = 0;
-      private var tileWinY0_:Number = 0;
-      private var tileWinY1_:Number = 0;
-      // Per-frame replay stats for the profiler readout (see Renderer): runs
-      // actually emitted as commands, and runs skipped as fully off-screen.
-      // -1 drawn means prime never ran (miss path draws everything: all runs).
-      public var tileDrawnRuns_:int = -1;
-      public var tileCulledRuns_:int = 0;
-      // Non-run command mix for the profiler readout (see Renderer): per-quad
-      // fallback draws, 3D model draws and shadow marks this frame. Counted only
-      // on the unbatchable path, so batched quads pay nothing for this.
-      public var quadMarks_:int = 0;
-      public var modelMarks_:int = 0;
-      public var shadowMarks_:int = 0;
       // Max pure-translation reuse distance in screen pixels (wToS units, 50 per
       // tile at zoom 1). Static snapshot overdraws the clip rect by a larger
       // margin (see Face3D.clipMargin_), so scrolls within this stay covered.
-      // Sized from profiler data: random-offset grass tiles each form their own
-      // run, so every off-screen margin tile costs a draw call each frame. A
-      // smaller margin halves that tax; the price is a resnapshot (one full tile
-      // walk) roughly every MAX/4px of continuous motion instead of twice as far.
-      private static const TILE_SCROLL_MAX_PX:Number = 32;
+      private static const TILE_SCROLL_MAX_PX:Number = 64;
       
       public function Graphic3D()
       {
@@ -340,11 +312,6 @@ package kabam.rotmg.stage3D.graphic3D
          this.recordingTiles_ = false;
          this.tileTouchPages_.length = 0;
          this.tileTouchProxies_.length = 0;
-         this.tileDrawnRuns_ = -1;
-         this.tileCulledRuns_ = 0;
-         this.quadMarks_ = 0;
-         this.modelMarks_ = 0;
-         this.shadowMarks_ = 0;
          this.lastCtBmd = null;
          this.lastAtlasBmd = null;
          this.lastAtlasEntry = null;
@@ -443,10 +410,6 @@ package kabam.rotmg.stage3D.graphic3D
          this.tileScrollPY_ = 0;
          this.tileScrollDist_ = 0;
          this.tileHasWToS_ = false;
-         this.tileRunBox_.length = 0;
-         this.tileWinX0_ = this.tileWinX1_ = this.tileWinY0_ = this.tileWinY1_ = 0;
-         this.tileDrawnRuns_ = -1;
-         this.tileCulledRuns_ = 0;
          this.tileMap_ = null;
          this.tileAtlas_ = null;
          this.tilePendingMap_ = null;
@@ -480,10 +443,8 @@ package kabam.rotmg.stage3D.graphic3D
        * change or large jump is a miss. Pure decision; priming happens in
        * primeTileCache after batchBegin (so LRU stamps use the current serial).
        * wToS is the camera world-to-screen matrix (16 numbers); null forces a miss.
-       * clip is the camera clip rect in screen (wToS) units; its snapshot copy feeds
-       * the run-cull window, so it is only read on miss frames (copied, never kept).
        */
-      public function checkTileCache(map:Object, version:int, still:Boolean, gpu:Boolean, viewKey:String, wToS:Vector.<Number>, clip:Rectangle) : Boolean
+      public function checkTileCache(map:Object, version:int, still:Boolean, gpu:Boolean, viewKey:String, wToS:Vector.<Number>) : Boolean
       {
          // !gpu forces a miss (and clears a stale hit): software frames emit the full
          // spatial triple stream, so priming a snapshot would double-draw statics.
@@ -598,13 +559,6 @@ package kabam.rotmg.stage3D.graphic3D
             this.tilePendingVersion_ = version;
             this.tilePendingStill_ = still;
             this.tilePendingViewKey_ = viewKey;
-            if(clip != null)
-            {
-               this.tilePendingClip_[0] = clip.x;
-               this.tilePendingClip_[1] = clip.y;
-               this.tilePendingClip_[2] = clip.width;
-               this.tilePendingClip_[3] = clip.height;
-            }
             if(wToS != null)
             {
                for(var pi:int = 0; pi < 16; pi++)
@@ -677,48 +631,19 @@ package kabam.rotmg.stage3D.graphic3D
             this.tileSwapped_ = true;
             this.batchQuads = this.tileQuads_;
          }
-         // Re-emit tile runs, skipping runs fully outside the stored visible
-         // window (off-screen overdraw margin on every hit frame). Run ids stay
-         // stable (runCount keeps the full id space for the dynamic suffix), only
-         // emitted commands shrink. runConst is intentionally not restored: tile
-         // content is version-guarded identical, so the ids reused here still hold
-         // the snapshot's constants from the last rebuild.
          var runs:int = this.tileRuns_;
-         var cdx:Number = this.tileScrollHit_ ? this.tileScrollDX_ : 0;
-         var cdy:Number = this.tileScrollHit_ ? this.tileScrollDY_ : 0;
-         var emit:int = 0;
-         var lastEmit:int = -1;
-         var bx:Vector.<Number> = this.tileRunBox_;
-         var hasBox:Boolean = bx.length >= runs * 4;
          for(var i:int = 0; i < runs; i++)
          {
             this.runFirstQuad[i] = this.tileRunFirst_[i];
             this.runQuadCount[i] = this.tileRunCount_[i];
             this.runTexture[i] = this.tileRunTex_[i];
             this.runRepeat[i] = this.tileRunRep_[i];
-            // No bbox (old snapshot from before this feature): draw everything.
-            var visible:Boolean = !hasBox;
-            if(hasBox)
-            {
-               var b:int = i * 4;
-               visible = !(bx[b] + cdx > this.tileWinX1_ || bx[b + 2] + cdx < this.tileWinX0_
-                  || bx[b + 1] + cdy > this.tileWinY1_ || bx[b + 3] + cdy < this.tileWinY0_);
-            }
-            if(visible)
-            {
-               this.cmdType[emit] = CMD_RUN;
-               this.cmdArg[emit] = i;
-               emit++;
-               lastEmit = i;
-            }
+            this.cmdType[i] = CMD_RUN;
+            this.cmdArg[i] = i;
          }
          this.runCount = runs;
-         this.cmdCount = emit;
-         // A merged dynamic suffix may only extend the last run when that run was
-         // actually emitted; extending a culled run would draw into the void.
-         this.runOpen = this.tileRunOpen_ && lastEmit == runs - 1;
-         this.tileDrawnRuns_ = emit;
-         this.tileCulledRuns_ = runs - emit;
+         this.cmdCount = runs;
+         this.runOpen = this.tileRunOpen_;
          var pages:Vector.<AtlasPage> = this.tilePages_;
          for(i = 0; i < pages.length; i++)
          {
@@ -805,71 +730,6 @@ package kabam.rotmg.stage3D.graphic3D
          }
          this.tileRuns_ = runs;
          this.tileRunOpen_ = this.runOpen;
-         // Visible NDC window for run culling (same inputs as the verts, so the
-         // stored window stays valid for the snapshot's life: any zoom/resize
-         // changes viewKey and misses). 2px slack so float drift can never clip
-         // a visible edge; culled runs only ever cost vertex upload, never pixels.
-         var hw:Number = this.bHalfW;
-         var hh:Number = this.bHalfH;
-         if(hw == 0 || hh == 0)
-         {
-            this.tileWinX0_ = -1e9;
-            this.tileWinX1_ = 1e9;
-            this.tileWinY0_ = -1e9;
-            this.tileWinY1_ = 1e9;
-         }
-         else
-         {
-            var pc:Vector.<Number> = this.tilePendingClip_;
-            var slx:Number = 2 / hw;
-            var sly:Number = 2 / hh;
-            this.tileWinX0_ = pc[0] / hw + this.bNdcX - slx;
-            this.tileWinX1_ = (pc[0] + pc[2]) / hw + this.bNdcX + slx;
-            this.tileWinY0_ = -(pc[1] + pc[3]) / hh + this.bNdcY - sly;
-            this.tileWinY1_ = -pc[1] / hh + this.bNdcY + sly;
-         }
-         // Per-run NDC bboxes over the snapshot verts (miss frames only).
-         this.tileRunBox_.length = runs * 4;
-         var bdv:Vector.<Number> = this.batchData;
-         for(var br:int = 0; br < runs; br++)
-         {
-            var bq0:int = this.tileRunFirst_[br];
-            var bqn:int = bq0 + this.tileRunCount_[br];
-            var bminx:Number = Number.MAX_VALUE;
-            var bminy:Number = Number.MAX_VALUE;
-            var bmaxx:Number = -Number.MAX_VALUE;
-            var bmaxy:Number = -Number.MAX_VALUE;
-            for(var bq:int = bq0; bq < bqn; bq++)
-            {
-               var bp:int = bq * 20;
-               for(var bv:int = 0; bv < 4; bv++)
-               {
-                  var bxx:Number = bdv[bp + bv * 5];
-                  var byy:Number = bdv[bp + bv * 5 + 1];
-                  if(bxx < bminx)
-                  {
-                     bminx = bxx;
-                  }
-                  if(bxx > bmaxx)
-                  {
-                     bmaxx = bxx;
-                  }
-                  if(byy < bminy)
-                  {
-                     bminy = byy;
-                  }
-                  if(byy > bmaxy)
-                  {
-                     bmaxy = byy;
-                  }
-               }
-            }
-            var bo:int = br * 4;
-            this.tileRunBox_[bo] = bminx;
-            this.tileRunBox_[bo + 1] = bminy;
-            this.tileRunBox_[bo + 2] = bmaxx;
-            this.tileRunBox_[bo + 3] = bmaxy;
-         }
          this.tilePages_.length = 0;
          var tp:Vector.<AtlasPage> = this.tileTouchPages_;
          for(i = 0; i < tp.length; i++)
@@ -1002,13 +862,7 @@ package kabam.rotmg.stage3D.graphic3D
             texBase = entry.page.texture;
             if(this.recordingTiles_)
             {
-               // Coalesce consecutive touches (miss frames only): the snapshot dedups
-               // this list anyway, so only run boundaries add entries. O(runs), not O(quads).
-               var touchPages:Vector.<AtlasPage> = this.tileTouchPages_;
-               if(touchPages.length == 0 || touchPages[touchPages.length - 1] != entry.page)
-               {
-                  touchPages.push(entry.page);
-               }
+               this.tileTouchPages_.push(entry.page);
             }
             w = entry.w;
             h = entry.h;
@@ -1043,12 +897,7 @@ package kabam.rotmg.stage3D.graphic3D
             texBase = tex.getTexture();
             if(this.recordingTiles_)
             {
-               // Same coalescing as the page list above (see comment there).
-               var touchProxies:Vector.<TextureProxy> = this.tileTouchProxies_;
-               if(touchProxies.length == 0 || touchProxies[touchProxies.length - 1] != tex)
-               {
-                  touchProxies.push(tex);
-               }
+               this.tileTouchProxies_.push(tex);
             }
             w = tex.getWidth();
             h = tex.getHeight();
@@ -1183,163 +1032,10 @@ package kabam.rotmg.stage3D.graphic3D
          return true;
       }
 
-      /**
-       * Batch one arbitrary screen-space quad with explicit uvs (wall faces).
-       * Wall side faces are world-space trapezoids (tapered tops), so unlike sprite
-       * quads they are not affine images of the unit square and batchQuad cannot
-       * reproduce them; today each such face costs its own CMD_QUAD draw and splits
-       * the surrounding sprite runs. The fill matrix is still an affine texture-px
-       * to screen-px map fitted to the face, so inverting it yields per-corner uvs
-       * under the exact same affine function the display list evaluates: identical
-       * texels on any triangulation, 1-ulp float drift at most.
-       * Uses the individual-texture route (never the atlas): extrapolated taper uvs
-       * can land outside [0,1], where an atlas slot would bleed neighbor sprites
-       * while the display list clamps/wraps the face's own texture. Same-shade faces
-       * share one proxy/texture, so a whole wall map collapses to a few runs.
-       * Only quad paths (8 numbers) are taken; N-gons, non-pow2 textures (padding
-       * would move the wrap/clamp edge vs the display list), degenerate matrices,
-       * offsets/sinks and batch overflow return false for the legacy CMD_QUAD path.
-       */
-      public function batchGeneralQuad(fill:GraphicsBitmapFill, path:GraphicsPath) : Boolean
-      {
-         var bmd:BitmapData = fill.bitmapData;
-         if(bmd == null || path == null)
-         {
-            return false;
-         }
-         var v:Vector.<Number> = path.data;
-         if(v == null || v.length != 8)
-         {
-            return false;
-         }
-         if((bmd.width & (bmd.width - 1)) != 0 || (bmd.height & (bmd.height - 1)) != 0)
-         {
-            return false;
-         }
-         if(GraphicsFillExtra.hasExtras(fill))
-         {
-            var off:Vector.<Number> = GraphicsFillExtra.getOffsetUV(fill);
-            if(off[0] != 0 || off[1] != 0 || off[2] != 0 || off[3] != 0)
-            {
-               return false;
-            }
-            if(GraphicsFillExtra.getSinkLevel(fill) != 0)
-            {
-               return false;
-            }
-         }
-         var fm:Matrix = fill.matrix;
-         if(fm == null)
-         {
-            return false;
-         }
-         var det:Number = fm.a * fm.d - fm.b * fm.c;
-         if(det > -0.000000001 && det < 0.000000001)
-         {
-            return false;
-         }
-         if(this.batchQuads >= this.batchCapacity)
-         {
-            this.batchOverflow = true;
-            return false;
-         }
-         var tex:TextureProxy = this.textureFactory.make(bmd);
-         if(tex == null)
-         {
-            return true;
-         }
-         var texBase:TextureBase = tex.getTexture();
-         var texW:Number = tex.getWidth();
-         var texH:Number = tex.getHeight();
-         // Inverse texture-px <- screen-px (fill.matrix maps the other way).
-         var ia:Number = fm.d / det;
-         var ib:Number = -fm.b / det;
-         var ic:Number = -fm.c / det;
-         var id:Number = fm.a / det;
-         var itx:Number = (fm.c * fm.ty - fm.d * fm.tx) / det;
-         var ity:Number = (fm.b * fm.tx - fm.a * fm.ty) / det;
-         var hw:Number = this.bHalfW;
-         var hh:Number = this.bHalfH;
-         var nx:Number = this.bNdcX;
-         var ny:Number = this.bNdcY;
-         var d:Vector.<Number> = this.batchData;
-         var p:int = this.batchQuads * 20;
-         for(var i:int = 0; i < 4; i++)
-         {
-            var sx:Number = v[i * 2];
-            var sy:Number = v[i * 2 + 1];
-            d[p] = sx / hw + nx;
-            d[p + 1] = -sy / hh + ny;
-            d[p + 2] = 0;
-            d[p + 3] = (ia * sx + ic * sy + itx) / texW;
-            d[p + 4] = (ib * sx + id * sy + ity) / texH;
-            p += 5;
-         }
-         var ct:ColorTransform = null;
-         if(bmd == this.lastCtBmd && this.lastCt != null)
-         {
-            ct = this.lastCt;
-         }
-         else
-         {
-            ct = GraphicsFillExtra.getColorTransform(bmd);
-            this.lastCtBmd = bmd;
-            this.lastCt = ct;
-         }
-         var repeatIdx:int = fill.repeat ? 1 : 0;
-         var rc:Vector.<Number> = this.runConst;
-         var r:int = this.runCount - 1;
-         var k:int = r * 12;
-         var newRun:Boolean = !this.runOpen || this.runTexture[r] != texBase || this.runRepeat[r] != repeatIdx
-            || rc[k] != 0 || rc[k + 1] != 0 || rc[k + 2] != 0 || rc[k + 3] != 0
-            || rc[k + 4] != ct.redMultiplier || rc[k + 5] != ct.greenMultiplier || rc[k + 6] != ct.blueMultiplier || rc[k + 7] != ct.alphaMultiplier
-            || rc[k + 8] != ct.redOffset || rc[k + 9] != ct.greenOffset || rc[k + 10] != ct.blueOffset || rc[k + 11] != ct.alphaOffset;
-         if(newRun)
-         {
-            r = this.runCount++;
-            k = r * 12;
-            this.runFirstQuad[r] = this.batchQuads;
-            this.runQuadCount[r] = 0;
-            this.runTexture[r] = texBase;
-            this.runRepeat[r] = repeatIdx;
-            rc[k] = 0;
-            rc[k + 1] = 0;
-            rc[k + 2] = 0;
-            rc[k + 3] = 0;
-            rc[k + 4] = ct.redMultiplier;
-            rc[k + 5] = ct.greenMultiplier;
-            rc[k + 6] = ct.blueMultiplier;
-            rc[k + 7] = ct.alphaMultiplier;
-            rc[k + 8] = ct.redOffset;
-            rc[k + 9] = ct.greenOffset;
-            rc[k + 10] = ct.blueOffset;
-            rc[k + 11] = ct.alphaOffset;
-            this.cmdType[this.cmdCount] = CMD_RUN;
-            this.cmdArg[this.cmdCount] = r;
-            this.cmdCount++;
-            this.runOpen = true;
-         }
-         this.runQuadCount[r]++;
-         this.batchQuads++;
-         return true;
-      }
-
       /** Record a non-batched item (shadow, 3D model, per-quad fallback); closes the open run. */
       public function batchMark(type:int, arg:int) : void
       {
          this.runOpen = false;
-         if(type == CMD_QUAD)
-         {
-            this.quadMarks_++;
-         }
-         else if(type == CMD_MODEL)
-         {
-            this.modelMarks_++;
-         }
-         else if(type == CMD_SHADOW)
-         {
-            this.shadowMarks_++;
-         }
          this.cmdType[this.cmdCount] = type;
          this.cmdArg[this.cmdCount] = arg;
          this.cmdCount++;
