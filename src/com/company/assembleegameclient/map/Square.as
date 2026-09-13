@@ -42,6 +42,12 @@ package com.company.assembleegameclient.map
       // setTileType (which bumps Map.tileVersion_). Lets Map.draw cache all fully
       // static tile quads and redraw just the animated squares each frame.
       public var hasAnimatedFace_:Boolean = false;
+
+      // GPU run-merge quantum for random ground offsets (see rebuild3D). A continuous
+      // offset is part of the batch run key, so unquantized grass draws ~1 run per
+      // tile; N levels per axis merge each ground texture into at most N*N runs.
+      // 2 = max merge (tiling repetition can show), 4 = balanced, 8 = subtle.
+      public static const OFFSET_LEVELS:int = 2;
       
       public var topFace_:SquareFace = null;
       
@@ -177,6 +183,10 @@ package com.company.assembleegameclient.map
                {
                   xOffset = int(this.texture_.width * Math.random()) / this.texture_.width;
                   yOffset = int(this.texture_.height * Math.random()) / this.texture_.height;
+                  // Quantize into OFFSET_LEVELS buckets (see the const): stable per
+                  // rebuild, so the tile cache and run keys see few distinct offsets.
+                  xOffset = Math.floor(xOffset * OFFSET_LEVELS) / OFFSET_LEVELS;
+                  yOffset = Math.floor(yOffset * OFFSET_LEVELS) / OFFSET_LEVELS;
                }
                else
                {

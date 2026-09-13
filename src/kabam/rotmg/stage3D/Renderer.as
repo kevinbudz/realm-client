@@ -7,6 +7,7 @@ package kabam.rotmg.stage3D
    import com.company.assembleegameclient.util.FrameProfiler;
    import flash.display.GraphicsBitmapFill;
    import flash.display.GraphicsGradientFill;
+   import flash.display.GraphicsPath;
    import flash.display.GraphicsSolidFill;
    import flash.display.IGraphicsData;
    import flash.display.Stage3D;
@@ -23,6 +24,7 @@ package kabam.rotmg.stage3D
    import flash.geom.Matrix3D;
    import flash.geom.Vector3D;
    import flash.utils.ByteArray;
+   import flash.utils.getTimer;
    import kabam.rotmg.stage3D.Object3D.Object3DStage3D;
    import kabam.rotmg.stage3D.graphic3D.Graphic3D;
    import kabam.rotmg.stage3D.graphic3D.TextureFactory;
@@ -480,7 +482,7 @@ package kabam.rotmg.stage3D
                {
                   c3d.setCulling(Context3DTriangleFace.NONE);
                   this.graphic3D_.invalidateState();
-                  trace("ERROR CAUGHT -- Invalid Bitmap Data");
+                  traceThrottled("ERROR CAUGHT -- Invalid Bitmap Data");
                   continue;
                }
             }
@@ -504,8 +506,12 @@ package kabam.rotmg.stage3D
                   tcVerdict = "tchit";
                }
             }
-            FrameProfiler.atlasInfo += " runs " + g.runCount + " quads " + g.batchQuads + " cmds " + g.cmdCount + " soft " + (g.softwareData.length / 3) + " " + tcVerdict
-               + " s" + g.tileStillHits_ + "/c" + g.tileScrollHits_ + "/sm" + g.tileScrollMisses_ + "/m" + g.tileMisses_
+            // On replay frames runs shows actually-drawn runs (off-screen margin
+            // runs culled, see cx); on rebuild frames every run draws.
+            var shownRuns:int = g.tileCacheHit_ && g.tileDrawnRuns_ >= 0 ? g.tileDrawnRuns_ : g.runCount;
+            FrameProfiler.atlasInfo += " runs " + shownRuns + " quads " + g.batchQuads + " cmds " + g.cmdCount + " soft " + (g.softwareData.length / 3) + " " + tcVerdict
+               + " s" + g.tileStillHits_ + "/c" + g.tileScrollHits_ + "/sm" + g.tileScrollMisses_ + "/m" + g.tileMisses_ + " cx" + g.tileCulledRuns_
+               + " falls" + g.quadMarks_ + "/models" + g.modelMarks_ + "/shad" + g.shadowMarks_
                + " buf " + this.stageWidth + "x" + this.stageHeight + "/" + int(WebMain.STAGE.stageWidth) + "x" + int(WebMain.STAGE.stageHeight);
          }
          FrameProfiler.end(FrameProfiler.GPU_DRAW);
@@ -540,7 +546,20 @@ package kabam.rotmg.stage3D
             }
             catch(e:Error)
             {
-               trace("ERROR CAUGHT -- Invalid Bitmap Data");
+               traceThrottled("ERROR CAUGHT -- Invalid Bitmap Data");
+               return;
+            }
+            // Custom-vertex-buffer faces (walls): batchQuad cannot reproduce their
+            // trapezoid projection, but batchGeneralQuad batches them with explicit
+            // uvs under the same affine map. Anything it declines keeps the exact
+            // legacy CMD_QUAD path.
+            if(GraphicsFillExtra.hasExtras(bitmapFill) && GraphicsFillExtra.getVertexBuffer(bitmapFill) != null)
+            {
+               var facePath:GraphicsPath = gi + 1 < graphicsDatas.length ? graphicsDatas[gi + 1] as GraphicsPath : null;
+               if(facePath == null || !g.batchGeneralQuad(bitmapFill,facePath))
+               {
+                  g.batchMark(Graphic3D.CMD_QUAD,gi);
+               }
                return;
             }
             if(!g.batchQuad(bitmapFill))
@@ -567,6 +586,22 @@ package kabam.rotmg.stage3D
          if(graphicsData == null && grahpicsData3d.length != 0)
          {
             g.batchMark(Graphic3D.CMD_MODEL,0);
+         }
+      }
+
+      // Error-path traces fire per bad quad; a burst state (e.g. a disposed tileset
+      // visible for seconds, see log.txt) turned the log itself into a hitch, making
+      // bad frames worse. Throttled to one line per second; the condition still skips
+      // the quad every time, only the spew is capped.
+      private static var lastErrTraceMs_:int = 0;
+
+      private static function traceThrottled(msg:String) : void
+      {
+         var now:int = getTimer();
+         if(now - lastErrTraceMs_ > 1000)
+         {
+            lastErrTraceMs_ = now;
+            trace(msg);
          }
       }
 

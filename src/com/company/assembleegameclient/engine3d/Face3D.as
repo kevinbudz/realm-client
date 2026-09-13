@@ -38,9 +38,11 @@ import flash.geom.Utils3D;
       // Screen-space overdraw margin (pixels) for the static tile snapshot pass.
       // Map widens it while walking the cacheable prefix so small scrolls stay
       // covered; every other pass (animated tiles, objects, top tiles, hits) uses
-      // the tight default. See Graphic3D TILE_SCROLL_MAX_PX.
+      // the tight default. Must stay above TILE_SCROLL_MAX_PX + tight margin.
+      // Kept small on purpose: margin tiles outside the view still emit (each
+      // random-offset one its own run) and are redrawn every frame.
       public static var clipMargin_:Number = 10;
-      public static const TILE_SNAPSHOT_MARGIN:Number = 80;
+      public static const TILE_SNAPSHOT_MARGIN:Number = 48;
       private var matrixFresh_:Boolean = false;
       private var lastDrawResult_:Boolean = false;
       public var bitmapFill_:GraphicsBitmapFill= new GraphicsBitmapFill(null,null,false,false);

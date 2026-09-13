@@ -17,7 +17,6 @@ public class CaveWall extends ConnectedObject
 
    override protected function buildDot() : void
    {
-      var face:ObjectFace3D = null;
       var v0:Vector3D = new Vector3D(-0.25 - Math.random() * 0.25,-0.25 - Math.random() * 0.25,0);
       var v1:Vector3D = new Vector3D(0.25 + Math.random() * 0.25,-0.25 - Math.random() * 0.25,0);
       var v2:Vector3D = new Vector3D(0.25 + Math.random() * 0.25,0.25 + Math.random() * 0.25,0);
@@ -27,18 +26,10 @@ public class CaveWall extends ConnectedObject
       this.faceHelper(null,texture_,v4,v1,v2);
       this.faceHelper(null,texture_,v4,v2,v3);
       this.faceHelper(null,texture_,v4,v3,v0);
-      if(Parameters.GPURenderFrame)
-      {
-         for each(face in obj3D_.faces_)
-         {
-            GraphicsFillExtra.setSoftwareDraw(face.bitmapFill_,true);
-         }
-      }
    }
 
    override protected function buildShortLine() : void
    {
-      var face:ObjectFace3D = null;
       var v0:Vector3D = this.getVertex(0,0);
       var v1:Vector3D = this.getVertex(0,3);
       var v2:Vector3D = new Vector3D(0.25 + Math.random() * 0.25,0.25 + Math.random() * 0.25,0);
@@ -51,18 +42,10 @@ public class CaveWall extends ConnectedObject
       this.faceHelper(null,texture_,v7,v6,v2,v3);
       this.faceHelper(null,texture_,v6,v5,v1,v2);
       this.faceHelper(null,texture_,v4,v5,v6,v7);
-      if(Parameters.GPURenderFrame)
-      {
-         for each(face in obj3D_.faces_)
-         {
-            GraphicsFillExtra.setSoftwareDraw(face.bitmapFill_,true);
-         }
-      }
    }
 
    override protected function buildL() : void
    {
-      var face:ObjectFace3D = null;
       var v0:Vector3D = this.getVertex(0,0);
       var v1:Vector3D = this.getVertex(0,3);
       var v2:Vector3D = this.getVertex(1,0);
@@ -77,18 +60,10 @@ public class CaveWall extends ConnectedObject
       this.faceHelper(null,texture_,v9,v8,v3,v4);
       this.faceHelper(N2,texture_,v7,v6,v1,v2);
       this.faceHelper(null,texture_,v5,v6,v7,v8,v9);
-      if(Parameters.GPURenderFrame)
-      {
-         for each(face in obj3D_.faces_)
-         {
-            GraphicsFillExtra.setSoftwareDraw(face.bitmapFill_,true);
-         }
-      }
    }
 
    override protected function buildLine() : void
    {
-      var face:ObjectFace3D = null;
       var v0:Vector3D = this.getVertex(0,0);
       var v1:Vector3D = this.getVertex(0,3);
       var v2:Vector3D = this.getVertex(2,3);
@@ -100,18 +75,10 @@ public class CaveWall extends ConnectedObject
       this.faceHelper(N7,texture_,v4,v7,v3,v0);
       this.faceHelper(N3,texture_,v6,v5,v1,v2);
       this.faceHelper(null,texture_,v4,v5,v6,v7);
-      if(Parameters.GPURenderFrame)
-      {
-         for each(face in obj3D_.faces_)
-         {
-            GraphicsFillExtra.setSoftwareDraw(face.bitmapFill_,true);
-         }
-      }
    }
 
    override protected function buildT() : void
    {
-      var face:ObjectFace3D = null;
       var v0:Vector3D = this.getVertex(0,0);
       var v1:Vector3D = this.getVertex(0,3);
       var v2:Vector3D = this.getVertex(1,0);
@@ -128,18 +95,10 @@ public class CaveWall extends ConnectedObject
       this.faceHelper(null,texture_,va,v9,v3,v4);
       this.faceHelper(N0,texture_,v6,vb,v5,v0);
       this.faceHelper(null,texture_,v6,v7,v8,v9,va,vb);
-      if(Parameters.GPURenderFrame)
-      {
-         for each(face in obj3D_.faces_)
-         {
-            GraphicsFillExtra.setSoftwareDraw(face.bitmapFill_,true);
-         }
-      }
    }
 
    override protected function buildCross() : void
    {
-      var face:ObjectFace3D = null;
       var v0:Vector3D = this.getVertex(0,0);
       var v1:Vector3D = this.getVertex(0,3);
       var v2:Vector3D = this.getVertex(1,0);
@@ -161,13 +120,6 @@ public class CaveWall extends ConnectedObject
       this.faceHelper(N6,texture_,ve,vd,v5,v6);
       this.faceHelper(N0,texture_,v8,vf,v7,v0);
       this.faceHelper(null,texture_,v8,v9,va,vb,vc,vd,ve,vf);
-      if(Parameters.GPURenderFrame)
-      {
-         for each(face in obj3D_.faces_)
-         {
-            GraphicsFillExtra.setSoftwareDraw(face.bitmapFill_,true);
-         }
-      }
    }
 
    protected function getVertex(side:int, id:int) : Vector3D
@@ -280,6 +232,201 @@ public class CaveWall extends ConnectedObject
             obj3D_.faces_[i].texture_ = texture;
          }
       }
+      if(Parameters.GPURenderFrame)
+      {
+         this.bakeGPUFaces(oldLen);
+      }
+   }
+
+   // GPU static geometry for the faces just built [oldLen, end): triangles bake one
+   // degenerate-quad VB each; N-gons are ear-clipped (triangulateFace) into triangle
+   // faces first, so every wall piece draws via CMD_QUAD and no software triple
+   // survives to force the display-list blit. Software-mode builds are untouched.
+   private function bakeGPUFaces(oldLen:int) : void
+   {
+      var faces:Vector.<ObjectFace3D> = obj3D_.faces_;
+      var end:int = faces.length;
+      var grown:Vector.<ObjectFace3D> = new Vector.<ObjectFace3D>();
+      var dropped:Vector.<ObjectFace3D> = new Vector.<ObjectFace3D>();
+      for(var i:int = oldLen; i < end; i++)
+      {
+         var face:ObjectFace3D = faces[i];
+         if(GraphicsFillExtra.getVertexBuffer(face.bitmapFill_) != null)
+         {
+            continue;
+         }
+         if(face.indices_.length == 3)
+         {
+            this.bakeTriVB(face,face.indices_[0],face.indices_[1],face.indices_[2]);
+            continue;
+         }
+         var n:int = face.indices_.length;
+         var fu:Vector.<Number> = new Vector.<Number>();
+         var fv:Vector.<Number> = new Vector.<Number>();
+         for(var k:int = 0; k < n; k++)
+         {
+            fu.push(obj3D_.uvts_[face.indices_[k] * 3]);
+            fv.push(obj3D_.uvts_[face.indices_[k] * 3 + 1]);
+         }
+         var tris:Vector.<int> = triangulateFace(fu,fv);
+         for(var t:int = 0; t < tris.length; t += 3)
+         {
+            var nf:ObjectFace3D = new ObjectFace3D(obj3D_,new <int>[face.indices_[tris[t]],face.indices_[tris[t + 1]],face.indices_[tris[t + 2]]]);
+            nf.normalL_ = face.normalL_;
+            nf.texture_ = face.texture_;
+            grown.push(nf);
+            this.bakeTriVB(nf,nf.indices_[0],nf.indices_[1],nf.indices_[2]);
+         }
+         dropped.push(face);
+      }
+      if(dropped.length != 0)
+      {
+         var kept:Vector.<ObjectFace3D> = new Vector.<ObjectFace3D>();
+         for each(var f:ObjectFace3D in faces)
+         {
+            if(dropped.indexOf(f) == -1)
+            {
+               kept.push(f);
+            }
+         }
+         obj3D_.faces_ = kept;
+      }
+      for each(var g:ObjectFace3D in grown)
+      {
+         obj3D_.faces_.push(g);
+      }
+   }
+
+   // Bakes one triangle's static vertex buffer. Positions live in texture-fraction
+   // space (equal to the face's own uvts_, so the per-frame tToS maps them onto
+   // exactly the 2D path's screen verts); z stays 0 like every sprite quad and uvs
+   // sample the same texels. The 4th slot duplicates the 3rd (degenerate) for the
+   // shared quad index buffer. Registering a VB also marks hasExtras, routing the
+   // face to CMD_QUAD instead of the batcher (which can only draw rectangles).
+   private function bakeTriVB(face:ObjectFace3D, g0:int, g1:int, g2:int) : void
+   {
+      var uv:Vector.<Number> = obj3D_.uvts_;
+      var u0:Number = uv[g0 * 3];
+      var v0:Number = uv[g0 * 3 + 1];
+      var u1:Number = uv[g1 * 3];
+      var v1:Number = uv[g1 * 3 + 1];
+      var u2:Number = uv[g2 * 3];
+      var v2:Number = uv[g2 * 3 + 1];
+      GraphicsFillExtra.setVertexBuffer(face.bitmapFill_,Vector.<Number>([u0,v0,0,u0,v0,u1,v1,0,u1,v1,u2,v2,0,u2,v2,u2,v2,0,u2,v2]));
+   }
+
+   // Ear-clipping triangulation over the face's own (u,v) parametrization (uvts_
+   // layouts are compile-time constants, simple by design; validated offline over
+   // all arities plus fuzz). Returns flat index triples into the vertex order.
+   // Exact for simple polygons: shared verts project identically, culling runs
+   // with triangle culling off, so the union matches the N-gon pixel-for-pixel.
+   private static function triangulateFace(u:Vector.<Number>, v:Vector.<Number>) : Vector.<int>
+   {
+      var n:int = u.length;
+      var out:Vector.<int> = new Vector.<int>();
+      var i:int = 0;
+      var j:int = 0;
+      if(n == 3)
+      {
+         out.push(0,1,2);
+         return out;
+      }
+      var area:Number = 0;
+      for(i = 0; i < n; i++)
+      {
+         j = i + 1 < n ? i + 1 : 0;
+         area += u[i] * v[j] - u[j] * v[i];
+      }
+      var live:Vector.<int> = new Vector.<int>();
+      if(area < 0)
+      {
+         for(i = n - 1; i >= 0; i--)
+         {
+            live.push(i);
+         }
+      }
+      else
+      {
+         for(i = 0; i < n; i++)
+         {
+            live.push(i);
+         }
+      }
+      var guard:int = 0;
+      var m:int = 0;
+      var k:int = 0;
+      var p:int = 0;
+      var c:int = 0;
+      var nx:int = 0;
+      var cr:Number = 0;
+      var blocked:Boolean = false;
+      var found:Boolean = false;
+      while(live.length > 3 && guard < 100)
+      {
+         guard++;
+         found = false;
+         m = live.length;
+         for(k = 0; k < m; k++)
+         {
+            p = live[(k + m - 1) % m];
+            c = live[k];
+            nx = live[(k + 1) % m];
+            cr = (u[c] - u[p]) * (v[nx] - v[c]) - (v[c] - v[p]) * (u[nx] - u[c]);
+            if(cr <= -0.000000001)
+            {
+               continue;
+            }
+            blocked = false;
+            for each(var q:int in live)
+            {
+               if(q == p || q == c || q == nx)
+               {
+                  continue;
+               }
+               if(pointInTri(u[q],v[q],u[p],v[p],u[c],v[c],u[nx],v[nx]))
+               {
+                  blocked = true;
+                  break;
+               }
+            }
+            if(!blocked)
+            {
+               out.push(p,c,nx);
+               live.splice(k,1);
+               found = true;
+               break;
+            }
+         }
+         if(!found)
+         {
+            break;
+         }
+      }
+      if(live.length == 3)
+      {
+         out.push(live[0],live[1],live[2]);
+      }
+      else
+      {
+         for(var f:int = 1; f < live.length - 1; f++)
+         {
+            out.push(live[0],live[f],live[f + 1]);
+         }
+      }
+      return out;
+   }
+
+   private static function pointInTri(px:Number, py:Number, ax:Number, ay:Number, bx:Number, by:Number, cx:Number, cy:Number) : Boolean
+   {
+      var d:Number = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+      if(d > -0.000000000001 && d < 0.000000000001)
+      {
+         return false;
+      }
+      var l1:Number = ((by - cy) * (px - cx) + (cx - bx) * (py - cy)) / d;
+      var l2:Number = ((cy - ay) * (px - cx) + (ax - cx) * (py - cy)) / d;
+      var l3:Number = 1 - l1 - l2;
+      return l1 > 0.000000001 && l2 > 0.000000001 && l3 > 0.000000001;
    }
 }
 }

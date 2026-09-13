@@ -258,11 +258,11 @@ package kabam.rotmg.stage3D
             waterSinks = new Dictionary();
             waterSinksSize = 0;
          }
-         if(vertexBuffersSize > 1000)
-         {
-            disposeVertexBuffers();
-            vertexBuffersSize = 0;
-         }
+         // NOTE: custom vertex buffers are NEVER discarded here. They are baked once
+         // per wall face (ConnectedWall, CaveWall) and persist for the map's lifetime;
+         // dropping them would orphan the fills, and batchQuad would then misrender the
+         // N-gon faces as rectangles. Footprint is trivial (~80 bytes per face) and the
+         // whole table is still disposed on map change (see dispose()).
          if(softwareDrawSize > 2000)
          {
             softwareDraw = new Dictionary();
