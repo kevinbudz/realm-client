@@ -42,7 +42,7 @@ package kabam.rotmg.stage3D.graphic3D
    public class SpriteAtlas
    {
       public static const PAGE_SIZE:int = 2048;
-      public static const MAX_PAGES:int = 4;
+      public static const MAX_PAGES:int = 8;
       // Sprites larger than this (after pow2 padding) keep individual textures.
       public static const MAX_SLOT:int = 512;
       private static const HALF:Number = PAGE_SIZE / 2;

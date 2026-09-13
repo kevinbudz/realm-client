@@ -430,9 +430,20 @@ package kabam.rotmg.stage3D
          var cmdType:Vector.<int> = g.cmdType;
          var cmdArg:Vector.<int> = g.cmdArg;
          var cmdCount:int = g.cmdCount;
+         // Shadows are emitted contiguously (all SHADOWS-phase fills precede the
+         // DRAW_OBJECTS quads), so consecutive shadows share program and the static
+         // fc4 helpers; only the per-shadow gradient constants and transform change.
+         // The batch-state invalidate is deferred to the cluster exit so the next
+         // run/quad/model still sees a correct cold cache.
+         var inShadowCluster:Boolean = false;
          for(var ci:int = 0; ci < cmdCount; ci++)
          {
             var cmd:int = cmdType[ci];
+            if(cmd != Graphic3D.CMD_SHADOW && inShadowCluster)
+            {
+               this.graphic3D_.invalidateState();
+               inShadowCluster = false;
+            }
             if(cmd == Graphic3D.CMD_RUN)
             {
                g.drawRun(this.context3D,cmdArg[ci]);
@@ -446,15 +457,18 @@ package kabam.rotmg.stage3D
             if(cmd == Graphic3D.CMD_SHADOW)
             {
                graphicsData = graphicsDatas[cmdArg[ci]];
-               c3d.setProgram(this.shadowProgram_);
+               if(!inShadowCluster)
+               {
+                  c3d.setProgram(this.shadowProgram_);
+                  this.context3D.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,4,SHADOW_FRAGMENT_CONSTANTS);
+                  inShadowCluster = true;
+               }
                this.graphic3D_.setGradientFill(GraphicsGradientFill(graphicsData),this.context3D,halfW,halfH);
                finalTransform.identity();
                finalTransform.append(this.graphic3D_.getMatrix3D());
                finalTransform.appendTranslation(ndcX,ndcY,0);
                this.context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,finalTransform,true);
-               this.context3D.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT,4,SHADOW_FRAGMENT_CONSTANTS);
                this.graphic3D_.renderShadow(this.context3D);
-               this.graphic3D_.invalidateState();
                continue;
             }
             if(cmd == Graphic3D.CMD_MODEL)
@@ -486,6 +500,14 @@ package kabam.rotmg.stage3D
                   continue;
                }
             }
+         }
+         if(inShadowCluster)
+         {
+            this.graphic3D_.invalidateState();
+         }
+         if(FrameProfiler.enabled)
+         {
+            FrameProfiler.atlasInfo += " runs " + g.runCount + " quads " + g.batchQuads + " cmds " + g.cmdCount;
          }
          FrameProfiler.end(FrameProfiler.GPU_DRAW);
       }

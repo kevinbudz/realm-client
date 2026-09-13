@@ -35,12 +35,28 @@ package kabam.rotmg.stage3D.graphic3D
          var i:int = 0;
          var pitchW:int = w + 2 * BORDER;
          var pitchH:int = h + 2 * BORDER;
+         // Exact-height shelves first (no vertical waste), then the smallest taller
+         // shelf with room. Smaller sprites fit inside a taller shelf row since the
+         // row reserves shelfH + 2 * BORDER vertically.
          for(i = 0; i < n; i++)
          {
             if(this.shelfH[i] == h && this.shelfX[i] + pitchW <= SpriteAtlas.PAGE_SIZE)
             {
                return this.place(i,w,h);
             }
+         }
+         var best:int = -1;
+         for(i = 0; i < n; i++)
+         {
+            if(this.shelfH[i] > h && this.shelfX[i] + pitchW <= SpriteAtlas.PAGE_SIZE
+               && (best == -1 || this.shelfH[i] < this.shelfH[best]))
+            {
+               best = i;
+            }
+         }
+         if(best != -1)
+         {
+            return this.place(best,w,h);
          }
          if(this.nextShelfY + pitchH <= SpriteAtlas.PAGE_SIZE)
          {

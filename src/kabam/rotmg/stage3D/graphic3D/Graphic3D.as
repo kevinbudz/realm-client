@@ -110,7 +110,7 @@ package kabam.rotmg.stage3D.graphic3D
       private var batchVB:VertexBuffer3D;   // this frame's buffer
       private var batchIB:IndexBuffer3D;
       private var batchData:Vector.<Number>;
-      private var batchQuads:int = 0;
+      public var batchQuads:int = 0;
       private var batchOverflow:Boolean = false;
       private var xformed:Vector.<Number>;
       private var offsetScratch:Vector.<Number>;
@@ -125,8 +125,15 @@ package kabam.rotmg.stage3D.graphic3D
       private var runTexture:Vector.<TextureBase>;
       private var runRepeat:Vector.<int>;
       private var runConst:Vector.<Number>;   // 12 per run: uv offset (4) + colour transform (8)
-      private var runCount:int = 0;
+      public var runCount:int = 0;
       private var runOpen:Boolean = false;
+      // Per-frame caches: consecutive quads usually share one BitmapData, and the
+      // batch is the only reader mid-frame, so memoizing the last lookup skips
+      // repeat Dictionary hits. Reset in batchBegin.
+      private var lastCtBmd:BitmapData = null;
+      private var lastCt:ColorTransform = null;
+      private var lastAtlasBmd:BitmapData = null;
+      private var lastAtlasEntry:AtlasEntry = null;
       
       public function Graphic3D()
       {
@@ -217,6 +224,9 @@ package kabam.rotmg.stage3D.graphic3D
          this.cmdCount = 0;
          this.runCount = 0;
          this.runOpen = false;
+         this.lastCtBmd = null;
+         this.lastAtlasBmd = null;
+         this.lastAtlasEntry = null;
          this.softwareData.length = 0;
       }
 
@@ -305,18 +315,42 @@ package kabam.rotmg.stage3D.graphic3D
          var v0:Number = 0;
          var u1:Number = 1;
          var v1:Number = 1;
-         // uv offset (vc4): animated tiles / water sink. The offset relies on the sampler
-         // clamping to the sprite's own edge, so anything offset (or repeating) must keep its
-         // individual texture; only plain quads can share an atlas page.
+         // uv offset (vc4): animated tiles scroll via the shader offset, which relies
+         // on the sampler clamping to the sprite's own edge, so anything offset (or
+         // repeating) must keep its individual texture; only plain quads can share
+         // an atlas page. Water sink is separate: clip pixels counted down from the
+         // sprite's bottom rows (see GameObject.draw), applied to the v1 edge below
+         // so the tile beneath shows through like the display-list clip path.
          var offset:Vector.<Number> = GraphicsFillExtra.getOffsetUV(fill);
          var sink:Number = GraphicsFillExtra.getSinkLevel(fill);
-         if(sink != 0)
-         {
-            this.sinkOffset[1] = -sink;
-            offset = this.sinkOffset;
-         }
          var plain:Boolean = !fill.repeat && offset[0] == 0 && offset[1] == 0 && offset[2] == 0 && offset[3] == 0;
-         var entry:AtlasEntry = plain ? this.textureFactory.getAtlas().get(bmd,this.frame) : null;
+         var entry:AtlasEntry = null;
+         if(plain)
+         {
+            if(bmd == this.lastAtlasBmd && this.lastAtlasEntry != null
+               && this.lastAtlasEntry.generation == this.lastAtlasEntry.page.generation)
+            {
+               this.lastAtlasEntry.page.lastUsed = this.frame;
+               entry = this.lastAtlasEntry;
+            }
+            else
+            {
+               entry = this.textureFactory.getAtlas().get(bmd,this.frame);
+               if(entry != null)
+               {
+                  this.lastAtlasBmd = bmd;
+                  this.lastAtlasEntry = entry;
+               }
+            }
+         }
+         // Run key offset (vc4). Atlas quads keep the shader offset so the run key
+         // must include it; individual-texture quads bake it into the vertex uvs
+         // below so same-texture quads with different offsets still merge.
+         var keyO0:Number = offset[0];
+         var keyO1:Number = offset[1];
+         var keyO2:Number = offset[2];
+         var keyO3:Number = offset[3];
+         var tex:TextureProxy = null;
          if(entry != null)
          {
             texBase = entry.page.texture;
@@ -329,7 +363,7 @@ package kabam.rotmg.stage3D.graphic3D
          }
          else
          {
-            var tex:TextureProxy = this.textureFactory.make(bmd);
+            tex = this.textureFactory.make(bmd);
             if(tex == null)
             {
                return true;   // drawQuad draws nothing for this either
@@ -337,11 +371,40 @@ package kabam.rotmg.stage3D.graphic3D
             texBase = tex.getTexture();
             w = tex.getWidth();
             h = tex.getHeight();
+            // Bake the offset into the vertex uvs (identical sampling: the shader
+            // added the same offset to the same uvs, repeat wraps either way) so
+            // quads sharing texture, program and tint merge into one run instead
+            // of one draw each.
+            if(keyO0 != 0 || keyO1 != 0 || keyO2 != 0 || keyO3 != 0)
+            {
+               u0 += keyO0;
+               v0 += keyO1;
+               u1 += keyO0;
+               v1 += keyO1;
+               keyO0 = keyO1 = keyO2 = keyO3 = 0;
+            }
+         }
+         // Water-sink clip: hide the bottom sink sprite rows so the tile beneath
+         // shows through, mirroring the display-list shortened vS_ path (feet rows
+         // never drawn, remaining rows 1:1). Both the v1 edge and the quad height
+         // shrink to the visible-row count: v1 drops the padded rows plus the sunk
+         // rows, and the transform below maps exactly those rows onto the same
+         // screen rect the display list fills. Per-vertex data, so sunk quads with
+         // the same texture/tint still merge into shared runs with vc4 == 0.
+         if(sink != 0)
+         {
+            if(sink >= bmd.height)
+            {
+               return true;   // fully submerged: display list draws nothing either
+            }
+            var sinkPadH:Number = entry != null ? entry.h : tex.getHeight();
+            var sinkTexH:Number = entry != null ? SpriteAtlas.PAGE_SIZE : tex.getHeight();
+            v1 -= (sinkPadH - bmd.height + sink) / sinkTexH;
          }
 
          // --- vertex transform: same Matrix3D chain as drawQuad ---
          this.matrix2D = fill.matrix;
-         this.transformWith(w,h);
+         this.transformWith(w, sink != 0 ? bmd.height - sink : h);
          var f:Matrix3D = this.finalTransform;
          f.identity();
          f.append(this.matrix3D);
@@ -351,13 +414,23 @@ package kabam.rotmg.stage3D.graphic3D
          f.transformVectors(UNIT_QUAD_XYZ,out);
 
          // --- run state ---
-         var ct:ColorTransform = GraphicsFillExtra.getColorTransform(bmd);
+         var ct:ColorTransform = null;
+         if(bmd == this.lastCtBmd && this.lastCt != null)
+         {
+            ct = this.lastCt;
+         }
+         else
+         {
+            ct = GraphicsFillExtra.getColorTransform(bmd);
+            this.lastCtBmd = bmd;
+            this.lastCt = ct;
+         }
          var repeatIdx:int = fill.repeat ? 1 : 0;
          var rc:Vector.<Number> = this.runConst;
          var r:int = this.runCount - 1;
          var k:int = r * 12;
          var newRun:Boolean = !this.runOpen || this.runTexture[r] != texBase || this.runRepeat[r] != repeatIdx
-            || rc[k] != offset[0] || rc[k + 1] != offset[1] || rc[k + 2] != offset[2] || rc[k + 3] != offset[3]
+            || rc[k] != keyO0 || rc[k + 1] != keyO1 || rc[k + 2] != keyO2 || rc[k + 3] != keyO3
             || rc[k + 4] != ct.redMultiplier || rc[k + 5] != ct.greenMultiplier || rc[k + 6] != ct.blueMultiplier || rc[k + 7] != ct.alphaMultiplier
             || rc[k + 8] != ct.redOffset || rc[k + 9] != ct.greenOffset || rc[k + 10] != ct.blueOffset || rc[k + 11] != ct.alphaOffset;
          if(newRun)
@@ -368,10 +441,10 @@ package kabam.rotmg.stage3D.graphic3D
             this.runQuadCount[r] = 0;
             this.runTexture[r] = texBase;
             this.runRepeat[r] = repeatIdx;
-            rc[k] = offset[0];
-            rc[k + 1] = offset[1];
-            rc[k + 2] = offset[2];
-            rc[k + 3] = offset[3];
+            rc[k] = keyO0;
+            rc[k + 1] = keyO1;
+            rc[k + 2] = keyO2;
+            rc[k + 3] = keyO3;
             rc[k + 4] = ct.redMultiplier;
             rc[k + 5] = ct.greenMultiplier;
             rc[k + 6] = ct.blueMultiplier;
@@ -573,12 +646,15 @@ package kabam.rotmg.stage3D.graphic3D
          c3dProxy.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,f,true);
          this.stateIdentityVC0 = false;
 
-         // --- uv offset (vc4): animated tiles / water sink ---
+         // --- uv offset (vc4): animated tiles scroll; water sink is clip pixels
+         // (see batchQuad). This fallback path uses a shared vertex buffer so it
+         // cannot clip the v1 edge; shift sampling up by the clip fraction so the
+         // feet rows are not shown. Reachable only on batch overflow / custom VBs.
          var offset:Vector.<Number> = GraphicsFillExtra.getOffsetUV(fill);
          var sink:Number = GraphicsFillExtra.getSinkLevel(fill);
          if(sink != 0)
          {
-            this.sinkOffset[1] = -sink;
+            this.sinkOffset[1] = -(sink / tex.getHeight());
             offset = this.sinkOffset;
          }
          var o0:Number = offset[0];

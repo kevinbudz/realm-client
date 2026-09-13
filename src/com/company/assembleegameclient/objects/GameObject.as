@@ -1013,14 +1013,18 @@ public class GameObject extends BasicObject
          {
             h2 = 0;
          }
+         // GPU sink matches software: the shortened vS_ quad below clips the
+         // sprite's bottom rows and the tile beneath shows through. Store clip
+         // pixels (not a UV shift) so every texture size sinks equally; the
+         // batcher turns this into a bottom-edge UV clip. Plain quads stay
+         // atlas-eligible and merge into shared runs.
          if(Parameters.GPURenderFrame)
          {
             if(h2 != 0)
             {
-               GraphicsFillExtra.setSinkLevel(this.bitmapFill_,Math.max(((h2 / h) * 1.65) - 0.02,0));
-               h2 = -h2 + 0.02;
+               GraphicsFillExtra.setSinkLevel(this.bitmapFill_,h2);
             }
-            else if(h2 == 0 && GraphicsFillExtra.getSinkLevel(this.bitmapFill_) != 0)
+            else if(GraphicsFillExtra.getSinkLevel(this.bitmapFill_) != 0)
             {
                GraphicsFillExtra.clearSink(this.bitmapFill_);
             }
