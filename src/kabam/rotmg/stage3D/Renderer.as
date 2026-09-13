@@ -494,26 +494,52 @@ package kabam.rotmg.stage3D
          }
          if(FrameProfiler.enabled)
          {
-            var tcVerdict:String = "tcmiss";
+            var tcVerdict:String = "miss";
             if(g.tileCacheHit_)
             {
-               if(g.tileScrollHit_)
+               if(g.tileRotHit_)
                {
-                  tcVerdict = "schit" + int(g.tileScrollDist_) + "px";
+                  tcVerdict = "rot " + int(g.tileRotDeg_ * 10) / 10 + "deg " + int(g.tileScrollDist_) + "px";
+               }
+               else if(g.tileScrollHit_)
+               {
+                  tcVerdict = "scroll " + int(g.tileScrollDist_) + "px";
                }
                else
                {
-                  tcVerdict = "tchit";
+                  tcVerdict = "hit";
                }
             }
             // On replay frames runs shows actually-drawn runs (off-screen margin
-            // runs culled, see cx); on rebuild frames every run draws.
+            // runs culled, see culled); on rebuild frames every run draws.
             var shownRuns:int = g.tileCacheHit_ && g.tileDrawnRuns_ >= 0 ? g.tileDrawnRuns_ : g.runCount;
-            FrameProfiler.atlasInfo += " runs " + shownRuns + " quads " + g.batchQuads + " cmds " + g.cmdCount + " soft " + (g.softwareData.length / 3) + " " + tcVerdict
-               + " s" + g.tileStillHits_ + "/c" + g.tileScrollHits_ + "/sm" + g.tileScrollMisses_ + "/m" + g.tileMisses_ + " cx" + g.tileCulledRuns_
-               + " falls" + g.quadMarks_ + "/models" + g.modelMarks_ + "/shad" + g.shadowMarks_
-               + " brkT/R/O/C " + g.runBreakTex_ + "/" + g.runBreakRep_ + "/" + g.runBreakOff_ + "/" + g.runBreakCt_
-               + " buf " + this.stageWidth + "x" + this.stageHeight + "/" + int(WebMain.STAGE.stageWidth) + "x" + int(WebMain.STAGE.stageHeight);
+            FrameProfiler.atlasRuns = shownRuns;
+            FrameProfiler.atlasQuads = g.batchQuads;
+            FrameProfiler.atlasCmds = g.cmdCount;
+            FrameProfiler.atlasSoft = g.softwareData.length / 3;
+            FrameProfiler.atlasTile = tcVerdict;
+            FrameProfiler.atlasStill = g.tileStillHits_;
+            // Rotation hits are snapshot reuse like scroll hits; report them
+            // together so the reuse rate reflects all replay frames.
+            FrameProfiler.atlasScroll = g.tileScrollHits_ + g.tileRotHits_;
+            FrameProfiler.atlasScrollMiss = g.tileScrollMisses_;
+            FrameProfiler.atlasMiss = g.tileMisses_;
+            FrameProfiler.atlasCulled = g.tileCulledRuns_;
+            FrameProfiler.atlasFalls = g.quadMarks_;
+            FrameProfiler.atlasModels = g.modelMarks_;
+            FrameProfiler.atlasShadows = g.shadowMarks_;
+            FrameProfiler.atlasBrkTex = g.runBreakTex_;
+            FrameProfiler.atlasBrkRep = g.runBreakRep_;
+            FrameProfiler.atlasBrkOff = g.runBreakOff_;
+            FrameProfiler.atlasBrkCt = g.runBreakCt_;
+            FrameProfiler.atlasBrkAtlas = g.runBreakAtlas_;
+            FrameProfiler.atlasBrkIndiv = g.runBreakIndiv_;
+            FrameProfiler.atlasDynRuns = Math.max(0,g.runCount - g.prefixRuns_);
+            FrameProfiler.atlasDynQuads = Math.max(0,g.batchQuads - g.prefixQuads_);
+            FrameProfiler.atlasBufW = int(this.stageWidth);
+            FrameProfiler.atlasBufH = int(this.stageHeight);
+            FrameProfiler.atlasStageW = int(WebMain.STAGE.stageWidth);
+            FrameProfiler.atlasStageH = int(WebMain.STAGE.stageHeight);
          }
          FrameProfiler.end(FrameProfiler.GPU_DRAW);
          // Restores the ring vertex vector after a primed tile-cache frame drew.

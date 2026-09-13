@@ -42,7 +42,7 @@ import flash.geom.Utils3D;
       // Kept small on purpose: margin tiles outside the view still emit (each
       // random-offset one its own run) and are redrawn every frame.
       public static var clipMargin_:Number = 10;
-      public static const TILE_SNAPSHOT_MARGIN:Number = 48;
+      public static const TILE_SNAPSHOT_MARGIN:Number = 80;
       private var matrixFresh_:Boolean = false;
       private var lastDrawResult_:Boolean = false;
       public var bitmapFill_:GraphicsBitmapFill= new GraphicsBitmapFill(null,null,false,false);

@@ -112,6 +112,7 @@ package kabam.rotmg.stage3D.graphic3D
       private var stateVB:VertexBuffer3D;
       private var stateSlot2Cleared:Boolean = false;
       private var stateIdentityVC0:Boolean = false;
+      private var stateShiftVC0:Boolean = false;
       private var stateOffsetValid:Boolean = false;
       private var stateOffset0:Number = 0;
       private var stateOffset1:Number = 0;
@@ -206,6 +207,10 @@ package kabam.rotmg.stage3D.graphic3D
       // together, so no new seams vs a full rebuild (identical maths, 1-ulp float
       // drift at most). Pixel-snapped integer scroll was rejected: it would judder
       // vs smooth camera motion and still need the same shift logic plus rounding.
+      // Rotation reuse (see checkTileCache) extends this to small rigid motions
+      // (camera pan + rotate, same zoom): world-to-screen stays a 2D rotation plus
+      // translation, so the snapshot verts replay through one 2x2 + offset instead
+      // of a full tile walk. A few ulps of drift at most, same as the scroll path.
       private var tileWToS_:Vector.<Number> = new Vector.<Number>(16, true);
       private var tileHasWToS_:Boolean = false;
       private var tilePendingWToS_:Vector.<Number> = new Vector.<Number>(16, true);
@@ -215,15 +220,33 @@ package kabam.rotmg.stage3D.graphic3D
       public var tileScrollPX_:Number = 0;
       public var tileScrollPY_:Number = 0;
       public var tileScrollDist_:Number = 0;
+      // Scroll-hit replay without the CPU copy (see primeTileCache): the snapshot
+      // prefix stays in base positions and the (dx,dy) shift rides in vc0 for
+      // prefix runs, which always precede dynamic commands. Set in primeTileCache,
+      // cleared in batchBegin; the binding itself is tracked by stateShiftVC0.
+      private var scrollShiftActive_:Boolean = false;
+      private var scrollVC0_:Matrix3D;
+      // Rigid-rotation replay state, written by checkTileCache on rotation hits and
+      // read by primeTileCache: screen-space rotation (cos/sin of the camera-angle
+      // delta base -> current) plus screen-space translation. NDC coefficients are
+      // derived from these in prime (needs the frame's halfW/halfH/ndc origin).
+      public var tileRotHit_:Boolean = false;
+      public var tileRotCos_:Number = 1;
+      public var tileRotSin_:Number = 0;
+      public var tileRotTX_:Number = 0;
+      public var tileRotTY_:Number = 0;
+      public var tileRotDeg_:Number = 0;
       public var tileStillHits_:int = 0;
       public var tileScrollHits_:int = 0;
+      public var tileRotHits_:int = 0;
       public var tileScrollMisses_:int = 0;
       public var tileMisses_:int = 0;
       // Per-run NDC bboxes (minX,minY,maxX,maxY) for off-screen run culling in
       // primeTileCache, plus the visible NDC window they are tested against.
-      // Bboxes are snapshot-space; scroll hits shift them by (dx,dy), still hits
-      // use them as-is. Rotation/zoom/resize always miss, so the stored window
-      // (same viewKey inputs as the verts) stays valid for the snapshot's life.
+      // Bboxes are snapshot-space; scroll hits shift them by (dx,dy), rotation
+      // hits run them through the replay matrix, still hits use them as-is.
+      // Zoom/resize always miss, so the stored window (same viewKey inputs as the
+      // verts) stays valid for the snapshot's life.
       private var tileRunBox_:Vector.<Number> = new Vector.<Number>();
       private var tilePendingClip_:Vector.<Number> = new Vector.<Number>(4, true);
       private var tileWinX0_:Number = 0;
@@ -249,14 +272,38 @@ package kabam.rotmg.stage3D.graphic3D
       public var runBreakRep_:int = 0;
       public var runBreakOff_:int = 0;
       public var runBreakCt_:int = 0;
+      // Split of runBreakTex_: atlas-page-to-page (batching could improve with
+      // page affinity) vs involving an individual texture (walls/large sprites,
+      // which never share). prefixRuns_/prefixQuads_ mark the static tile prefix
+      // end (snapshot or prime), so the readout can isolate the dynamic suffix.
+      public var runBreakAtlas_:int = 0;
+      public var runBreakIndiv_:int = 0;
+      public var prefixRuns_:int = 0;
+      public var prefixQuads_:int = 0;
       // Max pure-translation reuse distance in screen pixels (wToS units, 50 per
       // tile at zoom 1). Static snapshot overdraws the clip rect by a larger
       // margin (see Face3D.clipMargin_), so scrolls within this stay covered.
       // Sized from profiler data: random-offset grass tiles each form their own
-      // run, so every off-screen margin tile costs a draw call each frame. A
-      // smaller margin halves that tax; the price is a resnapshot (one full tile
-      // walk) roughly every MAX/4px of continuous motion instead of twice as far.
-      private static const TILE_SCROLL_MAX_PX:Number = 32;
+      // run, so every off-screen margin tile costs a draw call each frame. Read
+      // the trade directly: wider MAX lowers misses but raises runs/draws on
+      // every frame; net fps decides. (Raised 32 -> 64 with the vc0 shift making
+      // scroll hits nearly free; Face3D margin keeps the documented rule.)
+      private static const TILE_SCROLL_MAX_PX:Number = 64;
+      // Max camera-angle delta (radians, base -> current) for rotation reuse.
+      // Coverage bound: the farthest snapshot tile sits ~500-700 screen units from
+      // the rotation pivot, so 0.12 rad uncovers at most ~60-85 units at the
+      // corners; plus the 64-unit translation allowance that is 124-149 worst
+      // case, against ~130 units of overdraw (80 clip margin + 1 tile). Combined
+      // worst cases can now miss and rebuild, which is the safe fallback; the
+      // world-box slack covers the rest. Larger would
+      // replay tiles the snapshot never walked (holes at the screen corners).
+      // At 0.003 rad/ms continuous rotation this is ~2 hits per rebuild at 60fps.
+      private static const TILE_ROT_MAX_RAD:Number = 0.12;
+      // Tolerance for the rotation-linearity check below (screen units; base
+      // values are ~50): double-precision rebuild noise is ~1e-13, so anything
+      // above exact match and below this is float noise, never a zoom change
+      // (zoom changes viewKey first and misses before reaching the check).
+      private static const TILE_ROT_EPS:Number = 0.05;
       
       public function Graphic3D()
       {
@@ -266,6 +313,7 @@ package kabam.rotmg.stage3D.graphic3D
          this.ctOffset = new Vector.<Number>(4, true);
          this.rawMatrix3D = new Vector.<Number>(16, true);
          this.finalTransform = new Matrix3D();
+         this.scrollVC0_ = new Matrix3D();
          this.ctConstants = new Vector.<Number>(8, true);
          this.xformed = new Vector.<Number>(12, true);
          this.offsetScratch = new Vector.<Number>(4, true);
@@ -292,6 +340,7 @@ package kabam.rotmg.stage3D.graphic3D
          this.stateVB = null;
          this.stateSlot2Cleared = false;
          this.stateIdentityVC0 = false;
+         this.stateShiftVC0 = false;
          this.stateOffsetValid = false;
          this.stateCtValid = false;
       }
@@ -309,7 +358,8 @@ package kabam.rotmg.stage3D.graphic3D
       //
       // Phase 2 (batchUpload / drawRun): upload the vertex array once and draw each run with a
       // single drawTriangles. The vertex program is unchanged; vc0 is the identity, so the GPU
-      // passes the pre-transformed positions through.
+      // passes the pre-transformed positions through. Exception: on scroll-hit frames the snapshot
+      // prefix stays in base positions and vc0 carries the shift for prefix runs (see primeTileCache).
       // ------------------------------------------------------------------------------------
 
       public function batchBegin(c3d:Context3D, halfW:Number, halfH:Number, ndcX:Number, ndcY:Number) : void
@@ -320,7 +370,11 @@ package kabam.rotmg.stage3D.graphic3D
          atlas.beginFrame();
          if(FrameProfiler.enabled)
          {
-            FrameProfiler.atlasInfo = "atlas pages " + atlas.pageCount + " uploads " + atlas.uploads + " evictions " + atlas.evictions + (SpriteAtlas.USE_RTT ? " (rtt)" : " (cpu)");
+            FrameProfiler.atlasPages = atlas.pageCount;
+            FrameProfiler.atlasUploads = atlas.uploads;
+            FrameProfiler.atlasEvictions = atlas.evictions;
+            FrameProfiler.atlasRTT = SpriteAtlas.USE_RTT;
+            FrameProfiler.atlasHasData = true;
          }
          this.bHalfW = halfW;
          this.bHalfH = halfH;
@@ -361,10 +415,15 @@ package kabam.rotmg.stage3D.graphic3D
          this.tileTouchProxies_.length = 0;
          this.tileDrawnRuns_ = -1;
          this.tileCulledRuns_ = 0;
+         this.scrollShiftActive_ = false;
          this.quadMarks_ = 0;
          this.modelMarks_ = 0;
          this.shadowMarks_ = 0;
          this.runBreakTex_ = 0;
+         this.runBreakAtlas_ = 0;
+         this.runBreakIndiv_ = 0;
+         this.prefixRuns_ = 0;
+         this.prefixQuads_ = 0;
          this.runBreakRep_ = 0;
          this.runBreakOff_ = 0;
          this.runBreakCt_ = 0;
@@ -463,6 +522,12 @@ package kabam.rotmg.stage3D.graphic3D
          this.tileValid_ = false;
          this.tileCacheHit_ = false;
          this.tileScrollHit_ = false;
+         this.tileRotHit_ = false;
+         this.tileRotCos_ = 1;
+         this.tileRotSin_ = 0;
+         this.tileRotTX_ = 0;
+         this.tileRotTY_ = 0;
+         this.tileRotDeg_ = 0;
          this.tileScrollDX_ = 0;
          this.tileScrollDY_ = 0;
          this.tileScrollPX_ = 0;
@@ -501,9 +566,13 @@ package kabam.rotmg.stage3D.graphic3D
        * Still hit: same map/version/atlas, still camera, same viewKey. Scroll hit:
        * same base but a small pure camera translation (wToS basis identical, only
        * the translation row moved within TILE_SCROLL_MAX_PX): the snapshot verts
-       * shift by (dx,dy) in primeTileCache instead of rebuilding. Any rotation
-       * (basis differs), zoom/resize (viewKey differs), eviction, map/version
-       * change or large jump is a miss. Pure decision; priming happens in
+       * shift by (dx,dy) in primeTileCache instead of rebuilding. Rotation hit:
+       * same base but a small rigid motion (pan + rotate, same zoom: the wToS
+       * linear part is R(angle) up to scale, so base -> current is a 2D rotation
+       * within TILE_ROT_MAX_RAD plus a translation within TILE_SCROLL_MAX_PX):
+       * the snapshot verts replay through that 2D transform instead of
+       * rebuilding. Zoom/resize (viewKey differs), eviction, map/version change
+       * or a large jump is a miss. Pure decision; priming happens in
        * primeTileCache after batchBegin (so LRU stamps use the current serial).
        * wToS is the camera world-to-screen matrix (16 numbers); null forces a miss.
        * clip is the camera clip rect in screen (wToS) units; its snapshot copy feeds
@@ -526,11 +595,17 @@ package kabam.rotmg.stage3D.graphic3D
          }
          var hit:Boolean = false;
          var scroll:Boolean = false;
+         var rigid:Boolean = false;
          this.tileScrollPX_ = 0;
          this.tileScrollPY_ = 0;
          this.tileScrollDist_ = 0;
          this.tileScrollDX_ = 0;
          this.tileScrollDY_ = 0;
+         this.tileRotCos_ = 1;
+         this.tileRotSin_ = 0;
+         this.tileRotTX_ = 0;
+         this.tileRotTY_ = 0;
+         this.tileRotDeg_ = 0;
          if(base)
          {
             if(still)
@@ -561,9 +636,8 @@ package kabam.rotmg.stage3D.graphic3D
             else if(wToS != null && this.tileHasWToS_)
             {
                // Pure-translation test: basis rows (0..11) plus depth/w (14,15)
-               // identical; only the screen translation (12,13) moved. Rotation,
-               // however small, changes the linear part of every tile matrix, so
-               // a uniform shift cannot cover it.
+               // identical; only the screen translation (12,13) moved. When the
+               // basis differs the rigid-rotation test below still gets a chance.
                var pure:Boolean = true;
                for(var bi:int = 0; bi < 12; bi++)
                {
@@ -598,11 +672,78 @@ package kabam.rotmg.stage3D.graphic3D
                      scroll = false;
                   }
                }
+               if(!hit)
+               {
+                  // Rigid-motion test: with the same zoom the wToS linear part is
+                  // 50 * R(angle), so base -> current is a 2D rotation by the angle
+                  // delta plus a translation. Extract the delta from the basis
+                  // (wToS[0] = 50cos a, wToS[4] = 50sin a), verify the new basis
+                  // equals R(delta) * base (rules out scale/depth changes that
+                  // viewKey somehow missed), then bound rotation and translation
+                  // by the snapshot overdraw margin. Pure camera rotation about
+                  // the player yields t == 0 (pivot at the screen origin); pan
+                  // adds the translated part. Runs once per frame on top of the
+                  // exact test above: 2 atan2 + cos/sin/sqrt, trivial next to a
+                  // tile walk.
+                  if(wToS[2] == this.tileWToS_[2] && wToS[3] == this.tileWToS_[3]
+                     && wToS[6] == this.tileWToS_[6] && wToS[7] == this.tileWToS_[7]
+                     && wToS[8] == this.tileWToS_[8] && wToS[9] == this.tileWToS_[9]
+                     && wToS[10] == this.tileWToS_[10] && wToS[11] == this.tileWToS_[11]
+                     && wToS[14] == this.tileWToS_[14] && wToS[15] == this.tileWToS_[15])
+                  {
+                     var a0:Number = Math.atan2(this.tileWToS_[4],this.tileWToS_[0]);
+                     var a1:Number = Math.atan2(wToS[4],wToS[0]);
+                     var dA:Number = a1 - a0;
+                     if(dA > Math.PI)
+                     {
+                        dA -= 2 * Math.PI;
+                     }
+                     else if(dA < -Math.PI)
+                     {
+                        dA += 2 * Math.PI;
+                     }
+                     if(dA <= TILE_ROT_MAX_RAD && dA >= -TILE_ROT_MAX_RAD && dA != 0)
+                     {
+                        var rc:Number = Math.cos(dA);
+                        var rs:Number = Math.sin(dA);
+                        var e00:Number = rc * this.tileWToS_[0] + rs * this.tileWToS_[1] - wToS[0];
+                        var e10:Number = rc * this.tileWToS_[4] + rs * this.tileWToS_[5] - wToS[4];
+                        var e01:Number = -rs * this.tileWToS_[0] + rc * this.tileWToS_[1] - wToS[1];
+                        var e11:Number = -rs * this.tileWToS_[4] + rc * this.tileWToS_[5] - wToS[5];
+                        if(e00 < TILE_ROT_EPS && e00 > -TILE_ROT_EPS
+                           && e10 < TILE_ROT_EPS && e10 > -TILE_ROT_EPS
+                           && e01 < TILE_ROT_EPS && e01 > -TILE_ROT_EPS
+                           && e11 < TILE_ROT_EPS && e11 > -TILE_ROT_EPS)
+                        {
+                           var rtx:Number = wToS[12] - (rc * this.tileWToS_[12] + rs * this.tileWToS_[13]);
+                           var rty:Number = wToS[13] - (-rs * this.tileWToS_[12] + rc * this.tileWToS_[13]);
+                           var rdist:Number = Math.sqrt(rtx * rtx + rty * rty);
+                           if(rdist <= TILE_SCROLL_MAX_PX)
+                           {
+                              hit = true;
+                              rigid = true;
+                              this.tileRotCos_ = rc;
+                              this.tileRotSin_ = rs;
+                              this.tileRotTX_ = rtx;
+                              this.tileRotTY_ = rty;
+                              this.tileRotDeg_ = dA * 180 / Math.PI;
+                              this.tileScrollPX_ = rtx;
+                              this.tileScrollPY_ = rty;
+                              this.tileScrollDist_ = rdist;
+                           }
+                        }
+                     }
+                  }
+               }
             }
          }
          if(hit)
          {
-            if(scroll)
+            if(rigid)
+            {
+               this.tileRotHits_++;
+            }
+            else if(scroll)
             {
                this.tileScrollHits_++;
             }
@@ -614,8 +755,8 @@ package kabam.rotmg.stage3D.graphic3D
          else
          {
             this.tileMisses_++;
-            // Scroll miss: same map/version/viewKey/atlas but rotation or too far
-            // (user verifies these during frequent camera rotation).
+            // Scroll miss: same map/version/viewKey/atlas but too far, too much
+            // rotation, or a scale/depth change viewKey missed.
             if(base && !still)
             {
                this.tileScrollMisses_++;
@@ -644,19 +785,26 @@ package kabam.rotmg.stage3D.graphic3D
          }
          this.tileCacheHit_ = hit;
          this.tileScrollHit_ = scroll;
+         this.tileRotHit_ = rigid;
          return hit;
       }
 
       /**
        * Replays the snapshot into the fresh accumulators (after batchBegin).
        * Still hits swap the vertex vectors so the tile verts upload with no copy.
-       * Scroll hits copy with a uniform NDC shift (dx,dy): batch verts bake
-       * screen tx/halfW + ndcX and -ty/halfH + ndcY, and a pure camera translation
-       * moves every tile's tx,ty by the same (px,py), so shifting all verts by
-       * (px/halfW, -py/halfH) reproduces the rebuild bit-for-bit (1-ulp drift).
-       * Copying keeps the snapshot base pristine (in-place shifts would drift it);
-       * runs/cmds/consts replay unchanged (uv offsets and tints are translation
-       * invariant). Stamps touched pages/proxies so LRU cannot reclaim them.
+       * Scroll hits swap the same way and carry the uniform NDC shift (dx,dy) in
+       * vc0 for prefix runs instead: batch verts bake screen tx/halfW + ndcX and
+       * -ty/halfH + ndcY, and a pure camera translation moves every tile's tx,ty
+       * by the same (px,py), so a vc0 translation of (px/halfW, -py/halfH)
+       * reproduces the rebuild up to float32 rounding (~1 ulp, same class as the
+       * old per-vert shift's drift).
+       * Rotation hits copy through one NDC 2x2 + offset (screen-space rotation
+       * conjugated by the halfW/halfH NDC scale, derived below): a camera
+       * rotation moves every tile rigidly, so the same replay reproduces the
+       * rebuild up to a few ulps. Copying keeps the snapshot base pristine
+       * (in-place shifts would drift it); runs/cmds/consts replay unchanged (uv
+       * offsets and tints are translation/rotation invariant). Stamps touched
+       * pages/proxies so LRU cannot reclaim them.
        * Returns false when the snapshot no longer fits (batch capacity changed);
        * the caller then walks the whole frame as dynamic, which stays correct.
        */
@@ -667,7 +815,53 @@ package kabam.rotmg.stage3D.graphic3D
             this.tileValid_ = false;
             return false;
          }
-         if(this.tileScrollHit_)
+         // NDC replay matrix for the rotation path (identity for the rest).
+         var m00:Number = 1;
+         var m01:Number = 0;
+         var m10:Number = 0;
+         var m11:Number = 1;
+         var t0:Number = 0;
+         var t1:Number = 0;
+         if(this.tileRotHit_)
+         {
+            // Same pushSoftware contract as the scroll path (see below).
+            if(this.bHalfW == 0 || this.bHalfH == 0)
+            {
+               this.tileValid_ = false;
+               return false;
+            }
+            var rc:Number = this.tileRotCos_;
+            var rs:Number = this.tileRotSin_;
+            var hx:Number = this.bHalfW;
+            var hy:Number = this.bHalfH;
+            var nx:Number = this.bNdcX;
+            var ny:Number = this.bNdcY;
+            var rHyHx:Number = hy / hx;
+            var rHxHy:Number = hx / hy;
+            // Screen (sx,sy) -> NDC is (sx/hx + nx, -sy/hy + ny); the replay is
+            // s1 = R*s0 + t in screen space, conjugated through that scale.
+            m00 = rc;
+            m01 = -rs * rHyHx;
+            m10 = rs * rHxHy;
+            m11 = rc;
+            t0 = nx * (1 - rc) + rs * rHyHx * ny + this.tileRotTX_ / hx;
+            t1 = ny * (1 - rc) - rs * rHxHy * nx - this.tileRotTY_ / hy;
+            var rsrc:Vector.<Number> = this.tileData_;
+            var rdst:Vector.<Number> = this.batchData;
+            var rcount:int = this.tileQuads_ * 20;
+            for(var ri:int = 0; ri < rcount; ri += 5)
+            {
+               var ox:Number = rsrc[ri];
+               var oy:Number = rsrc[ri + 1];
+               rdst[ri] = m00 * ox + m01 * oy + t0;
+               rdst[ri + 1] = m10 * ox + m11 * oy + t1;
+               rdst[ri + 2] = rsrc[ri + 2];
+               rdst[ri + 3] = rsrc[ri + 3];
+               rdst[ri + 4] = rsrc[ri + 4];
+            }
+            this.batchQuads = this.tileQuads_;
+         }
+         else if(this.tileScrollHit_)
          {
             // Scroll path must classify identically to the still path: static runs
             // never contain software triples (snapshot requires a clean runs-only
@@ -682,18 +876,21 @@ package kabam.rotmg.stage3D.graphic3D
             var dy:Number = -this.tileScrollPY_ / this.bHalfH;
             this.tileScrollDX_ = dx;
             this.tileScrollDY_ = dy;
-            var src:Vector.<Number> = this.tileData_;
-            var dst:Vector.<Number> = this.batchData;
-            var count:int = this.tileQuads_ * 20;
-            for(var vi:int = 0; vi < count; vi += 5)
-            {
-               dst[vi] = src[vi] + dx;
-               dst[vi + 1] = src[vi + 1] + dy;
-               dst[vi + 2] = src[vi + 2];
-               dst[vi + 3] = src[vi + 3];
-               dst[vi + 4] = src[vi + 4];
-            }
+            // Zero-copy replay: the prefix stays in snapshot positions (same swap
+            // as the still path, so the base is never scribbled) and the shift
+            // rides in vc0 for prefix runs (see drawRun). Dynamics append in
+            // current positions; the prefix/dynamic run merge below is disabled
+            // on scroll frames so no run ever mixes the two spaces. Same pixels
+            // as the old per-vert shift up to float32 rounding (~1 ulp).
+            var swapTmpS:Vector.<Number> = this.batchData;
+            this.batchData = this.tileData_;
+            this.tileData_ = swapTmpS;
+            this.tileSwapped_ = true;
             this.batchQuads = this.tileQuads_;
+            var shiftM:Matrix3D = this.scrollVC0_;
+            shiftM.identity();
+            shiftM.appendTranslation(dx,dy,0);
+            this.scrollShiftActive_ = true;
          }
          else
          {
@@ -712,6 +909,7 @@ package kabam.rotmg.stage3D.graphic3D
          var runs:int = this.tileRuns_;
          var cdx:Number = this.tileScrollHit_ ? this.tileScrollDX_ : 0;
          var cdy:Number = this.tileScrollHit_ ? this.tileScrollDY_ : 0;
+         var rot:Boolean = this.tileRotHit_;
          var emit:int = 0;
          var lastEmit:int = -1;
          var bx:Vector.<Number> = this.tileRunBox_;
@@ -727,8 +925,41 @@ package kabam.rotmg.stage3D.graphic3D
             if(hasBox)
             {
                var b:int = i * 4;
-               visible = !(bx[b] + cdx > this.tileWinX1_ || bx[b + 2] + cdx < this.tileWinX0_
-                  || bx[b + 1] + cdy > this.tileWinY1_ || bx[b + 3] + cdy < this.tileWinY0_);
+               if(rot)
+               {
+                  // Conservative AABB of the rotated box corners.
+                  var qx0:Number = bx[b];
+                  var qy0:Number = bx[b + 1];
+                  var qx1:Number = bx[b + 2];
+                  var qy1:Number = bx[b + 3];
+                  var ax:Number = m00 * qx0 + m01 * qy0 + t0;
+                  var ay:Number = m10 * qx0 + m11 * qy0 + t1;
+                  var bx1:Number = m00 * qx1 + m01 * qy0 + t0;
+                  var by1:Number = m10 * qx1 + m11 * qy0 + t1;
+                  var cx1:Number = m00 * qx0 + m01 * qy1 + t0;
+                  var cy1:Number = m10 * qx0 + m11 * qy1 + t1;
+                  var dx1:Number = m00 * qx1 + m01 * qy1 + t0;
+                  var dy1:Number = m10 * qx1 + m11 * qy1 + t1;
+                  var nminx:Number = ax < bx1 ? ax : bx1;
+                  nminx = nminx < cx1 ? nminx : cx1;
+                  nminx = nminx < dx1 ? nminx : dx1;
+                  var nmaxx:Number = ax > bx1 ? ax : bx1;
+                  nmaxx = nmaxx > cx1 ? nmaxx : cx1;
+                  nmaxx = nmaxx > dx1 ? nmaxx : dx1;
+                  var nminy:Number = ay < by1 ? ay : by1;
+                  nminy = nminy < cy1 ? nminy : cy1;
+                  nminy = nminy < dy1 ? nminy : dy1;
+                  var nmaxy:Number = ay > by1 ? ay : by1;
+                  nmaxy = nmaxy > cy1 ? nmaxy : cy1;
+                  nmaxy = nmaxy > dy1 ? nmaxy : dy1;
+                  visible = !(nminx > this.tileWinX1_ || nmaxx < this.tileWinX0_
+                     || nminy > this.tileWinY1_ || nmaxy < this.tileWinY0_);
+               }
+               else
+               {
+                  visible = !(bx[b] + cdx > this.tileWinX1_ || bx[b + 2] + cdx < this.tileWinX0_
+                     || bx[b + 1] + cdy > this.tileWinY1_ || bx[b + 3] + cdy < this.tileWinY0_);
+               }
             }
             if(visible)
             {
@@ -742,7 +973,10 @@ package kabam.rotmg.stage3D.graphic3D
          this.cmdCount = emit;
          // A merged dynamic suffix may only extend the last run when that run was
          // actually emitted; extending a culled run would draw into the void.
-         this.runOpen = this.tileRunOpen_ && lastEmit == runs - 1;
+         // Never on scroll-shift frames: the last prefix run is snapshot-space
+         // (shifted by vc0) while dynamics are current-space, so sharing one run
+         // would draw one of them with the wrong transform. Costs one draw call.
+         this.runOpen = this.tileRunOpen_ && lastEmit == runs - 1 && !this.scrollShiftActive_;
          this.tileDrawnRuns_ = emit;
          this.tileCulledRuns_ = runs - emit;
          var pages:Vector.<AtlasPage> = this.tilePages_;
@@ -755,6 +989,8 @@ package kabam.rotmg.stage3D.graphic3D
          {
             proxies[i].lastUsed = this.frame;
          }
+         this.prefixRuns_ = this.runCount;
+         this.prefixQuads_ = this.batchQuads;
          return true;
       }
 
@@ -918,9 +1154,9 @@ package kabam.rotmg.stage3D.graphic3D
 
       /**
        * Snapshots the just-walked static tile prefix ([0, batchQuads/cmdCount) at the
-       * call). Attempted on every clean rebuild (still or pure-translation miss):
-       * refreshing the base on translation misses keeps future scroll deltas small,
-       * while rotation/zoom/resize frames simply establish the next base. Requires
+       * call). Attempted on every clean rebuild: refreshing the base on small
+       * translation/rotation misses keeps future replay deltas small, while
+       * large-motion/zoom/resize frames simply establish the next base. Requires
        * a clean tile region (runs only, no software triples, no overflow); anything
        * else leaves the frame correct but uncached (and preserves the old base when
        * one exists). Returns the verdict for the atlas readout.
@@ -928,6 +1164,8 @@ package kabam.rotmg.stage3D.graphic3D
       public function snapshotTileCache() : Boolean
       {
          this.recordingTiles_ = false;
+         this.prefixRuns_ = this.runCount;
+         this.prefixQuads_ = this.batchQuads;
          var cc:int = this.cmdCount;
          for(var i:int = 0; i < cc; i++)
          {
@@ -943,6 +1181,8 @@ package kabam.rotmg.stage3D.graphic3D
             return false;
          }
          this.sortTileRuns(this.batchQuads,this.runCount);
+         this.prefixRuns_ = this.runCount;
+         this.prefixQuads_ = this.batchQuads;
          var quads:int = this.batchQuads;
          if(this.tileData_ == null || this.tileData_.length != this.batchData.length)
          {
@@ -1078,6 +1318,12 @@ package kabam.rotmg.stage3D.graphic3D
          this.tileScrollDX_ = 0;
          this.tileScrollDY_ = 0;
          this.tileScrollHit_ = false;
+         this.tileRotHit_ = false;
+         this.tileRotCos_ = 1;
+         this.tileRotSin_ = 0;
+         this.tileRotTX_ = 0;
+         this.tileRotTY_ = 0;
+         this.tileRotDeg_ = 0;
          var atlas:SpriteAtlas = this.textureFactory.getAtlas();
          this.tileAtlas_ = atlas;
          this.tileEvictions_ = atlas.evictions;
@@ -1376,6 +1622,15 @@ package kabam.rotmg.stage3D.graphic3D
          if(prevTex != newTex)
          {
             this.runBreakTex_++;
+            var atlas:SpriteAtlas = this.textureFactory.getAtlas();
+            if(atlas.isPageTexture(prevTex) && atlas.isPageTexture(newTex))
+            {
+               this.runBreakAtlas_++;
+            }
+            else
+            {
+               this.runBreakIndiv_++;
+            }
          }
          if(prevRep != newRep)
          {
@@ -1452,14 +1707,6 @@ package kabam.rotmg.stage3D.graphic3D
             this.batchOverflow = true;
             return false;
          }
-         var tex:TextureProxy = this.textureFactory.make(bmd);
-         if(tex == null)
-         {
-            return true;
-         }
-         var texBase:TextureBase = tex.getTexture();
-         var texW:Number = tex.getWidth();
-         var texH:Number = tex.getHeight();
          // Inverse texture-px <- screen-px (fill.matrix maps the other way).
          var ia:Number = fm.d / det;
          var ib:Number = -fm.b / det;
@@ -1467,6 +1714,59 @@ package kabam.rotmg.stage3D.graphic3D
          var id:Number = fm.a / det;
          var itx:Number = (fm.c * fm.ty - fm.d * fm.tx) / det;
          var ity:Number = (fm.b * fm.tx - fm.a * fm.ty) / det;
+         // Atlas fast path: clamp-sampled faces fully inside the bitmap sample
+         // identical texels from a slot (same padded copy, edge-replicated border
+         // like clamp) while sharing page bindings, so adjacent same-page runs
+         // merge. Repeat-sampled faces stay individual: outside uvs must wrap,
+         // which a slot cannot reproduce. Conservative by construction.
+         var atlasEntry:AtlasEntry = null;
+         var useAtlas:Boolean = false;
+         if(!fill.repeat && bmd != null)
+         {
+            var enclosed:Boolean = true;
+            for(var ci:int = 0; ci < 4; ci++)
+            {
+               var cbu:Number = (ia * v[ci * 2] + ic * v[ci * 2 + 1] + itx) / bmd.width;
+               var cbv:Number = (ib * v[ci * 2] + id * v[ci * 2 + 1] + ity) / bmd.height;
+               if(cbu < -0.000001 || cbu > 1.000001 || cbv < -0.000001 || cbv > 1.000001)
+               {
+                  enclosed = false;
+                  break;
+               }
+            }
+            if(enclosed)
+            {
+               atlasEntry = this.textureFactory.getAtlas().get(bmd,this.frame,false);
+               useAtlas = atlasEntry != null;
+               if(useAtlas && this.recordingTiles_)
+               {
+                  var touchPages:Vector.<AtlasPage> = this.tileTouchPages_;
+                  if(touchPages.length == 0 || touchPages[touchPages.length - 1] != atlasEntry.page)
+                  {
+                     touchPages.push(atlasEntry.page);
+                  }
+               }
+            }
+         }
+         var tex:TextureProxy = null;
+         var texBase:TextureBase = null;
+         var texW:Number = 0;
+         var texH:Number = 0;
+         if(useAtlas)
+         {
+            texBase = atlasEntry.page.texture;
+         }
+         else
+         {
+            tex = this.textureFactory.make(bmd);
+            if(tex == null)
+            {
+               return true;
+            }
+            texBase = tex.getTexture();
+            texW = tex.getWidth();
+            texH = tex.getHeight();
+         }
          var hw:Number = this.bHalfW;
          var hh:Number = this.bHalfH;
          var nx:Number = this.bNdcX;
@@ -1488,8 +1788,18 @@ package kabam.rotmg.stage3D.graphic3D
             d[p] = sx / hw + nx;
             d[p + 1] = -sy / hh + ny;
             d[p + 2] = 0;
-            d[p + 3] = (ia * sx + ic * sy + itx) / texW;
-            d[p + 4] = (ib * sx + id * sy + ity) / texH;
+            var tpx:Number = ia * sx + ic * sy + itx;
+            var tpy:Number = ib * sx + id * sy + ity;
+            if(useAtlas)
+            {
+               d[p + 3] = atlasEntry.u0 + tpx / atlasEntry.w * (atlasEntry.u1 - atlasEntry.u0);
+               d[p + 4] = atlasEntry.v0 + tpy / atlasEntry.h * (atlasEntry.v1 - atlasEntry.v0);
+            }
+            else
+            {
+               d[p + 3] = tpx / texW;
+               d[p + 4] = tpy / texH;
+            }
             p += 5;
          }
          var ct:ColorTransform = null;
@@ -1503,7 +1813,9 @@ package kabam.rotmg.stage3D.graphic3D
             this.lastCtBmd = bmd;
             this.lastCt = ct;
          }
-         var repeatIdx:int = fill.repeat ? 1 : 0;
+         // Atlas-routed faces use the clamp program like all atlas quads: their uvs
+         // are inside the bitmap, where repeat and clamp sample identically.
+         var repeatIdx:int = useAtlas ? 0 : (fill.repeat ? 1 : 0);
          var rc:Vector.<Number> = this.runConst;
          var r:int = this.runCount - 1;
          var k:int = r * 12;
@@ -1624,10 +1936,25 @@ package kabam.rotmg.stage3D.graphic3D
             c3d.setVertexBufferAt(2,null);
             this.stateSlot2Cleared = true;
          }
-         if(!this.stateIdentityVC0)
+         // Scroll-shift frames keep prefix verts in snapshot positions (see
+         // primeTileCache); prefix runs draw shifted, everything else passes
+         // through. Prefix runs always precede dynamic commands and the merge is
+         // disabled on scroll frames, so at most two uploads happen per frame.
+         var wantShift:Boolean = this.scrollShiftActive_ && r < this.tileRuns_;
+         if(wantShift)
+         {
+            if(!this.stateShiftVC0)
+            {
+               c3dProxy.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,this.scrollVC0_,true);
+               this.stateShiftVC0 = true;
+               this.stateIdentityVC0 = false;
+            }
+         }
+         else if(!this.stateIdentityVC0)
          {
             c3dProxy.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,IDENTITY,true);
             this.stateIdentityVC0 = true;
+            this.stateShiftVC0 = false;
          }
          var rc:Vector.<Number> = this.runConst;
          var k:int = r * 12;
@@ -1734,6 +2061,7 @@ package kabam.rotmg.stage3D.graphic3D
          f.appendTranslation(ndcX,ndcY,0);
          c3dProxy.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX,0,f,true);
          this.stateIdentityVC0 = false;
+         this.stateShiftVC0 = false;
 
          // --- uv offset (vc4): animated tiles scroll; water sink is clip pixels
          // (see batchQuad). This fallback path uses a shared vertex buffer so it

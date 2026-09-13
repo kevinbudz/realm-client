@@ -152,6 +152,19 @@ package kabam.rotmg.stage3D.graphic3D
          return this.pendingSrc.length > 0 || this.dirtyPages.length > 0;
       }
 
+      /** True when t is one of this atlas's page textures (profiler attribution). */
+      public function isPageTexture(t:Object) : Boolean
+      {
+         for(var i:int = 0; i < this.pages.length; i++)
+         {
+            if(this.pages[i].texture == t)
+            {
+               return true;
+            }
+         }
+         return false;
+      }
+
       /**
        * Returns the atlas entry for a sprite, queueing an upload if it is new. Returns null if
        * the sprite is too large or no page has room this frame (caller falls back to an

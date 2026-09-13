@@ -75,7 +75,39 @@ package com.company.assembleegameclient.util
       public static var frameTiles:int = 0;
       public static var frameGraphicsData:int = 0;
       public static var frameDrawCalls:int = 0;  // always incremented; cheap, and reset here each frame
-      public static var atlasInfo:String = "";   // GPU mode: sprite atlas status line
+      // GPU mode: sprite atlas / batch snapshot, overwritten every GPU frame
+      // (last-frame sample, not a 1-second average like avgSection). Lifetime
+      // counters carry a "total" suffix in the view; the rest is per-frame.
+      public static var atlasHasData:Boolean = false;
+      public static var atlasPages:int = 0;
+      public static var atlasUploads:int = 0;
+      public static var atlasEvictions:int = 0;
+      public static var atlasRTT:Boolean = true;
+      public static var atlasRuns:int = 0;
+      public static var atlasQuads:int = 0;
+      public static var atlasCmds:int = 0;
+      public static var atlasSoft:int = 0;
+      public static var atlasTile:String = "";
+      public static var atlasStill:int = 0;
+      public static var atlasScroll:int = 0;
+      public static var atlasScrollMiss:int = 0;
+      public static var atlasMiss:int = 0;
+      public static var atlasCulled:int = 0;
+      public static var atlasFalls:int = 0;
+      public static var atlasModels:int = 0;
+      public static var atlasShadows:int = 0;
+      public static var atlasBrkTex:int = 0;
+      public static var atlasBrkRep:int = 0;
+      public static var atlasBrkOff:int = 0;
+      public static var atlasBrkCt:int = 0;
+      public static var atlasBrkAtlas:int = 0;
+      public static var atlasBrkIndiv:int = 0;
+      public static var atlasDynRuns:int = 0;
+      public static var atlasDynQuads:int = 0;
+      public static var atlasBufW:int = 0;
+      public static var atlasBufH:int = 0;
+      public static var atlasStageW:int = 0;
+      public static var atlasStageH:int = 0;
 
       public static function frameStart() : void
       {
@@ -145,6 +177,17 @@ package com.company.assembleegameclient.util
          frameStartTime = lastFrameStartTime = windowStartTime = 0;
          avgScript = avgRender = avgFrame = avgObjects = avgTiles = avgGraphicsData = avgDrawCalls = 0;
          reportedFrames = 0;
+         atlasHasData = false;
+         atlasPages = atlasUploads = atlasEvictions = 0;
+         atlasRTT = true;
+         atlasRuns = atlasQuads = atlasCmds = atlasSoft = 0;
+         atlasTile = "";
+         atlasStill = atlasScroll = atlasScrollMiss = atlasMiss = atlasCulled = 0;
+         atlasFalls = atlasModels = atlasShadows = 0;
+         atlasBrkTex = atlasBrkRep = atlasBrkOff = atlasBrkCt = 0;
+         atlasBrkAtlas = atlasBrkIndiv = 0;
+         atlasDynRuns = atlasDynQuads = 0;
+         atlasBufW = atlasBufH = atlasStageW = atlasStageH = 0;
       }
 
       private static function report() : void

@@ -12,10 +12,10 @@ package com.company.assembleegameclient.util
     * when removed, so there's zero cost when the overlay is hidden.
     *
     * Single column layout: software nests every other group. Software nests
-    * frame and scene; frame nests script and render as collapsible sub-groups,
-    * all sharing one look: bold label, value, arrow on the right. Click a
-    * header row to toggle it. Detail rows use a bold key column with values
-    * lined up in a second column.
+    * frame, scene and (in GPU mode) atlas; frame nests script and render as
+    * collapsible sub-groups, all sharing one look: bold label, value, arrow
+    * on the right. Click a header row to toggle it. Detail rows use a bold
+    * key column with values lined up in a second column.
     *
     * Accounting (every level sums): all instrumented sections run inside the
     * enterFrame handler, i.e. inside avgScript. "script" is the non-draw CPU
@@ -31,7 +31,8 @@ package com.company.assembleegameclient.util
       private static const GROUP_SCRIPT:int = 2;
       private static const GROUP_RENDER:int = 3;
       private static const GROUP_SCENE:int = 4;
-      private static const GROUP_COUNT:int = 5;
+      private static const GROUP_ATLAS:int = 5;
+      private static const GROUP_COUNT:int = 6;
 
       private static const ARROW_SIZE:Number = 8;
       private static const ARROW_GAP:Number = 4;
@@ -56,12 +57,11 @@ package com.company.assembleegameclient.util
       private var bodies_:Vector.<Sprite> = new Vector.<Sprite>(GROUP_COUNT,true);
       // Body rows are per-row sprites (key + value) on a fixed two-column grid with one
       // uniform row height, so key/value lines can never drift apart vertically down a list.
-      private static const MAX_BODY_ROWS:int = 20;
+      private static const MAX_BODY_ROWS:int = 24;
       private var bodyRows_:Vector.<Sprite> = new Vector.<Sprite>(GROUP_COUNT * MAX_BODY_ROWS,true);
       private var bodyRowKeys_:Vector.<SimpleText> = new Vector.<SimpleText>(GROUP_COUNT * MAX_BODY_ROWS,true);
       private var bodyRowVals_:Vector.<SimpleText> = new Vector.<SimpleText>(GROUP_COUNT * MAX_BODY_ROWS,true);
-      private var expanded_:Vector.<Boolean> = new <Boolean>[true,true,true,true,false];
-      private var atlas_:SimpleText;
+      private var expanded_:Vector.<Boolean> = new <Boolean>[true,true,true,true,false,false];
       private var lastSerial_:int = -1;
 
       public function FrameProfilerView()
@@ -104,9 +104,6 @@ package com.company.assembleegameclient.util
             }
          }
 
-         this.atlas_ = makeText(false);
-         addChild(this.atlas_);
-
          addEventListener(Event.ADDED_TO_STAGE,this.onAddedToStage);
          addEventListener(Event.REMOVED_FROM_STAGE,this.onRemovedFromStage);
       }
@@ -123,7 +120,6 @@ package com.company.assembleegameclient.util
          }
          setHead(GROUP_SOFTWARE,"profiling...","");
          this.heads_[GROUP_SOFTWARE].visible = true;
-         this.atlas_.visible = false;
          stage.addEventListener(Event.ENTER_FRAME,this.onEnterFrame);
       }
 
@@ -177,11 +173,11 @@ package com.company.assembleegameclient.util
          setHead(GROUP_SCENE,"scene","  " + int(sceneTotal) + " items");
          setSceneBody();
 
-         var showAtlas:Boolean = Parameters.GPURenderFrame && FrameProfiler.atlasInfo.length > 0;
+         var showAtlas:Boolean = Parameters.GPURenderFrame && FrameProfiler.atlasHasData;
          if(showAtlas)
          {
-            this.atlas_.text = FrameProfiler.atlasInfo;
-            this.atlas_.useTextDimensions();
+            setHead(GROUP_ATLAS,"atlas","  " + FrameProfiler.atlasPages + " pages, " + FrameProfiler.atlasRuns + " runs, " + FrameProfiler.atlasTile);
+            setAtlasBody();
          }
 
          var y:Number = 0;
@@ -202,6 +198,14 @@ package com.company.assembleegameclient.util
                hideGroup(GROUP_RENDER);
             }
             y = placeGroup(GROUP_SCENE,BODY_INDENT,y);
+            if(showAtlas)
+            {
+               y = placeGroup(GROUP_ATLAS,BODY_INDENT,y);
+            }
+            else
+            {
+               hideGroup(GROUP_ATLAS);
+            }
          }
          else
          {
@@ -209,13 +213,7 @@ package com.company.assembleegameclient.util
             hideGroup(GROUP_SCRIPT);
             hideGroup(GROUP_RENDER);
             hideGroup(GROUP_SCENE);
-         }
-         var showAtlasLine:Boolean = showAtlas && this.expanded_[GROUP_SOFTWARE];
-         this.atlas_.visible = showAtlasLine;
-         if(showAtlasLine)
-         {
-            this.atlas_.x = BODY_INDENT;
-            this.atlas_.y = y;
+            hideGroup(GROUP_ATLAS);
          }
       }
 
@@ -346,6 +344,34 @@ package com.company.assembleegameclient.util
          var draws:Number = FrameProfiler.avgDrawCalls;
          setRowsBody(GROUP_SCENE,[{k:"objs",v:objs,t:int(objs).toString()},{k:"tiles",v:tiles,t:int(tiles).toString()},
             {k:"draws",v:draws,t:int(draws).toString()}],"","");
+      }
+
+      // Atlas / batch snapshot (last GPU frame, not averaged). Lifetime counters
+      // are marked "total"; the rest is per-frame. Related counters share one row
+      // so the group stays scannable; fixed order, never re-sorted like timings.
+      private function setAtlasBody() : void
+      {
+         var keys:String = "mode\npages\nuploads\nevictions\nruns\nquads\ncmds\nsoft\ndynamic\ntile\ntile still\ntile scroll\ntile scrollMiss\ntile miss\ntile culled\nfallbacks/models/shadows\nbreaks tex/rep/off/ct\nbreaks atlas/indiv\nbuffer";
+         var vals:String = (FrameProfiler.atlasRTT ? "rtt" : "cpu")
+            + "\n" + FrameProfiler.atlasPages
+            + "\n" + FrameProfiler.atlasUploads + " total"
+            + "\n" + FrameProfiler.atlasEvictions + " total"
+            + "\n" + FrameProfiler.atlasRuns
+            + "\n" + FrameProfiler.atlasQuads
+            + "\n" + FrameProfiler.atlasCmds
+            + "\n" + FrameProfiler.atlasSoft
+            + "\n" + FrameProfiler.atlasDynRuns + " runs / " + FrameProfiler.atlasDynQuads + " quads"
+            + "\n" + FrameProfiler.atlasTile
+            + "\n" + FrameProfiler.atlasStill
+            + "\n" + FrameProfiler.atlasScroll
+            + "\n" + FrameProfiler.atlasScrollMiss
+            + "\n" + FrameProfiler.atlasMiss
+            + "\n" + FrameProfiler.atlasCulled
+            + "\n" + FrameProfiler.atlasFalls + " / " + FrameProfiler.atlasModels + " / " + FrameProfiler.atlasShadows
+            + "\n" + FrameProfiler.atlasBrkTex + " / " + FrameProfiler.atlasBrkRep + " / " + FrameProfiler.atlasBrkOff + " / " + FrameProfiler.atlasBrkCt
+            + "\n" + FrameProfiler.atlasBrkAtlas + " / " + FrameProfiler.atlasBrkIndiv
+            + "\nback " + FrameProfiler.atlasBufW + "x" + FrameProfiler.atlasBufH + ", stage " + FrameProfiler.atlasStageW + "x" + FrameProfiler.atlasStageH;
+         setBody(GROUP_ATLAS,keys,vals);
       }
 
       private function setRowsBody(g:int, rows:Array, tailKeys:String, tailVals:String) : void

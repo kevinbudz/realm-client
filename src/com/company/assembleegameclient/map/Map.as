@@ -673,13 +673,15 @@ public class Map extends Sprite
          var tileCacheHit:Boolean = tileGraphic.checkTileCache(this,this.tileVersion_,still,gpuTilePath,viewKey,this.wToSScratch_,screenRect);
          if(tileCacheHit)
          {
-            // Still hit: identical camera, same static quads. Scroll hit: small pure
-            // translation; the snapshot covers the same integer tile range plus the
-            // snapshot overdraw margin, so shifting its verts (see primeTileCache)
-            // reproduces the rebuild. Either way restamp visibility (entity culling
-            // reads lastVisible_) and redraw only the scrollers; their matrices are
-            // recomputed when moving (skipMatrixCompute false) and cached when still.
-            // Scroll-hit frames leave static Face3D caches untouched (stale base).
+            // Still hit: identical camera, same static quads. Scroll hit: small
+            // pure translation; rotation hit: small pan + rotate (see
+            // checkTileCache). The snapshot covers the same integer tile range
+            // plus the overdraw margin, so shifting/rotating its verts (see
+            // primeTileCache) reproduces the rebuild. Either way restamp
+            // visibility (entity culling reads lastVisible_) and redraw only the
+            // scrollers; their matrices are recomputed when moving
+            // (skipMatrixCompute false) and cached when still. Replay-hit frames
+            // leave static Face3D caches untouched (stale base).
             Face3D.skipMatrixCompute = still;
             Face3D.clipMargin_ = 10;
             var hitSquares:Vector.<Square> = this.visibleSquares_;
@@ -701,9 +703,10 @@ public class Map extends Sprite
             this.tileAnimSquares_.length = 0;
             this.visibleSquares_.length = 0;
             this.topSquares_.length = 0;
-            // Static prefix overdraws for scroll coverage: widen the clip margin
+            // Static prefix overdraws for replay coverage: widen the clip margin
             // (Face3D) and the tile range + radial cull by 1 tile so scrolls up to
-            // TILE_SCROLL_MAX_PX stay inside the snapshot. Both passes walk the
+            // TILE_SCROLL_MAX_PX and small rotations stay inside the snapshot.
+            // Both passes walk the
             // same enlarged box (animated keeps the tight clip margin): mismatched
             // ranges left animated squares in the ring built-but-never-drawn with
             // empty vout_, and froze their scrolling on hit frames.
@@ -715,7 +718,7 @@ public class Map extends Sprite
             var staticMaxDist:Number = camera.maxDist_ + 1;
             var staticMaxDistSq:Number = staticMaxDist * staticMaxDist;
             // Miss: always recompute (see note above); the static caches may be
-            // stale from skipped scroll-hit frames, never last frame's.
+            // stale from skipped replay-hit frames, never last frame's.
             Face3D.skipMatrixCompute = false;
             Face3D.clipMargin_ = Face3D.TILE_SNAPSHOT_MARGIN;
             this.drawTilePass(squares,graphicsData,camera,time,centerX,centerY,staticMaxDistSq,
