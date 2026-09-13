@@ -31,32 +31,6 @@ package kabam.rotmg.stage3D.graphic3D
 
       public function alloc(w:int, h:int) : AtlasEntry
       {
-         return this.allocBlock(w,h);
-      }
-
-      /**
-       * Allocates a tilable slot: a 2x2 replication of the w x h sprite plus one outer
-       * border, so a scrolling quad can sample any fractional offset inside it. The entry
-       * keeps the single-sprite w/h at the block origin; u1/v1 span the whole block.
-       */
-      public function allocTiled(w:int, h:int) : AtlasEntry
-      {
-         var e:AtlasEntry = this.allocBlock(w * 2,h * 2);
-         if(e == null)
-         {
-            return null;
-         }
-         e.tilable = true;
-         e.w = w;
-         e.h = h;
-         var inv:Number = 1 / SpriteAtlas.PAGE_SIZE;
-         e.uSpan = w * inv;
-         e.vSpan = h * inv;
-         return e;
-      }
-
-      private function allocBlock(w:int, h:int) : AtlasEntry
-      {
          var n:int = this.shelfH.length;
          var i:int = 0;
          var pitchW:int = w + 2 * BORDER;

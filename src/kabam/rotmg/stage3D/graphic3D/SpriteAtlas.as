@@ -23,8 +23,6 @@ package kabam.rotmg.stage3D.graphic3D
     * Each sprite gets a slot of its power-of-2 padded size, exactly the texture it would have had
     * as an individual texture (TextureFactory.make), so the quad geometry and uv range are the
     * same as before; only the uv origin/scale differ. Slots are separated by a 1-texel gap.
-    * Scrolling/repeat sprites get tilable slots holding a 2x2 replication, so any fractional
-    * scroll offset samples continuous content with the clamp sampler (see get(tilable)).
     *
     * Two ways of getting sprites into a page (USE_RTT):
     *  - false: each page has a CPU-side BitmapData; new sprites are copyPixels'd into it and the
@@ -62,9 +60,6 @@ package kabam.rotmg.stage3D.graphic3D
       private var pages:Vector.<AtlasPage> = new Vector.<AtlasPage>();
       // BitmapData -> AtlasEntry. Weak keys so disposed sprites don't pin their BitmapData.
       private var entries:Dictionary = new Dictionary(true);
-      // Same, for tilable (2x2) slots used by scrolling/repeat sprites. A sprite used both
-      // ways occupies one slot of each kind; the duplication is one-time and small.
-      private var tilableEntries:Dictionary = new Dictionary(true);
       // RTT mode: blits queued for flush().
       private var pendingSrc:Vector.<Texture> = new Vector.<Texture>();
       private var pendingEntry:Vector.<AtlasEntry> = new Vector.<AtlasEntry>();
@@ -130,7 +125,6 @@ package kabam.rotmg.stage3D.graphic3D
          this.pendingEntry.length = 0;
          this.dirtyPages.length = 0;
          this.entries = new Dictionary(true);
-         this.tilableEntries = new Dictionary(true);
          if(this.blitVB != null)
          {
             this.blitVB.dispose();
@@ -152,16 +146,10 @@ package kabam.rotmg.stage3D.graphic3D
        * Returns the atlas entry for a sprite, queueing an upload if it is new. Returns null if
        * the sprite is too large or no page has room this frame (caller falls back to an
        * individual texture).
-       *
-       * Tilable entries hold a 2x2 replication for scrolling/repeat sprites (see
-       * Graphic3D.batchQuad): any fractional offset then samples continuous content with
-       * the clamp sampler, so these quads batch exactly like plain ones. The RTT blit path
-       * does not replicate; tilable requests fall back to individual textures there.
        */
-      public function get(bmd:BitmapData, frame:int, tilable:Boolean = false) : AtlasEntry
+      public function get(bmd:BitmapData, frame:int) : AtlasEntry
       {
-         var dict:Dictionary = tilable ? this.tilableEntries : this.entries;
-         var e:AtlasEntry = dict[bmd];
+         var e:AtlasEntry = this.entries[bmd];
          if(e != null && e.generation == e.page.generation)
          {
             e.page.lastUsed = frame;
@@ -173,45 +161,10 @@ package kabam.rotmg.stage3D.graphic3D
          {
             return null;
          }
-         if(tilable && USE_RTT)
-         {
-            return null;
-         }
-         e = this.allocate(w,h,frame,tilable);
+         e = this.allocate(w,h,frame);
          if(e == null)
          {
             return null;
-         }
-         if(tilable)
-         {
-            // 2x2 replication; the outer 1-texel border replicates the block edge so
-            // linear taps at the block boundary behave like clamp-to-edge.
-            var tpb:BitmapData = e.page.bitmap;
-            this.dest.x = e.x;
-            this.dest.y = e.y;
-            tpb.copyPixels(bmd,bmd.rect,this.dest);
-            this.dest.x = e.x + w;
-            this.dest.y = e.y;
-            tpb.copyPixels(bmd,bmd.rect,this.dest);
-            this.dest.x = e.x;
-            this.dest.y = e.y + h;
-            tpb.copyPixels(bmd,bmd.rect,this.dest);
-            this.dest.x = e.x + w;
-            this.dest.y = e.y + h;
-            tpb.copyPixels(bmd,bmd.rect,this.dest);
-            this.copyRegion(tpb,e.x,e.y,2 * w,1,e.x,e.y - 1);                 // top row
-            this.copyRegion(tpb,e.x,e.y + 2 * h - 1,2 * w,1,e.x,e.y + 2 * h); // bottom row
-            this.copyRegion(tpb,e.x,e.y - 1,1,2 * h + 2,e.x - 1,e.y - 1);     // left column incl. corners
-            this.copyRegion(tpb,e.x + 2 * w - 1,e.y - 1,1,2 * h + 2,e.x + 2 * w,e.y - 1); // right column
-            this.dest.x = 0;
-            this.dest.y = 0;
-            if(!e.page.dirty)
-            {
-               e.page.dirty = true;
-               this.dirtyPages.push(e.page);
-            }
-            dict[bmd] = e;
-            return e;
          }
          if(USE_RTT)
          {
@@ -244,7 +197,7 @@ package kabam.rotmg.stage3D.graphic3D
                this.dirtyPages.push(e.page);
             }
          }
-         dict[bmd] = e;
+         this.entries[bmd] = e;
          return e;
       }
 
@@ -256,7 +209,7 @@ package kabam.rotmg.stage3D.graphic3D
          pb.copyPixels(pb,this.srcRect,this.dest);
       }
 
-      private function allocate(w:int, h:int, frame:int, tilable:Boolean) : AtlasEntry
+      private function allocate(w:int, h:int, frame:int) : AtlasEntry
       {
          var p:AtlasPage = null;
          var e:AtlasEntry = null;
@@ -264,7 +217,7 @@ package kabam.rotmg.stage3D.graphic3D
          for(var i:int = 0; i < n; i++)
          {
             p = this.pages[i];
-            e = tilable ? p.allocTiled(w,h) : p.alloc(w,h);
+            e = p.alloc(w,h);
             if(e != null)
             {
                p.lastUsed = frame;
@@ -281,7 +234,7 @@ package kabam.rotmg.stage3D.graphic3D
             this.pages.push(p);
             this.pageCount = this.pages.length;
             p.lastUsed = frame;
-            return tilable ? p.allocTiled(w,h) : p.alloc(w,h);
+            return p.alloc(w,h);
          }
          // Evict the least recently used page that is not referenced by this frame's draws.
          var victim:AtlasPage = null;
@@ -304,7 +257,7 @@ package kabam.rotmg.stage3D.graphic3D
          }
          victim.lastUsed = frame;
          this.evictions++;
-         return tilable ? victim.allocTiled(w,h) : victim.alloc(w,h);
+         return victim.alloc(w,h);
       }
 
       /**

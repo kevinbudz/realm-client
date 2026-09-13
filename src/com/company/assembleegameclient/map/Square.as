@@ -36,12 +36,6 @@ package com.company.assembleegameclient.map
       public var sink_:int = 0;
       
       public var faces_:Vector.<SquareFace>;
-
-      // True when any ground face scrolls (FLOW/WAVE_ANIMATE). A square's animated
-      // status is a pure function of its tile props, so it only changes via
-      // setTileType (which bumps Map.tileVersion_). Lets Map.draw cache all fully
-      // static tile quads and redraw just the animated squares each frame.
-      public var hasAnimatedFace_:Boolean = false;
       
       public var topFace_:SquareFace = null;
       
@@ -105,17 +99,6 @@ package com.company.assembleegameclient.map
          return !this.props_.noWalk_ && (this.obj_ == null || !this.obj_.props_.occupySquare_);
       }
       
-      // Animated status, rebuilding faces first so partitioning in Map.drawTilePass
-      // never reads a stale flag after setTileType cleared the faces.
-      public function isAnimated() : Boolean
-      {
-         if(this.texture_ != null && this.faces_.length == 0)
-         {
-            this.rebuild3D();
-         }
-         return this.hasAnimatedFace_;
-      }
-
       public function draw(graphicsData:Vector.<IGraphicsData>, camera:Camera, time:int) : void
       {
          var face:SquareFace = null;
@@ -157,7 +140,6 @@ package com.company.assembleegameclient.map
          var redrawnTexture:BitmapData = null;
          if(this.props_.animate_.type_ != AnimateProperties.NO_ANIMATE)
          {
-            this.hasAnimatedFace_ = true;
             this.faces_.push(new SquareFace(this.texture_,this.vin_,this.props_.xOffset_,this.props_.xOffset_,this.props_.animate_.type_,this.props_.animate_.dx_,this.props_.animate_.dy_));
             redrawnTexture = TileRedrawer.redraw(this,false);
             if(redrawnTexture != null)
@@ -167,7 +149,6 @@ package com.company.assembleegameclient.map
          }
          else
          {
-            this.hasAnimatedFace_ = false;
             redrawnTexture = TileRedrawer.redraw(this,true);
             xOffset = 0;
             yOffset = 0;

@@ -255,12 +255,6 @@ package kabam.rotmg.stage3D
          return WebMain.STAGE.stageWidth - WebMain.hudWidth();
       }
 
-      // MSAA x2 only at or below the native 800x600 design size: above that the
-      // resolve cost scales with pixels while pixel-art content gains little.
-      // Depth+stencil must stay on: AIR requires it to match the application
-      // descriptor (Error #3709), so it cannot be toggled from code alone.
-      private static const AA_PIXEL_BUDGET:int = 800 * 600;
-
       private function resizeStage3DBackBuffer() : void
       {
          var mapW:int = int(this.playableWidth());
@@ -270,8 +264,7 @@ package kabam.rotmg.stage3D
             return;
          }
          var stage3d:Stage3D = WebMain.STAGE.stage3Ds[0];
-         var aa:int = mapW * mapH > AA_PIXEL_BUDGET ? 0 : 2;
-         stage3d.context3D.configureBackBuffer(mapW,mapH,aa,true);
+         stage3d.context3D.configureBackBuffer(mapW,mapH,2,true);
          this.stageWidth = mapW;
          this.stageHeight = mapH;
       }
@@ -332,6 +325,8 @@ package kabam.rotmg.stage3D
        */
       private function renderScene(graphicsDatas:Vector.<IGraphicsData>, grahpicsData3d:Vector.<Object3DStage3D>, mapWidth:Number, mapHeight:Number, camera:Camera, target:Texture) : void
       {
+         var test:int = 0;
+         var graphicsData:IGraphicsData = null;
          var zoom:Number = 1;
          var halfW:Number = Stage3DConfig.HALF_WIDTH;
          var halfH:Number = Stage3DConfig.HALF_HEIGHT;
@@ -353,36 +348,61 @@ package kabam.rotmg.stage3D
          }
          var c3d:Context3D = this.context3D.GetContext3D();
          var g:Graphic3D = this.graphic3D_;
+         var bitmapFill:GraphicsBitmapFill = null;
+         var solidFill:GraphicsSolidFill = null;
          var n:int = graphicsDatas.length;
 
          // ---- phase 1: batch sprite quads, record everything else in order ----
-         // Map.draw emits static tile triples first ([0, tileStaticEnd_); 0 when the
-         // tile cache hit and the vector holds only dynamic triples). On a hit the
-         // snapshot is primed and everything walks as dynamic; on a rebuild the
-         // static prefix is walked, snapshotted, then the dynamic suffix follows.
          FrameProfiler.begin(FrameProfiler.GPU_BUILD);
          g.batchBegin(c3d,halfW,halfH,ndcX,ndcY);
-         var gi:int = 0;
-         if(g.tileCacheHit_)
+         for(var gi:int = 0; gi < n; gi++)
          {
-            g.primeTileCache();
-            for(gi = 0; gi < n; gi++)
+            graphicsData = graphicsDatas[gi];
+            bitmapFill = graphicsData as GraphicsBitmapFill;
+            if(bitmapFill != null)
             {
-               this.batchGraphicsItem(g,graphicsDatas,grahpicsData3d,gi);
+               // Plain fills (no extras bit) can never be software-classified: one
+               // lookup instead of two for the common particle/tile case.
+               if(GraphicsFillExtra.hasExtras(bitmapFill) && GraphicsFillExtra.isSoftwareDraw(bitmapFill))
+               {
+                  // Already classified; record the triple for the display-list blit so the
+                  // caller does not have to scan the frame's graphics data a second time.
+                  g.pushSoftware(graphicsDatas,gi);
+                  continue;
+               }
+               try
+               {
+                  test = bitmapFill.bitmapData.width;
+               }
+               catch(e:Error)
+               {
+                  trace("ERROR CAUGHT -- Invalid Bitmap Data");
+                  continue;
+               }
+               if(!g.batchQuad(bitmapFill))
+               {
+                  g.batchMark(Graphic3D.CMD_QUAD,gi);
+               }
+               continue;
             }
-         }
-         else
-         {
-            var tileEnd:int = g.tileStaticEnd_;
-            g.recordingTiles_ = true;
-            for(gi = 0; gi < tileEnd; gi++)
+            if(graphicsData is GraphicsGradientFill)
             {
-               this.batchGraphicsItem(g,graphicsDatas,grahpicsData3d,gi);
+               g.batchMark(Graphic3D.CMD_SHADOW,gi);
+               continue;
             }
-            g.snapshotTileCache();
-            for(; gi < n; gi++)
+            solidFill = graphicsData as GraphicsSolidFill;
+            if(solidFill != null)
             {
-               this.batchGraphicsItem(g,graphicsDatas,grahpicsData3d,gi);
+               // Solid fills have no GPU path; record the software ones for the blit.
+               if(GraphicsFillExtra.isSoftwareDrawSolid(solidFill))
+               {
+                  g.pushSoftware(graphicsDatas,gi);
+               }
+               continue;
+            }
+            if(graphicsData == null && grahpicsData3d.length != 0)
+            {
+               g.batchMark(Graphic3D.CMD_MODEL,0);
             }
          }
          FrameProfiler.end(FrameProfiler.GPU_BUILD);
@@ -492,84 +512,11 @@ package kabam.rotmg.stage3D
          }
          if(FrameProfiler.enabled)
          {
-            var tcVerdict:String = "tcmiss";
-            if(g.tileCacheHit_)
-            {
-               if(g.tileScrollHit_)
-               {
-                  tcVerdict = "schit" + int(g.tileScrollDist_) + "px";
-               }
-               else
-               {
-                  tcVerdict = "tchit";
-               }
-            }
-            FrameProfiler.atlasInfo += " runs " + g.runCount + " quads " + g.batchQuads + " cmds " + g.cmdCount + " soft " + (g.softwareData.length / 3) + " " + tcVerdict
-               + " s" + g.tileStillHits_ + "/c" + g.tileScrollHits_ + "/sm" + g.tileScrollMisses_ + "/m" + g.tileMisses_
-               + " buf " + this.stageWidth + "x" + this.stageHeight + "/" + int(WebMain.STAGE.stageWidth) + "x" + int(WebMain.STAGE.stageHeight);
+            FrameProfiler.atlasInfo += " runs " + g.runCount + " quads " + g.batchQuads + " cmds " + g.cmdCount + " soft " + (g.softwareData.length / 3);
          }
          FrameProfiler.end(FrameProfiler.GPU_DRAW);
-         // Restores the ring vertex vector after a primed tile-cache frame drew.
-         g.releaseTileCache();
       }
       
-      /**
-       * Phase-1 handling for one graphicsDatas entry: batch ordinary sprite quads,
-       * record anything else as an ordered command, collect software triples.
-       * Extracted from renderScene so the static tile prefix and the dynamic suffix
-       * can be walked separately for the tile cache.
-       */
-      private function batchGraphicsItem(g:Graphic3D, graphicsDatas:Vector.<IGraphicsData>, grahpicsData3d:Vector.<Object3DStage3D>, gi:int) : void
-      {
-         var graphicsData:IGraphicsData = graphicsDatas[gi];
-         var bitmapFill:GraphicsBitmapFill = graphicsData as GraphicsBitmapFill;
-         if(bitmapFill != null)
-         {
-            // Plain fills (no extras bit) can never be software-classified: one
-            // lookup instead of two for the common particle/tile case.
-            if(GraphicsFillExtra.hasExtras(bitmapFill) && GraphicsFillExtra.isSoftwareDraw(bitmapFill))
-            {
-               // Already classified; record the triple for the display-list blit so the
-               // caller does not have to scan the frame's graphics data a second time.
-               g.pushSoftware(graphicsDatas,gi);
-               return;
-            }
-            try
-            {
-               var test:int = bitmapFill.bitmapData.width;
-            }
-            catch(e:Error)
-            {
-               trace("ERROR CAUGHT -- Invalid Bitmap Data");
-               return;
-            }
-            if(!g.batchQuad(bitmapFill))
-            {
-               g.batchMark(Graphic3D.CMD_QUAD,gi);
-            }
-            return;
-         }
-         if(graphicsData is GraphicsGradientFill)
-         {
-            g.batchMark(Graphic3D.CMD_SHADOW,gi);
-            return;
-         }
-         var solidFill:GraphicsSolidFill = graphicsData as GraphicsSolidFill;
-         if(solidFill != null)
-         {
-            // Solid fills have no GPU path; record the software ones for the blit.
-            if(GraphicsFillExtra.isSoftwareDrawSolid(solidFill))
-            {
-               g.pushSoftware(graphicsDatas,gi);
-            }
-            return;
-         }
-         if(graphicsData == null && grahpicsData3d.length != 0)
-         {
-            g.batchMark(Graphic3D.CMD_MODEL,0);
-         }
-      }
-
       /** Draws the accumulated shadow cluster, if any. Program + fc4 are already bound. */
       private function flushShadows() : void
       {
