@@ -21,10 +21,6 @@ package kabam.rotmg.stage3D
       private static var colorTransformsSize:uint = 0;
       private static var vertexBuffers:Dictionary = new Dictionary();
       private static var vertexBuffersSize:uint = 0;
-      private static var softwareDraw:Dictionary = new Dictionary();
-      private static var softwareDrawSize:uint = 0;
-      private static var softwareDrawSolid:Dictionary = new Dictionary();
-      private static var softwareDrawSolidSize:uint = 0;
       // Fill -> true for fills carrying any per-fill extra (nonzero uv offset, water
       // sink, custom vertex buffer, software-draw flag). Marked monotonically inside
       // the setters, so a missing entry always means "all defaults". Weak keys: dead
@@ -170,61 +166,17 @@ package kabam.rotmg.stage3D
          }
       }
       
-      public static function setSoftwareDraw(bitmapFill:GraphicsBitmapFill, value:Boolean) : void
-      {
-         if(!Parameters.GPURenderFrame)
-         {
-            return;
-         }
-         if(value)
-         {
-            hasExtrasTable[bitmapFill] = true;
-         }
-         if(softwareDraw[bitmapFill] == null)
-         {
-            softwareDrawSize++;
-         }
-         softwareDraw[bitmapFill] = value;
-      }
-      
-      public static function isSoftwareDraw(bitmapFill:GraphicsBitmapFill) : Boolean
-      {
-         return softwareDraw[bitmapFill] === true;
-      }
-      
-      public static function setSoftwareDrawSolid(solidFill:GraphicsSolidFill, value:Boolean) : void
-      {
-         if(!Parameters.GPURenderFrame)
-         {
-            return;
-         }
-         if(softwareDrawSolid[solidFill] == null)
-         {
-            softwareDrawSolidSize++;
-         }
-         softwareDrawSolid[solidFill] = value;
-      }
-      
-      public static function isSoftwareDrawSolid(solidFill:GraphicsSolidFill) : Boolean
-      {
-         return softwareDrawSolid[solidFill] === true;
-      }
-      
       public static function dispose() : void
       {
          textureOffsets = new Dictionary();
          waterSinks = new Dictionary();
          colorTransforms = new Dictionary();
          disposeVertexBuffers();
-         softwareDraw = new Dictionary();
-         softwareDrawSolid = new Dictionary();
          hasExtrasTable = new Dictionary(true);
          textureOffsetsSize = 0;
          waterSinksSize = 0;
          colorTransformsSize = 0;
          vertexBuffersSize = 0;
-         softwareDrawSize = 0;
-         softwareDrawSolidSize = 0;
       }
       
       public static function disposeVertexBuffers() : void
@@ -263,16 +215,6 @@ package kabam.rotmg.stage3D
          // dropping them would orphan the fills, and batchQuad would then misrender the
          // N-gon faces as rectangles. Footprint is trivial (~80 bytes per face) and the
          // whole table is still disposed on map change (see dispose()).
-         if(softwareDrawSize > 2000)
-         {
-            softwareDraw = new Dictionary();
-            softwareDrawSize = 0;
-         }
-         if(softwareDrawSolidSize > 2000)
-         {
-            softwareDrawSolid = new Dictionary();
-            softwareDrawSolidSize = 0;
-         }
       }
    }
 }

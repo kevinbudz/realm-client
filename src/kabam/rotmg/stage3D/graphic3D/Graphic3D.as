@@ -141,9 +141,6 @@ package kabam.rotmg.stage3D.graphic3D
       public var cmdType:Vector.<int>;
       public var cmdArg:Vector.<int>;
       public var cmdCount:int = 0;
-      // Software-rasterized triples (fill, path, end) collected during the phase-1 walk so the
-      // caller can blit them on the display list without re-scanning the frame's graphics data.
-      public var softwareData:Vector.<IGraphicsData>;
       private var runFirstQuad:Vector.<int>;
       private var runQuadCount:Vector.<int>;
       private var runTexture:Vector.<TextureBase>;
@@ -319,7 +316,6 @@ package kabam.rotmg.stage3D.graphic3D
          this.offsetScratch = new Vector.<Number>(4, true);
          this.cmdType = new Vector.<int>();
          this.cmdArg = new Vector.<int>();
-         this.softwareData = new Vector.<IGraphicsData>();
          this.runFirstQuad = new Vector.<int>();
          this.runQuadCount = new Vector.<int>();
          this.runTexture = new Vector.<TextureBase>();
@@ -432,16 +428,6 @@ package kabam.rotmg.stage3D.graphic3D
          this.lastAtlasEntry = null;
          this.lastTiledBmd = null;
          this.lastTiledEntry = null;
-         this.softwareData.length = 0;
-      }
-
-      /**
-       * Record one software-rasterized triple (fill at `index`, plus its path and end items).
-       * Called by the phase-1 walk, which already evaluates the software predicate per item.
-       */
-      public function pushSoftware(graphicsDatas:Vector.<IGraphicsData>, index:int) : void
-      {
-         this.softwareData.push(graphicsDatas[index],graphicsDatas[index + 1],graphicsDatas[index + 2]);
       }
 
       private function createBatchBuffers(c3d:Context3D, capacity:int) : void
@@ -824,7 +810,7 @@ package kabam.rotmg.stage3D.graphic3D
          var t1:Number = 0;
          if(this.tileRotHit_)
          {
-            // Same pushSoftware contract as the scroll path (see below).
+            // Same runs-only-prefix invariant as the scroll path (see below).
             if(this.bHalfW == 0 || this.bHalfH == 0)
             {
                this.tileValid_ = false;
@@ -865,8 +851,8 @@ package kabam.rotmg.stage3D.graphic3D
          {
             // Scroll path must classify identically to the still path: static runs
             // never contain software triples (snapshot requires a clean runs-only
-            // prefix), so replaying runs plus the dynamic suffix preserves the
-            // pushSoftware contract.
+            // prefix), so replaying runs plus the dynamic suffix preserves that
+            // invariant.
             if(this.bHalfW == 0 || this.bHalfH == 0)
             {
                this.tileValid_ = false;
@@ -1175,7 +1161,7 @@ package kabam.rotmg.stage3D.graphic3D
                return false;
             }
          }
-         if(this.softwareData.length != 0 || this.batchOverflow)
+         if(this.batchOverflow)
          {
             this.tileValid_ = false;
             return false;

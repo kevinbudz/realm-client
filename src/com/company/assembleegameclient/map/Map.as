@@ -29,7 +29,6 @@ import flash.utils.Dictionary;
 import kabam.rotmg.core.StaticInjectorContext;
 import kabam.rotmg.stage3D.GraphicsFillExtra;
 import kabam.rotmg.stage3D.Object3D.Object3DStage3D;
-import kabam.rotmg.stage3D.Render3D;
 import kabam.rotmg.stage3D.Renderer;
 import kabam.rotmg.stage3D.graphic3D.Graphic3D;
 import kabam.rotmg.stage3D.graphic3D.TextureFactory;
@@ -71,7 +70,9 @@ public class Map extends Sprite
       private var idsToRemove_:Vector.<int>;
       private var graphicsData_:Vector.<IGraphicsData>;
       private var graphicsData3d_:Vector.<Object3DStage3D>;
-      private var lastSoftwareClear:Boolean = false;
+      // Sole present path (see present paragraph below): lazily created so
+      // software-render frames never allocate it. Same package, no import.
+      private var mapRenderer_:MapRenderer = null;
       // Still-camera detection for Face3D.skipMatrixCompute: tile screen projection
       // is a pure function of (wToS_, clipRect_), so an identical camera reuses all
       // tile matrices. Compared once per frame; the snapshot updates every frame.
@@ -174,6 +175,7 @@ public class Map extends Sprite
          this.gs_ = null;
          this.background_ = null;
          this.map_ = null;
+         this.mapRenderer_ = null;
          this.hurtOverlay_ = null;
          this.gradientOverlay_ = null;
          this.mapOverlay_ = null;
@@ -597,8 +599,6 @@ public class Map extends Sprite
             wasLastFrameGpu = isGpuRender;
          }
 
-         var filter:uint = 0;
-         var render3D:Render3D = null;
          var i:int = 0;
          var square:Square = null;
          var go:GameObject = null;
@@ -670,6 +670,9 @@ public class Map extends Sprite
          // wToSScratch_ holds the current camera raw (see cameraStill above); passed
          // by reference and copied inside checkTileCache, so no per-frame alloc.
          // screenRect likewise (copied to the pending clip for the cull window).
+         // The atlas-batched tile submit (cache + sorted runs) is the only
+         // tile path. `gpu` doubles as the batch gate: !gpu forces a miss
+         // through the documented software path below.
          var tileCacheHit:Boolean = tileGraphic.checkTileCache(this,this.tileVersion_,still,gpuTilePath,viewKey,this.wToSScratch_,screenRect);
          if(tileCacheHit)
          {
@@ -903,38 +906,20 @@ public class Map extends Sprite
             this.gradientOverlay_.visible = false;
          }
 
-         // draw hw capable screen filters
+         // Present: GPU frames dispatch the batched scene through the sole
+         // presenter below; anything else is the full software render. No
+         // display-list clear is needed on the GPU path: the scene target is
+         // bound and cleared by the renderer, and no software triples can
+         // exist (every producer has a GPU twin; see batchGraphicsItem) —
+         // the mode-switch clear above covers transitions.
          FrameProfiler.begin(FrameProfiler.PRESENT);
          if(isGpuRender && Renderer.inGame)
          {
-            filter = this.getFilterIndex();
-            render3D = StaticInjectorContext.getInjector().getInstance(Render3D);
-            FrameProfiler.begin(FrameProfiler.GPU_DISPATCH);
-            render3D.dispatch(this.graphicsData_,this.graphicsData3d_,width_,height_,camera,filter);
-            FrameProfiler.end(FrameProfiler.GPU_DISPATCH);
-            FrameProfiler.begin(FrameProfiler.GPU_SOFTWARE);
-            // Software triples were already classified during the renderer's phase-1 walk
-            // (Graphic3D.pushSoftware); blit them without re-scanning the graphics data.
-            var softwareData:Vector.<IGraphicsData> = StaticInjectorContext.getInjector().getInstance(Graphic3D).softwareData;
-            if(softwareData.length > 0)
+            if(this.mapRenderer_ == null)
             {
-               map_.graphics.clear();
-               map_.graphics.drawGraphicsData(softwareData);
-               if(this.lastSoftwareClear)
-               {
-                  this.lastSoftwareClear = false;
-               }
+               this.mapRenderer_ = new MapRenderer(this.map_);
             }
-            else if(!this.lastSoftwareClear)
-            {
-               map_.graphics.clear();
-               this.lastSoftwareClear = true;
-            }
-            if(time % 149 == 0)
-            {
-               GraphicsFillExtra.manageSize();
-            }
-            FrameProfiler.end(FrameProfiler.GPU_SOFTWARE);
+            this.mapRenderer_.present(this.graphicsData_,this.graphicsData3d_,width_,height_,camera,this.getFilterIndex(),time);
          }
          else
          {

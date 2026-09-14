@@ -326,8 +326,7 @@ package kabam.rotmg.stage3D
       
       /**
        * Two-phase scene render. Phase 1 walks graphicsDatas in order, batching ordinary sprite
-       * quads (Graphic3D.batchQuad), recording everything else as a command at its position, and
-       * collecting software-rasterized triples (Graphic3D.pushSoftware) for the display-list blit.
+       * quads (Graphic3D.batchQuad) and recording everything else as a command at its position.
        * New atlas sprites are then uploaded, the render target (back buffer or `target`) is bound
        * and cleared, and phase 2 replays the commands: one drawTriangles per run of batched quads,
        * and the unchanged per-item paths for shadows, 3D models and custom-vertex-buffer quads.
@@ -516,7 +515,9 @@ package kabam.rotmg.stage3D
             FrameProfiler.atlasRuns = shownRuns;
             FrameProfiler.atlasQuads = g.batchQuads;
             FrameProfiler.atlasCmds = g.cmdCount;
-            FrameProfiler.atlasSoft = g.softwareData.length / 3;
+            // Software-triple collection is removed (see batchGraphicsItem):
+            // the row stays for the profiler view layout and always reads 0.
+            FrameProfiler.atlasSoft = 0;
             FrameProfiler.atlasTile = tcVerdict;
             FrameProfiler.atlasStill = g.tileStillHits_;
             // Rotation hits are snapshot reuse like scroll hits; report them
@@ -548,9 +549,11 @@ package kabam.rotmg.stage3D
       
       /**
        * Phase-1 handling for one graphicsDatas entry: batch ordinary sprite quads,
-       * record anything else as an ordered command, collect software triples.
-       * Extracted from renderScene so the static tile prefix and the dynamic suffix
-       * can be walked separately for the tile cache.
+       * record anything else as an ordered command. Solid fills have no GPU path
+       * and are skipped: every producer ships a GPU twin (see drawHpBarGPU,
+       * drawBreathBarGPU), and the full software render path draws the triples
+       * itself. Extracted from renderScene so the static tile prefix and the
+       * dynamic suffix can be walked separately for the tile cache.
        */
       private function batchGraphicsItem(g:Graphic3D, graphicsDatas:Vector.<IGraphicsData>, grahpicsData3d:Vector.<Object3DStage3D>, gi:int) : void
       {
@@ -558,15 +561,6 @@ package kabam.rotmg.stage3D
          var bitmapFill:GraphicsBitmapFill = graphicsData as GraphicsBitmapFill;
          if(bitmapFill != null)
          {
-            // Plain fills (no extras bit) can never be software-classified: one
-            // lookup instead of two for the common particle/tile case.
-            if(GraphicsFillExtra.hasExtras(bitmapFill) && GraphicsFillExtra.isSoftwareDraw(bitmapFill))
-            {
-               // Already classified; record the triple for the display-list blit so the
-               // caller does not have to scan the frame's graphics data a second time.
-               g.pushSoftware(graphicsDatas,gi);
-               return;
-            }
             try
             {
                var test:int = bitmapFill.bitmapData.width;
@@ -600,14 +594,8 @@ package kabam.rotmg.stage3D
             g.batchMark(Graphic3D.CMD_SHADOW,gi);
             return;
          }
-         var solidFill:GraphicsSolidFill = graphicsData as GraphicsSolidFill;
-         if(solidFill != null)
+         if(graphicsData is GraphicsSolidFill)
          {
-            // Solid fills have no GPU path; record the software ones for the blit.
-            if(GraphicsFillExtra.isSoftwareDrawSolid(solidFill))
-            {
-               g.pushSoftware(graphicsDatas,gi);
-            }
             return;
          }
          if(graphicsData == null && grahpicsData3d.length != 0)

@@ -11,6 +11,7 @@ package com.company.assembleegameclient.game
    import com.company.assembleegameclient.ui.RankText;
    import com.company.assembleegameclient.ui.TextBox;
    import com.company.assembleegameclient.tutorial.Tutorial;
+   import com.company.assembleegameclient.util.ConditionEffect;
    import com.company.assembleegameclient.util.FrameProfiler;
    import com.company.assembleegameclient.util.TextureRedrawer;
    import com.company.util.CachingColorTransformer;
@@ -234,8 +235,18 @@ import kabam.rotmg.ui.UIUtils;
             LoopedProcess.destroyAll();
             contains(this.map) && removeChild(this.map);
             this.map.dispose();
+            // Release the torn-down map (and its focus target) so nothing under
+            // this view keeps disposed objects alive after disconnect.
+            this.map = null;
+            this.focus = null;
             CachingColorTransformer.clear();
+            // Clears cache_, faceCache_ and redrawCaches plus the GlowRedrawer
+            // table that feeds them; all are strong-keyed and would otherwise
+            // pin session textures after disconnect.
             TextureRedrawer.clearCache();
+            // Condition icons alias disposed glow outputs (Error #2015 on the
+            // next condition draw); their static cache rebuilds lazily.
+            ConditionEffect.clearCache();
             this.gsc_.disconnect();
          }
       }

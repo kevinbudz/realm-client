@@ -103,7 +103,13 @@ package kabam.rotmg.account.core.services
       {
          this.logger.info("GetUserDataTask invalid credentials");
          this.account.clear();
-         this.client.sendRequest("/char/list",this.requestData);
+         // Rebuild (now empty) credentials and re-register the complete
+         // listener via sendRequest: the stale requestData still holds the
+         // rejected username/password, and client.sendRequest alone leaves
+         // the OnceSignal listener from the first round-trip consumed, so
+         // the retry response would stall the loading screen forever.
+         this.requestData = this.makeRequestData();
+         this.sendRequest();
       }
       
       private function waitForASecondThenRetryRequest() : void

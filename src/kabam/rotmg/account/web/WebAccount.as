@@ -22,7 +22,10 @@ package kabam.rotmg.account.web
       
       public function getUsername() : String
       {
-         return this.username = this.username || null;
+         // Never null: URLVariables serializes null as the literal string
+         // "null", which the hardened /char/list rejects instead of treating
+         // as absent (guest). Empty means guest everywhere downstream.
+         return this.username = this.username || "";
       }
       
       public function getPassword() : String

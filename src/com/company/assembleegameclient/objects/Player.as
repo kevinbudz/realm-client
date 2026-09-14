@@ -721,8 +721,6 @@ import org.swiftsuspenders.Injector;
             graphicsData.push(this.breathPath_);
             graphicsData.push(GraphicsUtil.END_FILL);
          }
-         GraphicsFillExtra.setSoftwareDrawSolid(this.breathFill_, true);
-         GraphicsFillExtra.setSoftwareDrawSolid(this.breathBackFill_, true);
       }
       
       override public function draw(graphicsData:Vector.<IGraphicsData>, camera:Camera, time:int) : void

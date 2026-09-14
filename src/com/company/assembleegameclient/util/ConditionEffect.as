@@ -169,6 +169,16 @@ import com.company.util.AssetLibrary;
          }
       }
       
+      // Drops the static icon cache. The cached icons alias GlowRedrawer
+      // outputs, which the disconnect teardown disposes (see
+      // GameSprite.disconnect); retaining them is a use-after-dispose
+      // (Error #2015) on the next condition draw. Rebuilt lazily from
+      // embedded assets, pixel-identical.
+      public static function clearCache() : void
+      {
+         bitToIcon_ = null;
+      }
+
       private static function getIconsFromBit(bit:uint) : Vector.<BitmapData>
       {
          var drawMatrix:Matrix = null;

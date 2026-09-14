@@ -983,7 +983,7 @@
 		<OccupySquare/>
 		<EnemyOccupySquare/>
 		<BlocksSight/>
-	</Object>
+	</Object>It co
 	<Object type="0x01c8" id="White Bench">
 		<Class>ConnectedWall</Class>
 		<Texture><File>lofiEnvironment2</File><Index>0x96</Index></Texture>

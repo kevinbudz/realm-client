@@ -287,10 +287,9 @@ public class GameObject extends BasicObject
             return;
          }
          this.tex1Id_ = tex1Id;
-         this.texturingCache_ = new Dictionary();
-         this.portrait_ = null;
+         this.clearTexturingCache();
       }
-      
+
       public function setTex2(tex2Id:int) : void
       {
          if(tex2Id == this.tex2Id_)
@@ -298,8 +297,7 @@ public class GameObject extends BasicObject
             return;
          }
          this.tex2Id_ = tex2Id;
-         this.texturingCache_ = new Dictionary();
-         this.portrait_ = null;
+         this.clearTexturingCache();
       }
 
       public function setSize(size:int) : void
@@ -309,18 +307,25 @@ public class GameObject extends BasicObject
             return;
          }
          this.size_ = size;
+         this.clearTexturingCache();
+      }
+
+      // Drops the per-instance texturing cache. Re-newing the Dictionary (or
+      // nulling portrait_) without disposing first orphaned the old BitmapDatas,
+      // which the strong keys then pinned for the rest of the session.
+      protected function clearTexturingCache() : void
+      {
+         this.disposeTexturingCache();
          this.texturingCache_ = new Dictionary();
       }
-      
-      override public function dispose() : void
+
+      private function disposeTexturingCache() : void
       {
          var obj:Object = null;
          var bitmapData:BitmapData = null;
          var dict:Dictionary = null;
          var obj2:Object = null;
          var bitmapData2:BitmapData = null;
-         super.dispose();
-         this.texture_ = null;
          if(this.portrait_ != null)
          {
             this.portrait_.dispose();
@@ -348,8 +353,15 @@ public class GameObject extends BasicObject
                   }
                }
             }
-            this.texturingCache_ = null;
          }
+      }
+      
+      override public function dispose() : void
+      {
+         super.dispose();
+         this.texture_ = null;
+         this.disposeTexturingCache();
+         this.texturingCache_ = null;
          if(this.obj3D_ != null)
          {
             this.obj3D_.dispose();
@@ -1043,8 +1055,6 @@ public class GameObject extends BasicObject
             graphicsData.push(this.hpbarPath_);
             graphicsData.push(GraphicsUtil.END_FILL);
          }
-         GraphicsFillExtra.setSoftwareDrawSolid(this.hpbarFill_,true);
-         GraphicsFillExtra.setSoftwareDrawSolid(this.hpbarBackFill_,true);
       }
 
       override public function draw3d(graphicsData3d:Vector.<Object3DStage3D>) : void

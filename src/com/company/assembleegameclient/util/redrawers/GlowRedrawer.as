@@ -28,6 +28,11 @@ public class GlowRedrawer
 
     private static var glowHashes:Dictionary = new Dictionary();
 
+    // Strong-keyed software cache: BitmapData keys pin their sources, so the
+    // table must stay bounded. Mirrors TextureFactory.MAX_INDIVIDUAL/count.
+    private static const MAX_ENTRIES:int = 1000;
+    private static var cacheSize_:int = 0;
+
 
     public function GlowRedrawer()
     {
@@ -73,18 +78,81 @@ public class GlowRedrawer
 
     private static function cache(texture:BitmapData, glowColor:uint, outlineSize:Number, newTexture:BitmapData, outlineColor:int) : void
     {
-        var glowHash:Object = null;
+        var glowHash:Object = glowHashes[texture];
         var hash:int = getHash(glowColor,outlineSize,outlineColor);
-        if(texture in glowHashes)
-        {
-            glowHashes[texture][hash] = newTexture;
-        }
-        else
+        if(glowHash == null)
         {
             glowHash = {};
-            glowHash[hash] = newTexture;
             glowHashes[texture] = glowHash;
         }
+        if(!(hash in glowHash))
+        {
+            cacheSize_++;
+        }
+        glowHash[hash] = newTexture;
+        if(cacheSize_ > MAX_ENTRIES)
+        {
+            cacheSize_ -= evictEntries(cacheSize_ >> 1);
+        }
+    }
+
+    // Drops (without disposing) roughly the requested number of entries so the
+    // table stays bounded. Values are NOT disposed here: cached outputs are
+    // aliased by live GameObject/Player texturing caches and in-flight draws,
+    // so disposal would corrupt them; unreferenced bitmaps are reclaimed by GC
+    // once the strong keys are gone. Full dispose happens in clearCache, when
+    // the map is being torn down. Returns the number of entries removed.
+    private static function evictEntries(target:int) : int
+    {
+        var removed:int = 0;
+        var tex:Object = null;
+        var sub:Object = null;
+        var hash:Object = null;
+        var probe:Object = null;
+        var empty:Boolean = false;
+        for(tex in glowHashes)
+        {
+            sub = glowHashes[tex];
+            for(hash in sub)
+            {
+                delete sub[hash];
+                removed++;
+                if(removed >= target)
+                {
+                    break;
+                }
+            }
+            empty = true;
+            for(probe in sub)
+            {
+                empty = false;
+                break;
+            }
+            if(empty)
+            {
+                delete glowHashes[tex];
+            }
+            if(removed >= target)
+            {
+                break;
+            }
+        }
+        return removed;
+    }
+
+    public static function clearCache() : void
+    {
+        var sub:Object = null;
+        var bmp:BitmapData = null;
+        for each(sub in glowHashes)
+        {
+            for each(bmp in sub)
+            {
+                bmp.dispose();
+            }
+        }
+        glowHashes = new Dictionary();
+        cacheSize_ = 0;
     }
 
     private static function isCached(texture:BitmapData, hash:int) : Boolean

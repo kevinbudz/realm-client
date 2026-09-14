@@ -24,6 +24,12 @@ public class TextureRedrawer {
    private static var cache_:Dictionary = new Dictionary();
    private static var faceCache_:Dictionary = new Dictionary();
    private static var redrawCaches:Dictionary = new Dictionary();
+   // Strong-keyed software caches: BitmapData keys pin their sources, so each
+   // table stays bounded. Mirrors TextureFactory.MAX_INDIVIDUAL/count.
+   private static const MAX_CACHE_ENTRIES:int = 1000;
+   private static var cacheSize_:int = 0;
+   private static var faceCacheSize_:int = 0;
+   private static var redrawCacheSize_:int = 0;
    public static var sharedTexture_:BitmapData = null;
    private static var textureShaderEmbed_:Class = TextureRedrawer_textureShaderEmbed_;
    private static var textureShaderData_:ByteArray = (new textureShaderEmbed_() as ByteArray);
@@ -53,10 +59,55 @@ public class TextureRedrawer {
    }
 
    private static function cache(tex:BitmapData, hash:*, modifiedTex:BitmapData):void {
-      if (!(tex in redrawCaches)) {
-         redrawCaches[tex] = {};
+      var sub:Object = redrawCaches[tex];
+      if (sub == null) {
+         sub = {};
+         redrawCaches[tex] = sub;
       }
-      redrawCaches[tex][hash] = modifiedTex;
+      if (!(hash in sub)) {
+         redrawCacheSize_++;
+      }
+      sub[hash] = modifiedTex;
+      if (redrawCacheSize_ > MAX_CACHE_ENTRIES) {
+         redrawCacheSize_ -= evictEntries(redrawCaches, redrawCacheSize_ >> 1);
+      }
+   }
+
+   // Drops (without disposing) roughly the requested number of entries from a
+   // two-level (key -> key -> BitmapData) table. Values are NOT disposed here:
+   // cached outputs are aliased by live draws and GameObject/Player texturing
+   // caches, so disposal would corrupt them; unreferenced bitmaps are reclaimed
+   // by GC once the strong keys are gone. Full dispose happens in clearCache,
+   // when the map is being torn down. Returns the number of entries removed.
+   private static function evictEntries(table:Dictionary, target:int):int {
+      var removed:int = 0;
+      var outer:Object = null;
+      var sub:Object = null;
+      var inner:Object = null;
+      var probe:Object = null;
+      var empty:Boolean = false;
+      for (outer in table) {
+         sub = table[outer];
+         for (inner in sub) {
+            delete sub[inner];
+            removed++;
+            if (removed >= target) {
+               break;
+            }
+         }
+         empty = true;
+         for (probe in sub) {
+            empty = false;
+            break;
+         }
+         if (empty) {
+            delete table[outer];
+         }
+         if (removed >= target) {
+            break;
+         }
+      }
+      return removed;
    }
 
    private static function isCached(tex:BitmapData, hash:int):Boolean {
@@ -97,12 +148,17 @@ public class TextureRedrawer {
       tex.fillRect(new Rectangle(4, 4, size, size), 0xFF000000 | color);
       tex.applyFilter(tex, tex.rect, PointUtil.ORIGIN, OUTLINE_FILTER);
       colorDict[color] = tex;
+      cacheSize_++;
+      if (cacheSize_ > MAX_CACHE_ENTRIES) {
+         cacheSize_ -= evictEntries(cache_, cacheSize_ >> 1);
+      }
       return tex;
    }
 
    public static function clearCache():void {
       var tex:BitmapData;
       var dict:Dictionary;
+      var sub:Object;
 
       for each (dict in cache_) {
          for each (tex in dict) {
@@ -110,6 +166,7 @@ public class TextureRedrawer {
          }
       }
       cache_ = new Dictionary();
+      cacheSize_ = 0;
 
       for each (dict in faceCache_) {
          for each (tex in dict) {
@@ -117,6 +174,22 @@ public class TextureRedrawer {
          }
       }
       faceCache_ = new Dictionary();
+      faceCacheSize_ = 0;
+
+      // redrawCaches used to be skipped here, pinning every resized texture
+      // for the rest of the session via strong BitmapData keys. Dispose and
+      // drop it like the other tables.
+      for each (sub in redrawCaches) {
+         for each (tex in sub) {
+            tex.dispose();
+         }
+      }
+      redrawCaches = new Dictionary();
+      redrawCacheSize_ = 0;
+
+      // GlowRedrawer outputs feed redraw(), and its table is keyed by those
+      // same BitmapDatas, so it must be cleared together with this cache.
+      GlowRedrawer.clearCache();
    }
 
    public static function redrawFace(tex:BitmapData, shade:Number):BitmapData {
@@ -136,6 +209,10 @@ public class TextureRedrawer {
       modTex = tex.clone();
       modTex.colorTransform(modTex.rect, new ColorTransform(shade, shade, shade));
       dict[tex] = modTex;
+      faceCacheSize_++;
+      if (faceCacheSize_ > MAX_CACHE_ENTRIES) {
+         faceCacheSize_ -= evictEntries(faceCache_, faceCacheSize_ >> 1);
+      }
       return modTex;
    }
 
